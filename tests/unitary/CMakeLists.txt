@@ -34,20 +34,11 @@ target_link_libraries(
 
 # The mocks count their arguments with a macro that only the conforming
 # preprocessor of MSVC expands as the others do.
-#
-# The tests of the element types use complex numbers of half precision, as
-# the library does. See src/CMakeLists.txt for the definition that goes with
-# them.
 if(MSVC)
 	target_compile_options(
 		vitrio-unitary-tests
 		PRIVATE
 			/Zc:preprocessor
-	)
-	target_compile_definitions(
-		vitrio-unitary-tests
-		PRIVATE
-			_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
 	)
 endif()
 

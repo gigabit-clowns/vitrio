@@ -36,16 +36,11 @@ target_compile_definitions(
 		VITRIO_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-# std::complex is specified for float, double and long double only, and the
-# standard library of MSVC says so wherever it is used with anything else.
-# A complex number of half precision is one: every standard library lays it
-# out as its two components, which is all that is relied on.
 if(MSVC)
 	target_compile_definitions(
 		vitrio-obj
 		PRIVATE
 			NOMINMAX
-			_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
 	)
 endif()
 
