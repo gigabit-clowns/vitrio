@@ -29,39 +29,39 @@ public:
 	}
 
 	void declare(
-		std::string path,
+		std::string key,
 		image_descriptor descriptor,
 		const image_metadata &metadata
 	)
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);
 
-		const auto ite = m_files.find(path);
+		const auto ite = m_files.find(key);
 		if (ite != m_files.end())
 		{
 			throw std::invalid_argument(
-				path + ": managed_image_writer_provider::declare: The file is "
+				key + ": managed_image_writer_provider::declare: The file is "
 				"already declared."
 			);
 		}
 
 		m_files.emplace(
-			std::move(path),
+			std::move(key),
 			declared_file(std::move(descriptor), metadata)
 		);
 	}
 
-	void close(const std::string &path)
+	void close(const std::string &key)
 	{
 		std::shared_ptr<image_writer> writer;
 		{
 			const std::lock_guard<std::mutex> lock(m_mutex);
 
-			const auto ite = m_files.find(path);
+			const auto ite = m_files.find(key);
 			if (ite == m_files.end())
 			{
 				throw std::out_of_range(
-					path + ": managed_image_writer_provider::close: The file "
+					key + ": managed_image_writer_provider::close: The file "
 					"is not declared."
 				);
 			}
@@ -84,15 +84,15 @@ public:
 		return m_files.size();
 	}
 
-	std::shared_ptr<image_writer> acquire(const std::string &path)
+	std::shared_ptr<image_writer> acquire(const std::string &key)
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);
 
-		const auto ite = m_files.find(path);
+		const auto ite = m_files.find(key);
 		if (ite == m_files.end())
 		{
 			throw std::out_of_range(
-				path + ": managed_image_writer_provider::acquire: The file "
+				key + ": managed_image_writer_provider::acquire: The file "
 				"is not declared."
 			);
 		}
@@ -135,8 +135,8 @@ public:
 	}
 
 private:
-	// What a file was declared as, and its writer once it is created. The
-	// path is the key it is stored under.
+	// What a file was declared as, and its writer once it is created. Its
+	// key is what it is stored under.
 	class declared_file
 	{
 	public:
@@ -195,21 +195,21 @@ managed_image_writer_provider::managed_image_writer_provider(
 managed_image_writer_provider::~managed_image_writer_provider() = default;
 
 void managed_image_writer_provider::declare(
-	std::string path,
+	std::string key,
 	image_descriptor descriptor,
 	const image_metadata &metadata
 )
 {
 	m_implementation->declare(
-		std::move(path),
+		std::move(key),
 		std::move(descriptor),
 		metadata
 	);
 }
 
-void managed_image_writer_provider::close(const std::string &path)
+void managed_image_writer_provider::close(const std::string &key)
 {
-	m_implementation->close(path);
+	m_implementation->close(key);
 }
 
 std::size_t managed_image_writer_provider::get_file_count() const noexcept
@@ -218,9 +218,9 @@ std::size_t managed_image_writer_provider::get_file_count() const noexcept
 }
 
 std::shared_ptr<image_writer>
-managed_image_writer_provider::acquire(const std::string &path)
+managed_image_writer_provider::acquire(const std::string &key)
 {
-	return m_implementation->acquire(path);
+	return m_implementation->acquire(key);
 }
 
 void managed_image_writer_provider::flush()

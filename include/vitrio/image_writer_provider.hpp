@@ -13,9 +13,10 @@ namespace vitrio
 class image_writer;
 
 /**
- * @brief Interface to serve @ref image_writer given a path.
+ * @brief Interface to serve @ref image_writer given a key.
  *
- * The @ref image_writer creation mechanism is left to the implementation.
+ * What a key is and how the @ref image_writer is created are left to the
+ * implementation. A key is often the path of a file, and need not be.
  *
  * @par Thread safety
  * A provider may be asked for writers concurrently.
@@ -34,13 +35,13 @@ public:
 	operator=(image_writer_provider &&other) = delete;
 
 	/**
-	 * @brief Get a writer over one file.
+	 * @brief Get the writer a key names.
 	 *
 	 * Shared ownership rather than a reference, so that a writer the
 	 * provider stops keeping stays alive for as long as it is still written
 	 * through.
 	 *
-	 * @param path Path to the file to write.
+	 * @param key Key of the file to write, such as its path.
 	 * @return std::shared_ptr<image_writer> The writer, never null.
 	 * @throws std::out_of_range If this provider serves no such file.
 	 * @throws unsupported_operation_error If no format can create the file,
@@ -48,7 +49,7 @@ public:
 	 * @throws image_file_error If the file could not be created.
 	 */
 	virtual std::shared_ptr<image_writer>
-	acquire(const std::string &path) = 0;
+	acquire(const std::string &key) = 0;
 };
 
 } // namespace vitrio

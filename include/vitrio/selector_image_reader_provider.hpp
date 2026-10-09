@@ -19,9 +19,11 @@ class image_read_format_selector;
  * time it is asked for one.
  *
  * It keeps nothing: every reader it returns is newly opened through the
- * format selector it was constructed with, so a path asked for twice is
+ * format selector it was constructed with, so a key asked for twice is
  * opened twice and the two readers are unrelated. With no capacity to size
  * and no eviction, a file is opened exactly as often as it is asked for.
+ *
+ * A key is handed to the selector as the path of the file.
  *
  * @see image_read_format_selector
  */
@@ -42,7 +44,7 @@ public:
 	~selector_image_reader_provider() override;
 
 	std::shared_ptr<const image_reader>
-	acquire(const std::string &path) override;
+	acquire(const std::string &key) override;
 
 private:
 	VITRIO_STD_MEMBER_INTERFACE

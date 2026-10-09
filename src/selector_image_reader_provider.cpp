@@ -27,9 +27,9 @@ selector_image_reader_provider::selector_image_reader_provider(
 selector_image_reader_provider::~selector_image_reader_provider() = default;
 
 std::shared_ptr<const image_reader>
-selector_image_reader_provider::acquire(const std::string &path)
+selector_image_reader_provider::acquire(const std::string &key)
 {
-	return m_formats->open(path);
+	return m_formats->open(key);
 }
 
 } // namespace vitrio

@@ -14,12 +14,13 @@ namespace vitrio
 class image_reader;
 
 /**
- * @brief Interface to serve @ref image_reader given a path.
+ * @brief Interface to serve @ref image_reader given a key.
  *
- * How the @ref image_reader is created is left to the implementation.
+ * What a key is and how the @ref image_reader is created are left to the
+ * implementation. A key is often the path of a file, and need not be.
  *
  * @par Thread safety
- * A provider may be asked for writers concurrently.
+ * A provider may be asked for readers concurrently.
  */
 class VITRIO_API image_reader_provider
 {
@@ -35,20 +36,20 @@ public:
 	operator=(image_reader_provider &&other) = delete;
 
 	/**
-	 * @brief Get a reader over one file.
+	 * @brief Get the reader a key names.
 	 *
 	 * Shared ownership rather than a reference, so that a reader the
 	 * provider stops keeping stays alive for as long as it is still read
 	 * through.
 	 *
-	 * @param path Path to the file to read.
+	 * @param key Key of the file to read, such as its path.
 	 * @return std::shared_ptr<const image_reader> The reader, never null.
 	 * @throws image_file_error If the file does not exist or can not be read.
 	 * @throws unsupported_operation_error If no format can read the file.
 	 * @throws image_format_error If the file is malformed or truncated.
 	 */
 	virtual std::shared_ptr<const image_reader>
-	acquire(const std::string &path) = 0;
+	acquire(const std::string &key) = 0;
 };
 
 /**
@@ -59,7 +60,7 @@ public:
  * @p readers, which may already hold a reader over it.
  *
  * @param readers Where the file becomes a reader.
- * @param path Path to the file.
+ * @param key Key of the file in @p readers, such as its path.
  * @return image_descriptor The descriptor of the file.
  * @throws image_file_error If the file does not exist or can not be read.
  * @throws unsupported_operation_error If no format can read the file.
@@ -68,7 +69,7 @@ public:
 VITRIO_API
 image_descriptor query_descriptor(
 	image_reader_provider &readers,
-	const std::string &path
+	const std::string &key
 );
 
 } // namespace vitrio

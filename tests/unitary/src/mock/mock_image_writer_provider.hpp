@@ -19,7 +19,7 @@ public:
 
 	MAKE_MOCK1(
 		acquire,
-		std::shared_ptr<image_writer>(const std::string &path),
+		std::shared_ptr<image_writer>(const std::string &key),
 		override
 	);
 };

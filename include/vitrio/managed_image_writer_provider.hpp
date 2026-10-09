@@ -31,7 +31,7 @@ class image_write_format_selector;
  * - A declared file is created, through the format selector, the first time
  *   it is acquired, so declaring many files costs no file descriptor until
  *   each is reached. Every later acquire returns that same writer until the
- *   file is closed, and a path never declared is refused with
+ *   file is closed, and a key never declared is refused with
  *   @c std::out_of_range.
  * - @ref close flushes and drops the writer, which is what gives its file
  *   descriptor back.
@@ -67,17 +67,18 @@ public:
 	 * file descriptor and can not fail on anything the file system has to
 	 * say.
 	 *
-	 * A path that is still declared is refused rather than replaced,
+	 * A key that is still declared is refused rather than replaced,
 	 * because replacing it would silently strand whatever had been written
 	 * to the file it names. @ref close it first, which says so.
 	 *
-	 * @param path Path to the file to create.
+	 * @param key Key of the file to create, which is handed to the format
+	 * selector as its path.
 	 * @param descriptor What the file holds.
 	 * @param metadata How its samples map onto physical space.
-	 * @throws std::logic_error If that path is already declared.
+	 * @throws std::logic_error If that key is already declared.
 	 */
 	void declare(
-		std::string path,
+		std::string key,
 		image_descriptor descriptor,
 		const image_metadata &metadata
 	);
@@ -86,18 +87,18 @@ public:
 	 * @brief Finish a file.
 	 *
 	 * Flushes the writer if the file was ever acquired, drops it, and
-	 * forgets the declaration. Acquiring that path afterwards throws as an
+	 * forgets the declaration. Acquiring that key afterwards throws as an
 	 * undeclared one does, and declaring it again creates the file afresh.
 	 *
 	 * Closing a file that was declared but never acquired creates nothing
 	 * and simply forgets it.
 	 *
-	 * @param path Path to the file to finish.
-	 * @throws std::out_of_range If that path is not declared.
+	 * @param key Key of the file to finish.
+	 * @throws std::out_of_range If that key is not declared.
 	 * @throws image_file_error If the pending writes could not be
 	 * completed.
 	 */
-	void close(const std::string &path);
+	void close(const std::string &key);
 
 	/**
 	 * @brief Make everything written to the files reach the storage.
@@ -121,7 +122,7 @@ public:
 	 */
 	std::size_t get_file_count() const noexcept;
 
-	std::shared_ptr<image_writer> acquire(const std::string &path) override;
+	std::shared_ptr<image_writer> acquire(const std::string &key) override;
 
 private:
 	class implementation;

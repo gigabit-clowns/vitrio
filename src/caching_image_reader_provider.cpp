@@ -38,17 +38,17 @@ public:
 		return m_entries.size();
 	}
 
-	std::shared_ptr<const image_reader> acquire(const std::string &path)
+	std::shared_ptr<const image_reader> acquire(const std::string &key)
 	{
-		auto reader = touch(path);
+		auto reader = touch(key);
 		if (reader)
 		{
 			return reader;
 		}
 
-		reader = m_backing->acquire(path);
+		reader = m_backing->acquire(key);
 		VITRIO_ASSERT(reader);
-		store(path, reader);
+		store(key, reader);
 		return reader;
 	}
 
@@ -57,17 +57,17 @@ private:
 	{
 	public:
 		cached_reader(
-			std::string path,
+			std::string key,
 			std::shared_ptr<const image_reader> reader
 		)
-			: m_path(std::move(path))
+			: m_key(std::move(key))
 			, m_reader(std::move(reader))
 		{
 		}
 
-		const std::string& get_path() const noexcept
+		const std::string& get_key() const noexcept
 		{
-			return m_path;
+			return m_key;
 		}
 
 		const std::shared_ptr<const image_reader>&
@@ -77,7 +77,7 @@ private:
 		}
 
 	private:
-		std::string m_path;
+		std::string m_key;
 		std::shared_ptr<const image_reader> m_reader;
 	};
 
@@ -89,11 +89,11 @@ private:
 	cached_reader_list m_entries;
 	std::unordered_map<std::string, cached_reader_list::iterator> m_index;
 
-	std::shared_ptr<const image_reader> touch(const std::string &path)
+	std::shared_ptr<const image_reader> touch(const std::string &key)
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);
 
-		const auto ite = m_index.find(path);
+		const auto ite = m_index.find(key);
 		if (ite == m_index.end())
 		{
 			return nullptr;
@@ -104,16 +104,16 @@ private:
 	}
 
 	void store(
-		const std::string &path,
+		const std::string &key,
 		const std::shared_ptr<const image_reader> &reader
 	)
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);
 
-		const auto ite = m_index.find(path);
+		const auto ite = m_index.find(key);
 		if (ite != m_index.end())
 		{
-			*ite->second = cached_reader(path, reader);
+			*ite->second = cached_reader(key, reader);
 			m_entries.splice(m_entries.begin(), m_entries, ite->second);
 			return;
 		}
@@ -123,15 +123,15 @@ private:
 			evict_oldest();
 		}
 
-		m_entries.emplace_front(path, reader);
-		m_index.emplace(path, m_entries.begin());
+		m_entries.emplace_front(key, reader);
+		m_index.emplace(key, m_entries.begin());
 	}
 
 	void evict_oldest()
 	{
 		VITRIO_ASSERT(!m_entries.empty());
 		const auto victim = std::prev(m_entries.end());
-		m_index.erase(victim->get_path());
+		m_index.erase(victim->get_key());
 		m_entries.erase(victim);
 	}
 };
@@ -176,9 +176,9 @@ std::size_t caching_image_reader_provider::get_reader_count() const noexcept
 }
 
 std::shared_ptr<const image_reader>
-caching_image_reader_provider::acquire(const std::string &path)
+caching_image_reader_provider::acquire(const std::string &key)
 {
-	return m_implementation->acquire(path);
+	return m_implementation->acquire(key);
 }
 
 } // namespace vitrio

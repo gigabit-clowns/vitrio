@@ -18,9 +18,9 @@ namespace vitrio
  *
  * Opening a file costs a system call and a header read, which asking for
  * the same few files over and over repeats for nothing. This keeps a bounded
- * number of readers open, keyed by path, and evicts the least recently asked
- * for when it is full. A path it holds is served without opening anything,
- * and becomes the last to be evicted.
+ * number of readers open, each under the key it was asked for with, and
+ * evicts the least recently asked for when it is full. A key it holds is
+ * served without opening anything, and becomes the last to be evicted.
  *
  * It is a **decorator over another provider**, not a second opener: on a
  * miss it asks its backing provider and keeps what it gets, so it caches the
@@ -32,7 +32,7 @@ namespace vitrio
  * @par Thread safety
  * @ref acquire may be called concurrently. The lock is not held while the
  * backing provider opens a file, so two concurrent calls missing on one
- * path may both open it and one of the two readers is kept; that wastes an
+ * key may both open it and one of the two readers is kept; that wastes an
  * open and never costs correctness, since either reader serves equally.
  * Handing out @c shared_ptr means the one not kept stays alive as long as it
  * is read through, and so does an evicted one.
@@ -73,7 +73,7 @@ public:
 	std::size_t get_reader_count() const noexcept;
 
 	std::shared_ptr<const image_reader>
-	acquire(const std::string &path) override;
+	acquire(const std::string &key) override;
 
 private:
 	class implementation;

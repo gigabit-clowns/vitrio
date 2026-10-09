@@ -12,10 +12,10 @@ image_reader_provider::~image_reader_provider() = default;
 
 image_descriptor query_descriptor(
 	image_reader_provider &readers,
-	const std::string &path
+	const std::string &key
 )
 {
-	return readers.acquire(path)->get_descriptor();
+	return readers.acquire(key)->get_descriptor();
 }
 
 } // namespace vitrio
