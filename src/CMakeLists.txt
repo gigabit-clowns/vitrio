@@ -50,13 +50,45 @@ target_link_libraries(
 	vitrio-obj
 	PUBLIC
 		Threads::Threads
+		Boost::filesystem
+		Boost::headers
 )
 
 target_sources(
 	vitrio-obj
 	PRIVATE
+		builtin_image_format_registry.cpp
+		clipping_image_transfer_sanitizer.cpp
+		image_descriptor.cpp
+		image_loader.cpp
+		image_location.cpp
+		image_location_grouping.cpp
+		image_metadata.cpp
+		image_plan_builders.cpp
+		image_probe.cpp
+		image_read_format.cpp
+		image_read_format_manager.cpp
+		image_read_format_registry.cpp
+		image_reader.cpp
+		image_reader_provider.cpp
+		image_region_grouping.cpp
+		image_saver.cpp
+		image_scratch.cpp
+		image_scratch_entry.cpp
+		image_scratch_storage.cpp
+		image_transaction_plan.cpp
+		image_transfer_plan.cpp
+		image_transfer_sanitizer.cpp
+		image_transfer_shape.cpp
+		image_write_format.cpp
+		image_write_format_manager.cpp
+		image_write_format_registry.cpp
+		image_writer.cpp
+		image_writer_provider.cpp
 		index_table.cpp
+		interned_path_list.cpp
 		library_version.cpp
+		strict_image_transfer_sanitizer.cpp
 )
 
 add_subdirectory(array)

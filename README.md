@@ -10,8 +10,8 @@ image code stands on is here: nothing reads or writes an image yet.
 ## Building
 
 vitrio needs a C++14 compiler and CMake 3.18 or newer. Its dependencies are
-found with `find_package`, so they have to be installed first. For now the
-only one is Catch2 3, for the tests.
+found with `find_package`, so they have to be installed first: Boost
+(Filesystem and ContainerHash), and for the tests Catch2 3 and trompeloeil.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -20,7 +20,8 @@ ctest --test-dir build
 cmake --install build --prefix <where>
 ```
 
-To leave the tests out, and Catch2 with them, add `-DVITRIO_BUILD_TESTING=OFF`.
+To leave the tests out, and their two dependencies with them, add
+`-DVITRIO_BUILD_TESTING=OFF`.
 
 ## Using it from CMake
 

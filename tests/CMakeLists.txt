@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 find_package(Catch2 3 REQUIRED CONFIG)
+find_package(trompeloeil REQUIRED CONFIG)
 include(Catch)
 
 # Registers the cases of a test executable with CTest, either one by one or
@@ -23,5 +24,6 @@ function(vitrio_register_tests TARGET LABEL)
 	endif()
 endfunction()
 
+add_subdirectory(assets)
 add_subdirectory(unitary)
 add_subdirectory(integration)

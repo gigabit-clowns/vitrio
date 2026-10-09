@@ -18,7 +18,10 @@ in the same commit that causes it.
 | `include/vitrio/concurrency/` | Executors, the tasks they run and the completions that report them |
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
+| `src/formats/` | What the image formats are built with. One directory per format will follow |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
+| `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
+| `tests/assets/` | What the tests are given, and the directory under the build tree they write to |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
 | `cmake/modules/` | CMake modules of the project |
@@ -47,9 +50,10 @@ With CMake 3.21 or newer the presets do the same: `cmake --preset debug`,
 exactly that version. Under it CTest runs each suite as a single test, because
 listing the cases needs the JSON support of CMake 3.19.
 
-vitrio is a shared library only. Its image formats will register themselves
-through objects at namespace scope, and a static archive would drop the object
-files nothing else refers to.
+vitrio is a shared library only. Its image formats register themselves
+through objects at namespace scope, with the macros of
+`src/formats/image_format_registration_macros.hpp`, and a static archive would
+drop the object files nothing else refers to.
 
 ## Dependencies
 
@@ -68,7 +72,9 @@ library needs goes in `dependencies`.
 | Dependency | Needed by |
 |---|---|
 | Threads | The library, privately |
+| Boost 1.70 or newer: Filesystem, ContainerHash | The library, privately |
 | Catch2 3 | The test suites |
+| trompeloeil | The unit tests, for their mocks |
 
 ## Conventions
 
@@ -102,6 +108,13 @@ library needs goes in `dependencies`.
 - **Sizes that come from a file.** Extents and strides may be read from a
   file, so arithmetic on them goes through `checked_add` and
   `checked_multiply` and an overflow is reported, not computed.
+- **Constants of a class.** A `static constexpr` member of a public class is
+  marked `VITRIO_API` and defined in its `.cpp`. C++14 needs that definition
+  whenever the constant is bound to a reference, and a consumer gets it from
+  the shared library.
+- **Mocks.** A test that needs a stand-in for an interface uses the
+  trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
+  fake. A mock is added with the first test that uses it.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

@@ -27,8 +27,20 @@ target_link_libraries(
 	vitrio-unitary-tests
 	PRIVATE
 		vitrio-obj
+		vitrio-test-assets-interface
 		Catch2::Catch2WithMain
+		trompeloeil::trompeloeil
 )
+
+# The mocks count their arguments with a macro that only the conforming
+# preprocessor of MSVC expands as the others do.
+if(MSVC)
+	target_compile_options(
+		vitrio-unitary-tests
+		PRIVATE
+			/Zc:preprocessor
+	)
+endif()
 
 vitrio_enable_warnings(vitrio-unitary-tests)
 vitrio_register_tests(vitrio-unitary-tests unitary)

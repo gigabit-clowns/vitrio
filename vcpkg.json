@@ -2,7 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "vitrio",
   "builtin-baseline": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
-  "dependencies": [],
+  "dependencies": [
+    "boost-container-hash",
+    "boost-filesystem"
+  ],
   "default-features": [
     "tests"
   ],
@@ -10,7 +13,8 @@
     "tests": {
       "description": "What the test suites are built with",
       "dependencies": [
-        "catch2"
+        "catch2",
+        "trompeloeil"
       ]
     }
   }

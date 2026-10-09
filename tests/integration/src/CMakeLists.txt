@@ -4,4 +4,5 @@ target_sources(
 	vitrio-integration-tests
 	PRIVATE
 		test_library_version.cpp
+		test_public_constants.cpp
 )
