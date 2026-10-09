@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <vitrio/byte.hpp>
+
 #include <array>
 #include <cstddef>
 #include <type_traits>
@@ -188,6 +190,27 @@ span<T> make_span(std::array<T, N> &values) noexcept;
  */
 template <typename T, std::size_t N>
 span<const T> make_span(const std::array<T, N> &values) noexcept;
+
+/**
+ * @brief Make a span of the bytes the elements of a span are stored in.
+ *
+ * @tparam T Type of the elements.
+ * @param values The elements.
+ * @return span<byte> Their bytes.
+ */
+template <typename T>
+span<byte> as_bytes(span<T> values) noexcept;
+
+/**
+ * @brief Make a read-only span of the bytes the elements of a span are
+ * stored in.
+ *
+ * @tparam T Type of the elements.
+ * @param values The elements.
+ * @return span<const byte> Their bytes.
+ */
+template <typename T>
+span<const byte> as_bytes(span<const T> values) noexcept;
 
 } // namespace vitrio
 

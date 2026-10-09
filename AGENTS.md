@@ -14,7 +14,7 @@ in the same commit that causes it.
 | Path | Holds |
 |---|---|
 | `include/vitrio/` | The public headers. Everything here is part of the API |
-| `include/vitrio/array/` | What describes the elements of an array |
+| `include/vitrio/array/` | The array classes, their descriptor and the types of their elements |
 | `include/vitrio/concurrency/` | Executors, the tasks they run and the completions that report them |
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
@@ -91,6 +91,17 @@ library needs goes in `dependencies`.
   never an alias of `std::span`, so that the ABI does not depend on the
   standard a consumer compiles with. `vitrio::byte` is `unsigned char`, the
   type C++14 lets the memory of any object be accessed through.
+- **Arrays.** Four classes with one job each: `array` and `const_array` keep
+  their memory alive, `array_ref` and `const_array_ref` do not, and the
+  `const` ones cannot be written through. A reference is two pointers, as
+  cheap to copy as a span, and what it refers to must outlive it. A function
+  that uses an array only until it returns takes a reference; one that keeps
+  it takes an owning class. None of them does anything with its elements.
+  Memory from anywhere becomes an array through a `std::shared_ptr` that
+  releases it.
+- **Sizes that come from a file.** Extents and strides may be read from a
+  file, so arithmetic on them goes through `checked_add` and
+  `checked_multiply` and an overflow is reported, not computed.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

@@ -216,3 +216,42 @@ TEST_CASE(
 		REQUIRE( values.size() == 3 );
 	}
 }
+
+TEST_CASE(
+	"as_bytes covers the bytes the elements are stored in",
+	"[span]"
+)
+{
+	SECTION( "of writable elements, as writable bytes" )
+	{
+		std::array<int, 3> storage = {1, 2, 3};
+
+		const auto bytes = as_bytes(make_span(storage));
+
+		REQUIRE( (std::is_same<decltype(bytes), const span<byte>>::value) );
+		REQUIRE( static_cast<void*>(bytes.data()) == storage.data() );
+		REQUIRE( bytes.size() == 3 * sizeof(int) );
+	}
+
+	SECTION( "of read-only elements, as read-only bytes" )
+	{
+		const std::array<int, 3> storage = {1, 2, 3};
+
+		const auto bytes = as_bytes(make_span(storage));
+
+		REQUIRE(
+			(std::is_same<decltype(bytes), const span<const byte>>::value)
+		);
+		REQUIRE( static_cast<const void*>(bytes.data()) == storage.data() );
+		REQUIRE( bytes.size() == 3 * sizeof(int) );
+	}
+
+	SECTION( "and writing a byte changes the element it belongs to" )
+	{
+		std::array<unsigned char, 2> storage = {1, 2};
+
+		as_bytes(make_span(storage))[1] = 9;
+
+		REQUIRE( storage[1] == 9 );
+	}
+}

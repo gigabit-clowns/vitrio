@@ -108,4 +108,22 @@ inline span<const T> make_span(const std::array<T, N> &values) noexcept
 	return span<const T>(values.data(), values.size());
 }
 
+template <typename T>
+inline span<byte> as_bytes(span<T> values) noexcept
+{
+	return span<byte>(
+		reinterpret_cast<byte*>(values.data()),
+		values.size() * sizeof(T)
+	);
+}
+
+template <typename T>
+inline span<const byte> as_bytes(span<const T> values) noexcept
+{
+	return span<const byte>(
+		reinterpret_cast<const byte*>(values.data()),
+		values.size() * sizeof(T)
+	);
+}
+
 } // namespace vitrio

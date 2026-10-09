@@ -3,5 +3,13 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
+		test_array.cpp
+		test_array_descriptor.cpp
+		test_array_implementation.cpp
+		test_array_memory.cpp
+		test_array_ref.cpp
+		test_checked_arithmetic.cpp
+		test_const_array.cpp
+		test_const_array_ref.cpp
 		test_numerical_type.cpp
 )
