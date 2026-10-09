@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <vitrio/array/array.hpp>
+#include <vitrio/array/numerical_type.hpp>
+#include <vitrio/image_read.hpp>
+
+#include <vitrio/concurrency/completion.hpp>
+#include <vitrio/concurrency/synchronous_executor.hpp>
+#include <vitrio/direct_image_reader_provider.hpp>
+#include <vitrio/executor_image_loader.hpp>
+#include <vitrio/image_location.hpp>
+#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_write.hpp>
+#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/index_table.hpp>
+#include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/scoped_path.hpp>
+
+#include "fixtures/builtin_formats.hpp"
+
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
+using namespace vitrio;
+using namespace vitrio::test;
+
+namespace
+{
+
+// EMD-3197 is a volume of twenty cubed, so a patch of it is a subtomogram
+// and the whole file fits in memory twice over.
+const std::size_t volume_extent = 20;
+const std::size_t box_extent = 6;
+
+std::size_t volume_index(std::size_t z, std::size_t y, std::size_t x)
+{
+	return (z * volume_extent + y) * volume_extent + x;
+}
+
+std::size_t box_index(
+	std::size_t slot,
+	std::size_t z,
+	std::size_t y,
+	std::size_t x
+)
+{
+	return ((slot * box_extent + z) * box_extent + y) * box_extent + x;
+}
+
+void add_centre(
+	index_table &centres,
+	std::size_t z,
+	std::size_t y,
+	std::size_t x
+)
+{
+	const std::array<std::size_t, 3> values = {z, y, x};
+	centres.add(make_span(values));
+}
+
+} // anonymous namespace
+
+TEST_CASE(
+	"patches cut from a real MRC file hold what the file holds",
+	"[mrc][image_read]"
+)
+{
+	const auto manager =
+		make_builtin_read_formats();
+	const auto readers =
+		std::make_shared<direct_image_reader_provider>(manager);
+	const auto path = get_mrc_asset_path("EMD-3197.map");
+	const image_location location(path);
+
+	const auto whole = vitrio::read(location, *readers);
+	REQUIRE( whole.get_descriptor().get_extents().size() == 3 );
+	const auto volume = get_values<float>(whole);
+
+	const auto loader = std::make_shared<executor_image_loader>(
+		readers,
+		std::make_shared<synchronous_executor>()
+	);
+
+	// One box well inside the volume and one centred so near a corner that
+	// it begins two samples outside it along every axis.
+	index_table centres(3);
+	add_centre(centres, 10, 10, 10);
+	add_centre(centres, 1, 1, 1);
+
+	const std::vector<std::size_t> batch_extents = {
+		2, box_extent, box_extent, box_extent
+	};
+	auto destination = make_host_array<float>(
+		batch_extents,
+		numerical_type::float32,
+		std::numeric_limits<float>::quiet_NaN()
+	);
+
+	const auto completion =
+		read_patches_async(
+			*loader,
+			destination.share(),
+			location,
+			centres
+		);
+	REQUIRE( completion != nullptr );
+	REQUIRE_NOTHROW( completion->get() );
+
+	const auto boxes = get_values<float>(destination);
+
+	SECTION( "a box inside the volume holds the samples around its centre" )
+	{
+		// Centred at ten with an extent of six, so it begins at seven.
+		for (std::size_t z = 0; z < box_extent; ++z)
+		{
+			for (std::size_t y = 0; y < box_extent; ++y)
+			{
+				for (std::size_t x = 0; x < box_extent; ++x)
+				{
+					REQUIRE(
+						boxes[box_index(0, z, y, x)] ==
+						volume[volume_index(7 + z, 7 + y, 7 + x)]
+					);
+				}
+			}
+		}
+	}
+
+	SECTION( "a box over a corner holds the part of it the volume covers" )
+	{
+		// Centred at one with an extent of six, so it begins at minus two
+		// and the volume reaches only the last four samples of each axis.
+		for (std::size_t z = 0; z < box_extent; ++z)
+		{
+			for (std::size_t y = 0; y < box_extent; ++y)
+			{
+				for (std::size_t x = 0; x < box_extent; ++x)
+				{
+					const auto covered = z >= 2 && y >= 2 && x >= 2;
+					const auto value = boxes[box_index(1, z, y, x)];
+
+					if (covered)
+					{
+						REQUIRE(
+							value ==
+							volume[volume_index(z - 2, y - 2, x - 2)]
+						);
+					}
+					else
+					{
+						REQUIRE( std::isnan(value) );
+					}
+				}
+			}
+		}
+	}
+}
+
+TEST_CASE(
+	"a batch read naming an image its stack does not hold is reported",
+	"[mrc][image_read]"
+)
+{
+	const scoped_path path("stack_read_past_its_end.mrcs");
+
+	const std::vector<std::size_t> stack_extents = {3, 4, 5};
+	const auto stack =
+		make_host_array<float>(stack_extents, numerical_type::float32);
+	write_stack(
+		stack,
+		path.get(),
+		*make_builtin_write_formats()
+	);
+
+	const auto loader = std::make_shared<executor_image_loader>(
+		std::make_shared<direct_image_reader_provider>(
+			make_builtin_read_formats()
+		),
+		std::make_shared<synchronous_executor>()
+	);
+
+	const std::vector<std::size_t> batch_extents = {2, 4, 5};
+	auto destination =
+		make_host_array<float>(batch_extents, numerical_type::float32);
+
+	// The stack holds three images, so there is none at index three.
+	const std::vector<image_location> locations = {
+		image_location(path.get(), 0),
+		image_location(path.get(), 3)
+	};
+	const auto completion = read_batch_async(
+		*loader,
+		destination.share(),
+		make_span(locations)
+	);
+
+	REQUIRE( completion != nullptr );
+	REQUIRE_THROWS_AS( completion->get(), std::out_of_range );
+}

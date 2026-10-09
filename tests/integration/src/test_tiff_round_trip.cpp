@@ -2,19 +2,25 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/direct_image_reader_provider.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_read.hpp>
 #include <vitrio/image_read_format_manager.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
+#include <vitrio/image_write.hpp>
 #include <vitrio/image_write_format_manager.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
+
+#include "fixtures/builtin_formats.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -223,6 +229,60 @@ TEST_CASE(
 
 	REQUIRE( get_values<std::int16_t>(destination) ==
 		expected );
+}
+
+TEST_CASE(
+	"a TIFF file is written and read by the whole array functions",
+	"[tiff][image_write][image_read]"
+)
+{
+	const auto writers =
+		make_builtin_write_formats();
+	const auto readers = std::make_shared<direct_image_reader_provider>(
+		make_builtin_read_formats());
+
+	SECTION( "a stack" )
+	{
+		const scoped_path path("round_trip_whole_stack.tif");
+		const std::vector<std::size_t> extents = {3, 4, 5};
+		const auto values = counting(count_elements(extents));
+
+		auto source = make_host_array<float>(extents, numerical_type::float32);
+		std::memcpy(
+			source.get_data(),
+			values.data(),
+			values.size() * sizeof(float)
+		);
+
+		write_stack(source, path.get(), *writers);
+
+		const auto read = vitrio::read(path.get(), *readers);
+
+		REQUIRE( read.get_descriptor() ==
+			make_contiguous_array_descriptor(
+				make_span(extents), numerical_type::float32) );
+		REQUIRE( get_values<float>(read) == values );
+	}
+
+	SECTION( "a single image" )
+	{
+		const scoped_path path("round_trip_whole_single.tif");
+		const std::vector<std::size_t> extents = {4, 5};
+		const auto values = counting(count_elements(extents));
+
+		auto source = make_host_array<float>(extents, numerical_type::float32);
+		std::memcpy(
+			source.get_data(),
+			values.data(),
+			values.size() * sizeof(float)
+		);
+
+		write_single(source, path.get(), *writers);
+
+		const auto read = vitrio::read(path.get(), *readers);
+
+		REQUIRE( get_values<float>(read) == values );
+	}
 }
 
 TEST_CASE(
