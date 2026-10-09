@@ -40,7 +40,7 @@ public:
 	 *
 	 * @param path Path to the file.
 	 * @throws image_file_error If the file can not be reached.
-	 * @throws image_format_error If the file is not a TIFF file, if a page
+	 * @throws image_file_format_error If the file is not a TIFF file, if a page
 	 * is one this format can not transfer, or if its pages differ in size
 	 * or data type.
 	 */

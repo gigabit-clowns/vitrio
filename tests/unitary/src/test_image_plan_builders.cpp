@@ -196,7 +196,7 @@ TEST_CASE(
 			std::vector<std::size_t>{i, 0, 0} );
 	}
 
-	// The repeated path is one file of the plan, not two.
+	// The repeated key is one file of the plan, not two.
 	CHECK( plan.get_file_count() == 2 );
 	CHECK( plan.get_region_file(0) == plan.get_region_file(2) );
 }

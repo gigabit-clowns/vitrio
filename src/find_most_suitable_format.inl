@@ -17,9 +17,9 @@ ForwardIte find_most_suitable_format(
 	const F& suitability_evaluator
 )
 {
-	std::pair<ForwardIte, image_format_suitability> best(
+	std::pair<ForwardIte, image_file_format_suitability> best(
 		last,
-		image_format_suitability::unsupported
+		image_file_format_suitability::unsupported
 	);
 
 	for (auto ite = first; ite != last; ++ite)

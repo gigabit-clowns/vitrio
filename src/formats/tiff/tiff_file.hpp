@@ -45,7 +45,7 @@ public:
 	 * @param path Path to the file.
 	 * @param mode What the file is opened for.
 	 * @throws image_file_error If the file can not be reached or created.
-	 * @throws image_format_error If the file is reached but is not a TIFF
+	 * @throws image_file_format_error If the file is reached but is not a TIFF
 	 * file libtiff can open.
 	 */
 	tiff_file(const std::string &path, tiff_file_mode mode);
@@ -68,7 +68,7 @@ public:
 	 * @brief Select the page the file is asked about from here on.
 	 *
 	 * @param page Index of the page.
-	 * @throws image_format_error If the file has no such page, or if the
+	 * @throws image_file_format_error If the file has no such page, or if the
 	 * page can not be read.
 	 */
 	void select_page(std::size_t page);
@@ -77,8 +77,8 @@ public:
 	 * @brief Get how the selected page holds its samples.
 	 *
 	 * @return tiff_page_layout The layout of the page.
-	 * @throws image_format_error If the page does not state its size, if it
-	 * holds anything but one sample per pixel, if its samples have no
+	 * @throws image_file_format_error If the page does not state its size, if
+	 * it holds anything but one sample per pixel, if its samples have no
 	 * counterpart among the data types this format transfers, or if they are
 	 * compressed with a scheme this build of libtiff can not decode.
 	 */
@@ -94,7 +94,7 @@ public:
 	 * them.
 	 * @param destination Where the samples are written. Its size must be
 	 * that @ref tiff_page_layout::get_block_size gives for @p block.
-	 * @throws image_format_error If the block can not be decoded, or does
+	 * @throws image_file_format_error If the block can not be decoded, or does
 	 * not hold as many samples as @p destination takes.
 	 */
 	void read_block(std::size_t block, span<byte> destination);

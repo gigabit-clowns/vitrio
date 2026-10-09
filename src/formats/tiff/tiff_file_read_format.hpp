@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include <vitrio/image_file_read_format.hpp>
+
+namespace vitrio
+{
+namespace tiff
+{
+
+/**
+ * @brief The ability of the TIFF format to be read.
+ *
+ * A file is claimed on the signature it begins with, whatever it is named:
+ * every TIFF file carries it, classic or BigTIFF and in either byte order,
+ * so its extension adds nothing.
+ *
+ * A file of one page opens as an image and a file of several as a stack of
+ * them.
+ */
+class tiff_file_read_format final
+	: public image_file_read_format
+{
+public:
+	tiff_file_read_format() noexcept = default;
+
+	~tiff_file_read_format() override = default;
+
+	std::string get_name() const override;
+
+	image_file_format_suitability
+	get_suitability(const image_file_probe &probe) const override;
+
+	std::shared_ptr<image_reader> open(
+		const image_file_probe &probe
+	) const override;
+};
+
+} // namespace tiff
+} // namespace vitrio

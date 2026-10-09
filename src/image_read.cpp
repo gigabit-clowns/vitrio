@@ -78,7 +78,7 @@ public:
 		std::shared_ptr<image_scratch_entry> entry,
 		std::shared_ptr<image_reader_provider> files
 	)
-		: m_path(group.get_path())
+		: m_key(group.get_key())
 		, m_indices(group.get_indices().begin(), group.get_indices().end())
 		, m_whole(group.is_whole())
 		, m_entry(std::move(entry))
@@ -88,19 +88,19 @@ public:
 
 	void run() override
 	{
-		const auto file = m_files->acquire(m_path);
+		const auto file = m_files->acquire(m_key);
 		VITRIO_ASSERT(file);
 
 		const auto &descriptor = file->get_descriptor();
 		const auto plan = m_whole
-			? make_location_plan(descriptor, image_location(m_path))
+			? make_location_plan(descriptor, image_location(m_key))
 			: make_indices_plan(descriptor, make_span(m_indices));
 
 		m_entry->store(*file, plan);
 	}
 
 private:
-	std::string m_path;
+	std::string m_key;
 	std::vector<std::size_t> m_indices;
 	bool m_whole;
 	std::shared_ptr<image_scratch_entry> m_entry;
@@ -110,12 +110,12 @@ private:
 } // anonymous namespace
 
 array read(
-	const std::string &path,
+	const std::string &key,
 	image_reader_provider &readers,
 	numerical_type data_type
 )
 {
-	return read(image_location(path), readers, data_type);
+	return read(image_location(key), readers, data_type);
 }
 
 array read(
@@ -124,7 +124,7 @@ array read(
 	numerical_type data_type
 )
 {
-	const auto reader = readers.acquire(location.get_path());
+	const auto reader = readers.acquire(location.get_key());
 	const auto &descriptor = reader->get_descriptor();
 	const auto plan = make_location_plan(descriptor, location);
 
@@ -148,7 +148,7 @@ void read(
 	image_reader_provider &readers
 )
 {
-	const auto reader = readers.acquire(location.get_path());
+	const auto reader = readers.acquire(location.get_key());
 	const auto plan = make_location_plan(reader->get_descriptor(), location);
 
 	const auto extents = destination.get_descriptor().get_extents();
@@ -227,7 +227,7 @@ std::shared_ptr<completion> prefetch_scratch_async(
 	for (std::size_t index = 0; index < group_count; ++index)
 	{
 		const auto group = locations.get_group(index);
-		auto entry = scratch.find(group.get_path());
+		auto entry = scratch.find(group.get_key());
 		if (!entry)
 		{
 			continue;

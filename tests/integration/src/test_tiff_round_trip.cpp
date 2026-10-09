@@ -7,15 +7,15 @@
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
+#include <vitrio/file_image_reader_provider.hpp>
 #include <vitrio/image_descriptor.hpp>
+#include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_read.hpp>
-#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/image_write.hpp>
-#include <vitrio/image_write_format_selector.hpp>
-#include <vitrio/selector_image_reader_provider.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
@@ -50,12 +50,12 @@ std::vector<float> counting(std::size_t count)
 
 TEST_CASE(
 	"a TIFF file created through the selectors reads back as it was written",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_selector readers;
+	image_file_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	// The two shapes a TIFF file can hold, under both of its extensions.
@@ -112,12 +112,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"a TIFF file converts to and from the type it holds",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_selector readers;
+	image_file_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const std::vector<std::size_t> extents = {2, 2};
@@ -175,12 +175,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"a TIFF stack is written a page at a time and read back whole",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_selector readers;
+	image_file_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const scoped_path path("round_trip_paged.tif");
@@ -235,9 +235,9 @@ TEST_CASE(
 )
 {
 	const auto writers =
-		image_write_format_selector::get_shared();
-	const auto readers = std::make_shared<selector_image_reader_provider>(
-		image_read_format_selector::get_shared()
+		image_file_write_format_selector::get_shared();
+	const auto readers = std::make_shared<file_image_reader_provider>(
+		image_file_read_format_selector::get_shared()
 	);
 
 	SECTION( "a stack" )
@@ -286,10 +286,10 @@ TEST_CASE(
 
 TEST_CASE(
 	"what a TIFF file can not hold is refused through the selectors",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
 	const scoped_path path("round_trip_refused.tif");
 

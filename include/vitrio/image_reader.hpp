@@ -115,7 +115,7 @@ public:
 	 * or does not fit in @p destination where it is placed.
 	 * @throws unsupported_operation_error If the data type of @p destination
 	 * can not be produced from the one of the file.
-	 * @throws image_format_error If the file turns out to be malformed
+	 * @throws image_file_format_error If the file turns out to be malformed
 	 * or truncated where a region is read.
 	 */
 	virtual void read(

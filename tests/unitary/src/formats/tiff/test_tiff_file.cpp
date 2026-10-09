@@ -8,7 +8,7 @@
 
 #include <vitrio/byte.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/span.hpp>
 
@@ -131,7 +131,7 @@ TEST_CASE( "a TIFF file that can not be opened says why",
 
 		REQUIRE_THROWS_MATCHES(
 			tiff_file(path.get(), tiff_file_mode::read),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get())
 			)
@@ -245,7 +245,7 @@ TEST_CASE( "a TIFF file reports its pages and how each holds its samples",
 
 		REQUIRE_THROWS_MATCHES(
 			file.select_page(1),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get())
 			)
@@ -266,7 +266,7 @@ TEST_CASE( "a TIFF page this format can not transfer is refused",
 
 		REQUIRE_THROWS_MATCHES(
 			file.get_page_layout(),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::ContainsSubstring("sample per pixel")
 			)
@@ -284,7 +284,7 @@ TEST_CASE( "a TIFF page this format can not transfer is refused",
 
 		REQUIRE_THROWS_MATCHES(
 			file.get_page_layout(),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::ContainsSubstring("data type")
 			)
@@ -310,7 +310,7 @@ TEST_CASE( "a TIFF page compressed with an unknown scheme is refused",
 
 	REQUIRE_THROWS_MATCHES(
 		file.get_page_layout(),
-		image_format_error,
+		image_file_format_error,
 		Catch::Matchers::MessageMatches(
 			Catch::Matchers::ContainsSubstring("compressed")
 		)
@@ -507,7 +507,7 @@ TEST_CASE( "a TIFF file decodes the blocks of a page",
 		REQUIRE_THROWS_MATCHES(
 			file.read_block(
 				2, make_span(destination.data(), destination.size())),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get())
 			)
@@ -529,7 +529,7 @@ TEST_CASE( "a TIFF file decodes the blocks of a page",
 
 		REQUIRE_THROWS_MATCHES(
 			read_block_of<std::uint8_t>(file, layout, 0),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get())
 			)

@@ -4,7 +4,7 @@
 
 #include "mrc_constants.hpp"
 
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 
 #include <assert.hpp>
 
@@ -194,7 +194,7 @@ byte_order resolve_byte_order(span<const byte> bytes)
 		return byte_order::big_endian;
 	}
 
-	throw image_format_error(
+	throw image_file_format_error(
 		"mrc::parse_header: No byte order makes the mode of the file one "
 		"this format supports."
 	);
@@ -207,7 +207,7 @@ void validate(const mrc_header &header)
 		header.get_section_count() < 0 ||
 		header.get_extended_header_size() < 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			"mrc::parse_header: The file states a negative extent or "
 			"extended header size."
 		);
@@ -215,7 +215,7 @@ void validate(const mrc_header &header)
 
 	if (!has_axis_permutation(header) && !has_unset_axes(header))
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			"mrc::parse_header: The axis correspondence of the file names "
 			"anything but the three axes of space, one each."
 		);
@@ -226,7 +226,7 @@ void validate(const mrc_header &header)
 		const auto sampling = header.get_section_sampling();
 		if (sampling <= 0 || header.get_section_count() % sampling != 0)
 		{
-			throw image_format_error(
+			throw image_file_format_error(
 				"mrc::parse_header: The file states a stack of volumes "
 				"whose section count is not a multiple of its volume "
 				"depth."
@@ -536,14 +536,14 @@ mrc_header parse_header(span<const byte> bytes)
 {
 	if (bytes.size() < header_size)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			"mrc::parse_header: The file is shorter than an MRC header."
 		);
 	}
 
 	if (!has_map_identifier(bytes))
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			"mrc::parse_header: The file does not carry the MRC "
 			"identifier."
 		);

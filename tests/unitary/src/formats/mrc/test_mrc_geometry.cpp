@@ -10,7 +10,7 @@
 #include <formats/mrc/mrc_mode.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 
@@ -328,7 +328,7 @@ TEST_CASE( "the axes of an MRC file are ordered by the axis of space each "
 			derive_file_layout(
 				with_axes(make_header_of(4, 3, 5, 1, 0), 1, 1, 3)
 			),
-			image_format_error
+			image_file_format_error
 		);
 	}
 
@@ -338,7 +338,7 @@ TEST_CASE( "the axes of an MRC file are ordered by the axis of space each "
 			derive_file_layout(
 				with_axes(make_header_of(4, 3, 5, 1, 0), 1, 2, 4)
 			),
-			image_format_error
+			image_file_format_error
 		);
 	}
 
@@ -430,7 +430,10 @@ TEST_CASE( "values that could not be addressed where they begin are refused",
 		auto header = make_header_of(4, 3, 1, 1, 0);
 		header.set_extended_header_size(2);
 
-		REQUIRE_THROWS_AS( derive_file_layout(header), image_format_error );
+		REQUIRE_THROWS_AS(
+			derive_file_layout(header),
+			image_file_format_error
+		);
 	}
 
 	SECTION( "one that keeps them aligned is not" )

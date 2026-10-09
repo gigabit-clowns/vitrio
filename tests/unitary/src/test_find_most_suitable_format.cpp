@@ -12,7 +12,8 @@ using namespace vitrio;
 namespace
 {
 
-image_format_suitability identity(image_format_suitability suitability)
+image_file_format_suitability
+identity(image_file_format_suitability suitability)
 {
 	return suitability;
 }
@@ -24,10 +25,10 @@ TEST_CASE(
 	"[find_most_suitable_format]"
 )
 {
-	const std::vector<image_format_suitability> items = {
-		image_format_suitability::fallback,
-		image_format_suitability::optimal,
-		image_format_suitability::normal,
+	const std::vector<image_file_format_suitability> items = {
+		image_file_format_suitability::fallback,
+		image_file_format_suitability::optimal,
+		image_file_format_suitability::normal,
 	};
 
 	const auto found =
@@ -41,10 +42,10 @@ TEST_CASE(
 	"[find_most_suitable_format]"
 )
 {
-	const std::vector<image_format_suitability> items = {
-		image_format_suitability::fallback,
-		image_format_suitability::normal,
-		image_format_suitability::normal,
+	const std::vector<image_file_format_suitability> items = {
+		image_file_format_suitability::fallback,
+		image_file_format_suitability::normal,
+		image_file_format_suitability::normal,
 	};
 
 	const auto found =
@@ -60,9 +61,9 @@ TEST_CASE(
 {
 	SECTION( "in a range of unsupported items" )
 	{
-		const std::vector<image_format_suitability> items = {
-			image_format_suitability::unsupported,
-			image_format_suitability::unsupported,
+		const std::vector<image_file_format_suitability> items = {
+			image_file_format_suitability::unsupported,
+			image_file_format_suitability::unsupported,
 		};
 
 		const auto found =
@@ -73,7 +74,7 @@ TEST_CASE(
 
 	SECTION( "in an empty range" )
 	{
-		const std::vector<image_format_suitability> items;
+		const std::vector<image_file_format_suitability> items;
 
 		const auto found =
 			find_most_suitable_format(items.begin(), items.end(), identity);
@@ -87,17 +88,17 @@ TEST_CASE(
 	"[find_most_suitable_format]"
 )
 {
-	const std::vector<image_format_suitability> items = {
-		image_format_suitability::normal,
-		image_format_suitability::unsupported,
-		image_format_suitability::optimal,
+	const std::vector<image_file_format_suitability> items = {
+		image_file_format_suitability::normal,
+		image_file_format_suitability::unsupported,
+		image_file_format_suitability::optimal,
 	};
 	std::size_t evaluations = 0;
 
 	find_most_suitable_format(
 		items.begin(),
 		items.end(),
-		[&evaluations] (image_format_suitability suitability)
+		[&evaluations] (image_file_format_suitability suitability)
 		{
 			++evaluations;
 			return suitability;

@@ -35,13 +35,13 @@ class image_write_task final : public task
 {
 public:
 	image_write_task(
-		std::string path,
+		std::string key,
 		image_transfer_plan transfer,
 		std::shared_ptr<const_array> source,
 		std::shared_ptr<image_writer_provider> writers,
 		std::shared_ptr<const image_transfer_sanitizer> sanitizer
 	)
-		: m_path(std::move(path))
+		: m_key(std::move(key))
 		, m_transfer(std::move(transfer))
 		, m_source(std::move(source))
 		, m_writers(std::move(writers))
@@ -51,7 +51,7 @@ public:
 
 	void run() override
 	{
-		const auto writer = m_writers->acquire(m_path);
+		const auto writer = m_writers->acquire(m_key);
 		const_array_ref source(*m_source);
 
 		const auto sanitized = m_sanitizer->sanitize(
@@ -66,7 +66,7 @@ public:
 	}
 
 private:
-	std::string m_path;
+	std::string m_key;
 	image_transfer_plan m_transfer;
 	std::shared_ptr<const_array> m_source;
 	std::shared_ptr<image_writer_provider> m_writers;

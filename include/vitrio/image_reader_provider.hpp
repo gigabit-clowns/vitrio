@@ -46,7 +46,7 @@ public:
 	 * @return std::shared_ptr<const image_reader> The reader, never null.
 	 * @throws image_file_error If the file does not exist or can not be read.
 	 * @throws unsupported_operation_error If no format can read the file.
-	 * @throws image_format_error If the file is malformed or truncated.
+	 * @throws image_file_format_error If the file is malformed or truncated.
 	 */
 	virtual std::shared_ptr<const image_reader>
 	acquire(const std::string &key) = 0;
@@ -64,7 +64,7 @@ public:
  * @return image_descriptor The descriptor of the file.
  * @throws image_file_error If the file does not exist or can not be read.
  * @throws unsupported_operation_error If no format can read the file.
- * @throws image_format_error If the file is malformed or truncated.
+ * @throws image_file_format_error If the file is malformed or truncated.
  */
 VITRIO_API
 image_descriptor query_descriptor(

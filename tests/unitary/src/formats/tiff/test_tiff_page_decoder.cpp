@@ -7,7 +7,7 @@
 #include <formats/tiff/tiff_page_decoder.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 
 #include <vitrio/tests/scoped_path.hpp>
 #include "fixtures/tiff_test_file.hpp"
@@ -111,7 +111,10 @@ TEST_CASE( "a page decoder refuses a file it can not take for a stack",
 	{
 		write_rgb_file(path.get(), 4, 2);
 
-		REQUIRE_THROWS_AS( tiff_page_decoder(path.get()), image_format_error );
+		REQUIRE_THROWS_AS(
+			tiff_page_decoder(path.get()),
+			image_file_format_error
+		);
 	}
 
 	SECTION( "one whose pages differ in size" )
@@ -127,7 +130,7 @@ TEST_CASE( "a page decoder refuses a file it can not take for a stack",
 
 		REQUIRE_THROWS_MATCHES(
 			tiff_page_decoder(path.get()),
-			image_format_error,
+			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get()) &&
 				Catch::Matchers::ContainsSubstring("differ")
@@ -146,7 +149,10 @@ TEST_CASE( "a page decoder refuses a file it can not take for a stack",
 			counting<std::int8_t>(8)
 		);
 
-		REQUIRE_THROWS_AS( tiff_page_decoder(path.get()), image_format_error );
+		REQUIRE_THROWS_AS(
+			tiff_page_decoder(path.get()),
+			image_file_format_error
+		);
 	}
 
 	SECTION( "one whose later page can not be transferred" )
@@ -160,7 +166,10 @@ TEST_CASE( "a page decoder refuses a file it can not take for a stack",
 			counting<std::uint8_t>(8)
 		);
 
-		REQUIRE_THROWS_AS( tiff_page_decoder(path.get()), image_format_error );
+		REQUIRE_THROWS_AS(
+			tiff_page_decoder(path.get()),
+			image_file_format_error
+		);
 	}
 }
 

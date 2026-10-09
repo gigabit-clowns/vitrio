@@ -34,13 +34,13 @@ class image_read_task final : public task
 {
 public:
 	image_read_task(
-		std::string path,
+		std::string key,
 		image_transfer_plan transfer,
 		std::shared_ptr<array> destination,
 		std::shared_ptr<image_reader_provider> readers,
 		std::shared_ptr<const image_transfer_sanitizer> sanitizer
 	)
-		: m_path(std::move(path))
+		: m_key(std::move(key))
 		, m_transfer(std::move(transfer))
 		, m_destination(std::move(destination))
 		, m_readers(std::move(readers))
@@ -50,7 +50,7 @@ public:
 
 	void run() override
 	{
-		const auto reader = m_readers->acquire(m_path);
+		const auto reader = m_readers->acquire(m_key);
 		array_ref destination(*m_destination);
 
 		const auto sanitized = m_sanitizer->sanitize(
@@ -65,7 +65,7 @@ public:
 	}
 
 private:
-	std::string m_path;
+	std::string m_key;
 	image_transfer_plan m_transfer;
 	std::shared_ptr<array> m_destination;
 	std::shared_ptr<image_reader_provider> m_readers;

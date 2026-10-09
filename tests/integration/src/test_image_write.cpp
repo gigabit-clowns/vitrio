@@ -11,15 +11,15 @@
 #include <vitrio/concurrency/synchronous_executor.hpp>
 #include <vitrio/executor_image_loader.hpp>
 #include <vitrio/executor_image_saver.hpp>
+#include <vitrio/file_image_reader_provider.hpp>
+#include <vitrio/file_image_writer_provider.hpp>
 #include <vitrio/image_descriptor.hpp>
+#include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_read.hpp>
-#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_reader_provider.hpp>
-#include <vitrio/image_write_format_selector.hpp>
-#include <vitrio/managed_image_writer_provider.hpp>
-#include <vitrio/selector_image_reader_provider.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
@@ -84,9 +84,9 @@ TEST_CASE(
 	const auto batch_count = stack_count / batch_size;
 
 	const auto writer_formats =
-		image_write_format_selector::get_shared();
+		image_file_write_format_selector::get_shared();
 	const auto writers =
-		std::make_shared<managed_image_writer_provider>(writer_formats);
+		std::make_shared<file_image_writer_provider>(writer_formats);
 	const auto saver = std::make_shared<executor_image_saver>(
 		writers,
 		std::make_shared<synchronous_executor>()
@@ -127,9 +127,9 @@ TEST_CASE(
 	writers->close(path.get());
 
 	const auto reader_formats =
-		image_read_format_selector::get_shared();
+		image_file_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<selector_image_reader_provider>(reader_formats);
+		std::make_shared<file_image_reader_provider>(reader_formats);
 	const auto loader = std::make_shared<executor_image_loader>(
 		readers,
 		std::make_shared<synchronous_executor>()
@@ -186,12 +186,12 @@ TEST_CASE(
 	);
 
 	const auto writer_formats =
-		image_write_format_selector::get_shared();
+		image_file_write_format_selector::get_shared();
 	write_stack(source, path.get(), *writer_formats);
 
 	const auto reader_formats =
-		image_read_format_selector::get_shared();
-	selector_image_reader_provider readers(reader_formats);
+		image_file_read_format_selector::get_shared();
+	file_image_reader_provider readers(reader_formats);
 
 	SECTION( "the file states a stack of images of the array's type" )
 	{
@@ -272,9 +272,9 @@ TEST_CASE(
 	);
 
 	const auto writer_formats =
-		image_write_format_selector::get_shared();
+		image_file_write_format_selector::get_shared();
 	const auto writers =
-		std::make_shared<managed_image_writer_provider>(writer_formats);
+		std::make_shared<file_image_writer_provider>(writer_formats);
 	const executor_image_saver saver(
 		writers,
 		std::make_shared<synchronous_executor>()
@@ -293,9 +293,9 @@ TEST_CASE(
 	writers->close(path.get());
 
 	const auto reader_formats =
-		image_read_format_selector::get_shared();
+		image_file_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<selector_image_reader_provider>(reader_formats);
+		std::make_shared<file_image_reader_provider>(reader_formats);
 
 	SECTION( "the file states the stack it was declared as" )
 	{

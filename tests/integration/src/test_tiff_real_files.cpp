@@ -4,10 +4,10 @@
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_probe.hpp>
-#include <vitrio/image_read_format_selector.hpp>
+#include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
@@ -75,10 +75,10 @@ std::vector<float> float32_samples(std::size_t count)
 
 TEST_CASE(
 	"TIFF files vitrio did not write are read as they state",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_read_format_selector selector;
+	image_file_read_format_selector selector;
 	selector.register_builtin_formats();
 
 	SECTION( "a compressed stack cut into several strips" )
@@ -86,7 +86,7 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("stack_uint8_lzw.tif");
 		const std::vector<std::size_t> extents = {3, 6, 8};
 
-		REQUIRE( selector.get_most_suitable_format(image_probe(path)) !=
+		REQUIRE( selector.get_most_suitable_format(image_file_probe(path)) !=
 			nullptr );
 
 		const auto reader = selector.open(path);
@@ -178,10 +178,10 @@ TEST_CASE(
 
 TEST_CASE(
 	"regions of a real TIFF file arrive where they are placed",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_read_format_selector selector;
+	image_file_read_format_selector selector;
 	selector.register_builtin_formats();
 
 	SECTION( "one page of a stack, converted on the way" )
@@ -240,10 +240,10 @@ TEST_CASE(
 
 TEST_CASE(
 	"well formed TIFF files vitrio does not support are refused",
-	"[tiff][image_format_selector]"
+	"[tiff][image_file_format_selector]"
 )
 {
-	image_read_format_selector selector;
+	image_file_read_format_selector selector;
 	selector.register_builtin_formats();
 
 	const std::vector<std::string> names = {
@@ -254,8 +254,8 @@ TEST_CASE(
 	{
 		const auto path = get_tiff_asset_path(name);
 
-		REQUIRE( selector.get_most_suitable_format(image_probe(path)) !=
+		REQUIRE( selector.get_most_suitable_format(image_file_probe(path)) !=
 			nullptr );
-		REQUIRE_THROWS_AS( selector.open(path), image_format_error );
+		REQUIRE_THROWS_AS( selector.open(path), image_file_format_error );
 	}
 }

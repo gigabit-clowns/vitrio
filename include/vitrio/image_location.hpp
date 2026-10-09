@@ -15,13 +15,13 @@ namespace vitrio
 /**
  * @brief Address of an image file, or of one image or volume of a stack.
  *
- * The pair of a path to a file and a zero based index along the axis the
+ * The pair of the key of a file and a zero based index along the axis the
  * file stacks along, its slowest. The index @ref no_stack_index addresses the
  * file as a whole instead, which is how a file holding a single image or
  * volume is named.
  *
- * The path is held as a string rather than as a filesystem path so that this
- * type stays free of the private dependencies of the library.
+ * The key is what a provider is asked for the file with. It is often the
+ * path of the file, and it is held as a plain string.
  *
  * @see parse_image_location
  */
@@ -39,19 +39,19 @@ public:
 	/**
 	 * @brief Construct a location from its components.
 	 *
-	 * @param path Path to the file.
+	 * @param key Key of the file, such as its path.
 	 * @param index_in_stack Zero based index of the image or volume along the
 	 * slowest axis of the file, or @ref no_stack_index to address the whole
 	 * file.
 	 */
 	VITRIO_API
 	explicit image_location(
-		std::string path,
+		std::string key,
 		std::size_t index_in_stack = no_stack_index
 	);
 
 	/**
-	 * @brief Construct a location with an empty path and no index.
+	 * @brief Construct a location with an empty key and no index.
 	 */
 	VITRIO_API
 	image_location() noexcept;
@@ -76,14 +76,14 @@ public:
 	std::size_t hash() const noexcept;
 
 	/**
-	 * @brief Get the path to the file.
+	 * @brief Get the key of the file.
 	 *
-	 * @return const std::string& Reference to the stored path. The reference
+	 * @return const std::string& Reference to the stored key. The reference
 	 * is valid for the lifetime of this @ref image_location and is
 	 * invalidated by assignment to or destruction of the object.
 	 */
 	VITRIO_API
-	const std::string& get_path() const noexcept;
+	const std::string& get_key() const noexcept;
 
 	/**
 	 * @brief Get the index of the image or volume within the stack.
@@ -110,7 +110,7 @@ public:
 	{
 		return
 			lhs.get_index_in_stack() == rhs.get_index_in_stack() &&
-			lhs.get_path() == rhs.get_path();
+			lhs.get_key() == rhs.get_key();
 	}
 
 	friend bool
@@ -122,11 +122,11 @@ public:
 	friend bool
 	operator<(const image_location &lhs, const image_location &rhs) noexcept
 	{
-		if (lhs.get_path() < rhs.get_path())
+		if (lhs.get_key() < rhs.get_key())
 		{
 			return true;
 		}
-		else if (lhs.get_path() == rhs.get_path())
+		else if (lhs.get_key() == rhs.get_key())
 		{
 			return lhs.get_index_in_stack() < rhs.get_index_in_stack();
 		}
@@ -158,11 +158,11 @@ public:
 		{
 			os << (location.get_index_in_stack() + 1) << '@';
 		}
-		return os << location.get_path();
+		return os << location.get_key();
 	}
 
 private:
-	std::string m_path;
+	std::string m_key;
 	std::size_t m_index_in_stack;
 };
 
@@ -170,8 +170,8 @@ private:
  * @brief Parse an image location from its string representation.
  *
  * The representation is expected to be:
- * `<index>@<path>` (a one based index into the file)
- * `<path>` (addresses the file as a whole)
+ * `<index>@<key>` (a one based index into the file)
+ * `<key>` (addresses the file as a whole)
  *
  * The index is one based to match the convention used by the star files of
  * the field, while @ref image_location::get_index_in_stack is zero based;
@@ -192,7 +192,7 @@ bool parse_image_location(const std::string &text, image_location &result);
  * @brief Write an image location as its string representation.
  *
  * The exact inverse of @ref parse_image_location: a location addressing the
- * whole file is written as a bare path, and any other location is prefixed
+ * whole file is written as a bare key, and any other location is prefixed
  * with its one based index.
  *
  * @param location The location to be written.

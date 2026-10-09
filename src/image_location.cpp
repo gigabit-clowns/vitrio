@@ -61,8 +61,8 @@ image_location::image_location() noexcept
 {
 }
 
-image_location::image_location(std::string path, std::size_t index_in_stack)
-	: m_path(std::move(path))
+image_location::image_location(std::string key, std::size_t index_in_stack)
+	: m_key(std::move(key))
 	, m_index_in_stack(index_in_stack)
 {
 }
@@ -78,14 +78,14 @@ image_location::operator=(image_location &&other) noexcept = default;
 
 std::size_t image_location::hash() const noexcept
 {
-	auto seed = boost::hash_value(m_path);
+	auto seed = boost::hash_value(m_key);
 	boost::hash_combine(seed, boost::hash_value(m_index_in_stack));
 	return seed;
 }
 
-const std::string& image_location::get_path() const noexcept
+const std::string& image_location::get_key() const noexcept
 {
-	return m_path;
+	return m_key;
 }
 
 std::size_t image_location::get_index_in_stack() const noexcept

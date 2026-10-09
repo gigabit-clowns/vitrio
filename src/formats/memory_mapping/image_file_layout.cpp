@@ -3,7 +3,7 @@
 #include "image_file_layout.hpp"
 
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 
 #include <functional>
 #include <numeric>
@@ -35,7 +35,7 @@ image_file_layout::image_file_layout(
 	const auto element_size = get_size(m_descriptor.get_data_type());
 	if (element_size == 0 || m_data_offset % element_size != 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			"image_file_layout: The values of the file do not begin at an "
 			"offset their data type can be addressed at."
 		);

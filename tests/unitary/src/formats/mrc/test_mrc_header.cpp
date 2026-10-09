@@ -4,7 +4,7 @@
 
 #include <formats/mrc/mrc_header.hpp>
 
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 
 #include <formats/mrc/mrc_constants.hpp>
 
@@ -254,7 +254,7 @@ TEST_CASE( "a stamp that contradicts the mode does not decide the byte order",
 		auto raw = make_raw_header(byte_order::little_endian);
 		put_int32(raw, mode_offset, 3, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "the packed mode is refused as well" )
@@ -262,7 +262,7 @@ TEST_CASE( "a stamp that contradicts the mode does not decide the byte order",
 		auto raw = make_raw_header(byte_order::little_endian);
 		put_int32(raw, mode_offset, 101, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 }
 
@@ -274,7 +274,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		auto raw = make_raw_header(byte_order::little_endian);
 		raw.resize(header_size - 1);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "a block without the identifier is refused" )
@@ -282,7 +282,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		auto raw = make_raw_header(byte_order::little_endian);
 		raw[map_offset] = byte('X');
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "a negative extent is refused" )
@@ -290,7 +290,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		auto raw = make_raw_header(byte_order::little_endian);
 		put_int32(raw, ny_offset, -3, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "a negative extended header size is refused" )
@@ -298,7 +298,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		auto raw = make_raw_header(byte_order::little_endian);
 		put_int32(raw, nsymbt_offset, -8, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "an axis correspondence that repeats an axis is refused" )
@@ -306,7 +306,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		auto raw = make_raw_header(byte_order::little_endian);
 		put_int32(raw, maps_offset, 1, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	// Zero is no axis, which is what a writer that never touched the three
@@ -331,7 +331,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		put_int32(raw, nz_offset, 7, byte_order::little_endian);
 		put_int32(raw, mz_offset, 2, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
 	SECTION( "a stack of volumes of no depth is refused" )
@@ -340,7 +340,7 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		put_int32(raw, ispg_offset, 401, byte_order::little_endian);
 		put_int32(raw, mz_offset, 0, byte_order::little_endian);
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_format_error );
+		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 }
 

@@ -9,7 +9,7 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -355,7 +355,7 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 			counting<std::uint8_t>(10)
 		);
 
-		REQUIRE_THROWS_AS( tiff_reader(path.get()), image_format_error );
+		REQUIRE_THROWS_AS( tiff_reader(path.get()), image_file_format_error );
 	}
 
 	SECTION( "an uninitialized destination" )

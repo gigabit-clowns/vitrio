@@ -3,37 +3,37 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
-		test_builtin_image_format_registry.cpp
+		test_builtin_image_file_format_registry.cpp
 		test_caching_image_reader_provider.cpp
 		test_clipping_image_transfer_sanitizer.cpp
-		test_selector_image_reader_provider.cpp
 		test_executor_image_loader.cpp
 		test_executor_image_saver.cpp
+		test_file_image_reader_provider.cpp
+		test_file_image_writer_provider.cpp
 		test_find_most_suitable_format.cpp
 		test_image_descriptor.cpp
-		test_image_format_registration.cpp
-		test_image_format_suitability.cpp
+		test_image_file_format_registration.cpp
+		test_image_file_format_suitability.cpp
+		test_image_file_probe.cpp
+		test_image_file_read_format_registry.cpp
+		test_image_file_read_format_selector.cpp
+		test_image_file_write_format_registry.cpp
+		test_image_file_write_format_selector.cpp
 		test_image_location.cpp
 		test_image_location_grouping.cpp
 		test_image_metadata.cpp
 		test_image_plan_builders.cpp
-		test_image_probe.cpp
 		test_image_read.cpp
-		test_image_read_format_selector.cpp
-		test_image_read_format_registry.cpp
 		test_image_reader_provider.cpp
 		test_image_region_grouping.cpp
 		test_image_transaction_plan.cpp
 		test_image_transfer_plan.cpp
 		test_image_transfer_shape.cpp
 		test_image_write.cpp
-		test_image_write_format_selector.cpp
-		test_image_write_format_registry.cpp
 		test_index_table.cpp
-		test_interned_path_list.cpp
+		test_interned_key_list.cpp
 		test_library_version.cpp
 		test_logger.cpp
-		test_managed_image_writer_provider.cpp
 		test_span.cpp
 		test_strict_image_transfer_sanitizer.cpp
 		test_version.cpp

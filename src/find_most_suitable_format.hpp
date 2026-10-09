@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <vitrio/image_format_suitability.hpp>
+#include <vitrio/image_file_format_suitability.hpp>
 
 namespace vitrio
 {
@@ -14,7 +14,7 @@ namespace vitrio
  *
  * @tparam ForwardIte Forward iterator.
  * @tparam F Function taking an item of the range and returning its
- * image_format_suitability.
+ * image_file_format_suitability.
  * @param first First item of the range.
  * @param last Past the last item of the range.
  * @param suitability_evaluator Function that evaluates each item.

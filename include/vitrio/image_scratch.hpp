@@ -17,7 +17,7 @@ class image_scratch_entry;
  * the files themselves.
  *
  * A scratch holds one @ref image_scratch_entry for each file it keeps
- * something of, and finds it by the path to that file. What an entry keeps of
+ * something of, and finds it by the key of that file. What an entry keeps of
  * its file is the entry's implementation's own business.
  *
  * @par Thread safety
@@ -40,12 +40,12 @@ public:
 	 * Shared ownership rather than a reference, so that an entry stays
 	 * alive for as long as it is still read through.
 	 *
-	 * @param path Path to the file.
+	 * @param key Key of the file.
 	 * @return std::shared_ptr<image_scratch_entry> The entry of the file, or
 	 * null when nothing of it is held.
 	 */
 	virtual std::shared_ptr<image_scratch_entry>
-	find(const std::string &path) = 0;
+	find(const std::string &key) = 0;
 };
 
 } // namespace vitrio

@@ -39,7 +39,7 @@ public:
 	 *
 	 * @param path Path to the file.
 	 * @throws image_file_error If the file can not be reached.
-	 * @throws image_format_error If the file is not a TIFF file, if it has
+	 * @throws image_file_format_error If the file is not a TIFF file, if it has
 	 * no pages, if a page is one this format can not transfer, or if its
 	 * pages differ in size or data type.
 	 */
@@ -91,8 +91,8 @@ public:
 	 * after another in the byte order of the host. The rows asked for hold
 	 * their samples and the rest are unspecified. It refers to storage
 	 * owned by this decoder, which the next call may overwrite.
-	 * @throws image_format_error If the page can not be read, or if a block
-	 * of it can not be decoded.
+	 * @throws image_file_format_error If the page can not be read, or if a
+	 * block of it can not be decoded.
 	 */
 	const byte* decode(
 		std::size_t page,

@@ -30,7 +30,7 @@ class image_scratch;
  * Gets a reader over the file from @p readers, allocates what the file holds
  * and fills it, all before returning.
  *
- * @param path Path to the file to read.
+ * @param key Key of the file in @p readers, such as its path.
  * @param readers Where the file becomes a reader.
  * @param data_type Data type of the array, the values of the file being
  * converted to it, or unknown to keep the one the file holds.
@@ -42,7 +42,7 @@ class image_scratch;
  */
 VITRIO_API
 array read(
-	const std::string &path,
+	const std::string &key,
 	image_reader_provider &readers,
 	numerical_type data_type = numerical_type::unknown
 );

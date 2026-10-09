@@ -87,7 +87,7 @@ TEST_CASE( "an image_transaction_plan names each file once",
 {
 	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
 
-	SECTION( "a path named twice keeps the index it was first given" )
+	SECTION( "a key named twice keeps the index it was first given" )
 	{
 		const auto first = plan.add_file("stack_0.mrcs");
 		const auto again = plan.add_file("stack_0.mrcs");
@@ -96,7 +96,7 @@ TEST_CASE( "an image_transaction_plan names each file once",
 		REQUIRE( plan.get_file_count() == 1 );
 	}
 
-	SECTION( "distinct paths get distinct indices" )
+	SECTION( "distinct keys get distinct indices" )
 	{
 		const auto first = plan.add_file("stack_0.mrcs");
 		const auto second = plan.add_file("stack_1.mrcs");

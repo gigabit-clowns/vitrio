@@ -5,7 +5,7 @@
 #include "tiff_sample_type.hpp"
 
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
 #include <logger.hpp>
@@ -108,7 +108,7 @@ TIFF* open_handle(
 
 	if (mode == tiff_file_mode::read && is_readable(path))
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			path + ": tiff_file: The file can not be opened as a TIFF "
 			"file: " + last_error
 		);
@@ -144,7 +144,7 @@ void tiff_file::select_page(std::size_t page)
 {
 	if (TIFFSetDirectory(m_handle, static_cast<tdir_t>(page)) == 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The page can not be selected: " +
 			m_last_error
 		);
@@ -160,7 +160,7 @@ tiff_page_layout tiff_file::get_page_layout()
 		width == 0 ||
 		height == 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The page does not state its size."
 		);
 	}
@@ -170,7 +170,7 @@ tiff_page_layout tiff_file::get_page_layout()
 		m_handle, TIFFTAG_SAMPLESPERPIXEL, &samples_per_pixel);
 	if (samples_per_pixel != 1)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The page holds more than one sample per "
 			"pixel."
 		);
@@ -183,7 +183,7 @@ tiff_page_layout tiff_file::get_page_layout()
 	const auto data_type = get_data_type(bits_per_sample, sample_format);
 	if (data_type == numerical_type::unknown)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The samples of the page have no data "
 			"type this format transfers."
 		);
@@ -193,7 +193,7 @@ tiff_page_layout tiff_file::get_page_layout()
 	TIFFGetFieldDefaulted(m_handle, TIFFTAG_COMPRESSION, &compression);
 	if (TIFFIsCODECConfigured(compression) == 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The page is compressed with a scheme "
 			"that can not be decoded."
 		);
@@ -208,7 +208,7 @@ tiff_page_layout tiff_file::get_page_layout()
 			tile_width == 0 ||
 			tile_height == 0)
 		{
-			throw image_format_error(
+			throw image_file_format_error(
 				m_path + ": tiff_file: The page does not state the size of "
 				"its tiles."
 			);
@@ -222,7 +222,7 @@ tiff_page_layout tiff_file::get_page_layout()
 	TIFFGetFieldDefaulted(m_handle, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
 	if (rows_per_strip == 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: The page states strips of no rows."
 		);
 	}
@@ -241,7 +241,7 @@ void tiff_file::read_block(std::size_t block, span<byte> destination)
 
 	if (decoded < 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: A block of the page can not be decoded: " +
 			m_last_error
 		);
@@ -249,7 +249,7 @@ void tiff_file::read_block(std::size_t block, span<byte> destination)
 
 	if (decoded != size)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			m_path + ": tiff_file: A block of the page does not hold the "
 			"samples its page states."
 		);

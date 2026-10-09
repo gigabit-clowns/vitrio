@@ -14,7 +14,7 @@
 using namespace vitrio;
 
 TEST_CASE(
-	"image_location holds a path and a zero based index in a stack",
+	"image_location holds a key and a zero based index in a stack",
 	"[image_location]"
 )
 {
@@ -22,7 +22,7 @@ TEST_CASE(
 	{
 		const image_location location;
 
-		REQUIRE( location.get_path().empty() );
+		REQUIRE( location.get_key().empty() );
 		REQUIRE( location.get_index_in_stack() ==
 			image_location::no_stack_index );
 	}
@@ -31,7 +31,7 @@ TEST_CASE(
 	{
 		const image_location location("stack.mrcs");
 
-		REQUIRE( location.get_path() == "stack.mrcs" );
+		REQUIRE( location.get_key() == "stack.mrcs" );
 		REQUIRE( location.get_index_in_stack() ==
 			image_location::no_stack_index );
 	}
@@ -40,7 +40,7 @@ TEST_CASE(
 	{
 		const image_location location("stack.mrcs", 2);
 
-		REQUIRE( location.get_path() == "stack.mrcs" );
+		REQUIRE( location.get_key() == "stack.mrcs" );
 		REQUIRE( location.get_index_in_stack() == 2 );
 	}
 
@@ -60,7 +60,7 @@ TEST_CASE( "image_location has value semantics", "[image_location]" )
 		const image_location copy(location);
 
 		REQUIRE( copy == location );
-		REQUIRE( copy.get_path() == "stack.mrcs" );
+		REQUIRE( copy.get_key() == "stack.mrcs" );
 		REQUIRE( copy.get_index_in_stack() == 7 );
 	}
 
@@ -86,18 +86,18 @@ TEST_CASE( "image_location has value semantics", "[image_location]" )
 		REQUIRE( location != image_location("stack.mrcs") );
 	}
 
-	SECTION( "locations differing in path are not equal" )
+	SECTION( "locations differing in key are not equal" )
 	{
 		REQUIRE( location != image_location("other.mrcs", 7) );
 	}
 }
 
 TEST_CASE(
-	"image_location orders by path before index",
+	"image_location orders by key before index",
 	"[image_location]"
 )
 {
-	SECTION( "the path dominates the comparison" )
+	SECTION( "the key dominates the comparison" )
 	{
 		const image_location first("a.mrcs", 100);
 		const image_location second("b.mrcs", 0);
@@ -107,7 +107,7 @@ TEST_CASE(
 		REQUIRE_FALSE( second < first );
 	}
 
-	SECTION( "indices order within one path" )
+	SECTION( "indices order within one key" )
 	{
 		const image_location first("a.mrcs", 0);
 		const image_location second("a.mrcs", 1);
@@ -180,10 +180,10 @@ TEST_CASE( "image_location parses its string form", "[image_location]" )
 {
 	image_location location;
 
-	SECTION( "an indexed path yields a zero based index" )
+	SECTION( "an indexed key yields a zero based index" )
 	{
 		REQUIRE( parse_image_location("3@stack.mrcs", location) );
-		REQUIRE( location.get_path() == "stack.mrcs" );
+		REQUIRE( location.get_key() == "stack.mrcs" );
 		REQUIRE( location.get_index_in_stack() == 2 );
 	}
 
@@ -193,18 +193,18 @@ TEST_CASE( "image_location parses its string form", "[image_location]" )
 		REQUIRE( location.get_index_in_stack() == 0 );
 	}
 
-	SECTION( "a bare path addresses the whole file" )
+	SECTION( "a bare key addresses the whole file" )
 	{
 		REQUIRE( parse_image_location("stack.mrcs", location) );
-		REQUIRE( location.get_path() == "stack.mrcs" );
+		REQUIRE( location.get_key() == "stack.mrcs" );
 		REQUIRE( location.get_index_in_stack() ==
 			image_location::no_stack_index );
 	}
 
-	SECTION( "a path may itself contain directories" )
+	SECTION( "a key may itself contain directories" )
 	{
 		REQUIRE( parse_image_location("12@a/b/stack.mrcs", location) );
-		REQUIRE( location.get_path() == "a/b/stack.mrcs" );
+		REQUIRE( location.get_key() == "a/b/stack.mrcs" );
 		REQUIRE( location.get_index_in_stack() == 11 );
 	}
 
@@ -255,7 +255,7 @@ TEST_CASE( "image_location writes its string form", "[image_location]" )
 			"3@stack.mrcs" );
 	}
 
-	SECTION( "a whole file is written as a bare path" )
+	SECTION( "a whole file is written as a bare key" )
 	{
 		REQUIRE( to_string(image_location("stack.mrcs")) == "stack.mrcs" );
 	}

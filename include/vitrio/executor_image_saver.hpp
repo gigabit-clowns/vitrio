@@ -39,7 +39,7 @@ public:
 	/**
 	 * @brief Construct a saver over a provider and an executor.
 	 *
-	 * @param writers Where a path becomes an open writer.
+	 * @param writers Where a key becomes an open writer.
 	 * @param executor Where a file's write is run.
 	 * @throws std::invalid_argument If @p writers or @p executor is
 	 * null.

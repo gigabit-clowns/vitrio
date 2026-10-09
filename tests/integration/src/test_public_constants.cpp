@@ -2,9 +2,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_location.hpp>
-#include <vitrio/image_probe.hpp>
-#include <vitrio/interned_path_list.hpp>
+#include <vitrio/interned_key_list.hpp>
 
 #include <cstddef>
 #include <limits>
@@ -33,6 +33,8 @@ TEST_CASE(
 	REQUIRE(
 		read_through_reference(image_location::no_stack_index) == highest
 	);
-	REQUIRE( read_through_reference(interned_path_list::no_path) == highest );
-	REQUIRE( read_through_reference(image_probe::max_leading_bytes) == 4096 );
+	REQUIRE( read_through_reference(interned_key_list::no_key) == highest );
+	REQUIRE(
+		read_through_reference(image_file_probe::max_leading_bytes) == 4096
+	);
 }

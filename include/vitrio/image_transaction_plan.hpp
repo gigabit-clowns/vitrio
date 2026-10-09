@@ -5,7 +5,7 @@
 #include <vitrio/export.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/index_table.hpp>
-#include <vitrio/interned_path_list.hpp>
+#include <vitrio/interned_key_list.hpp>
 #include <vitrio/span.hpp>
 
 #include <cstddef>
@@ -59,15 +59,15 @@ public:
 	/**
 	 * @brief Name a file the regions may address.
 	 *
-	 * A path equal to one already named yields the index it was given the
+	 * A key equal to one already named yields the index it was given the
 	 * first time, so the file of every region may be named without checking
 	 * whether it has been named already.
 	 *
-	 * @param path Path to the file.
+	 * @param key Key of the file.
 	 * @return std::size_t Index of the file, below @ref get_file_count.
 	 */
 	VITRIO_API
-	std::size_t add_file(std::string path);
+	std::size_t add_file(std::string key);
 
 	/**
 	 * @brief Append one region.
@@ -132,11 +132,11 @@ public:
 	std::size_t get_file_count() const noexcept;
 
 	/**
-	 * @brief Get the path to one of the files.
+	 * @brief Get the key of one of the files.
 	 *
 	 * @param file_index Index of the file. Must be below
 	 * @ref get_file_count.
-	 * @return const std::string& The path. It refers to storage owned by
+	 * @return const std::string& The key. It refers to storage owned by
 	 * this plan.
 	 */
 	VITRIO_API
@@ -178,7 +178,7 @@ public:
 
 private:
 	image_transfer_shape m_shape;
-	interned_path_list m_files;
+	interned_key_list m_files;
 	index_table m_file_offsets;
 	index_table m_array_offsets;
 };

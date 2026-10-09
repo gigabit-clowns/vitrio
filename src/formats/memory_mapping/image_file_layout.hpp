@@ -39,8 +39,8 @@ public:
 	 * @param order Byte order the values are stated in.
 	 * @throws std::invalid_argument If @p strides do not have the rank of
 	 * the extents of @p descriptor.
-	 * @throws image_format_error If @p data_offset is not a multiple of the
-	 * size of one element, where its values could not be addressed.
+	 * @throws image_file_format_error If @p data_offset is not a multiple of
+	 * the size of one element, where its values could not be addressed.
 	 */
 	image_file_layout(
 		image_descriptor descriptor,

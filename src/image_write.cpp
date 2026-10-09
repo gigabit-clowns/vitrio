@@ -44,7 +44,7 @@ numerical_type resolve_data_type(
 void write_single(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -67,7 +67,7 @@ void write_single(
 void write_stack(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -93,7 +93,7 @@ void write_stack(
 void write(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata
 )

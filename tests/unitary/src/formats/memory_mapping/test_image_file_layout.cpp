@@ -5,7 +5,7 @@
 #include <formats/memory_mapping/image_file_layout.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 
 #include <memory/byte_order.hpp>
@@ -114,7 +114,7 @@ TEST_CASE(
 				1026,
 				byte_order::little_endian
 			),
-			image_format_error
+			image_file_format_error
 		);
 	}
 

@@ -38,7 +38,7 @@ public:
 	/**
 	 * @brief Construct a loader over a provider and an executor.
 	 *
-	 * @param readers Where a path becomes an open reader.
+	 * @param readers Where a key becomes an open reader.
 	 * @param executor Where a file's read is run.
 	 * @throws std::invalid_argument If @p readers or @p executor is
 	 * null.

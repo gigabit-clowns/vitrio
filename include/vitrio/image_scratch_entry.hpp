@@ -83,7 +83,7 @@ public:
 	 *
 	 * @param file A reader over the file this entry is of.
 	 * @param regions The regions to take in.
-	 * @throws image_format_error If the file turns out to be malformed or
+	 * @throws image_file_format_error If the file turns out to be malformed or
 	 * truncated where it is read.
 	 */
 	virtual void store(

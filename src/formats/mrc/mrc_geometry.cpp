@@ -5,7 +5,7 @@
 #include "mrc_constants.hpp"
 #include "mrc_mode.hpp"
 
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/library_version.hpp>
 
@@ -161,7 +161,7 @@ std::vector<std::size_t> derive_axis_order(
 	{
 		if (!has_unset_axes(header))
 		{
-			throw image_format_error(
+			throw image_file_format_error(
 				"mrc::derive_file_layout: The axis correspondence of the file "
 				"names anything but the three axes of space, one each."
 			);

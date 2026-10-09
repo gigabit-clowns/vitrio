@@ -18,14 +18,14 @@ class image_location;
 /**
  * @brief Groups a list of image locations by file.
  *
- * Each file has one group, and the groups are in ascending order of path.
+ * Each file has one group, and the groups are in ascending order of key.
  * The grouping therefore does not depend on the order of the locations.
  *
  * A file is either addressed as a whole, or has the stack indices of its
  * locations. A file that any location addresses as a whole has no indices,
  * because the whole file includes them.
  *
- * Two locations belong to the same file if their paths are equal strings.
+ * Two locations belong to the same file if their keys are equal strings.
  */
 class image_location_grouping
 {
@@ -76,7 +76,7 @@ public:
 
 private:
 	VITRIO_STD_MEMBER_INTERFACE
-	std::vector<std::string> m_paths;
+	std::vector<std::string> m_keys;
 	VITRIO_STD_MEMBER_INTERFACE
 	std::vector<std::size_t> m_indices;
 	VITRIO_STD_MEMBER_INTERFACE
@@ -93,12 +93,12 @@ class image_location_grouping::group
 {
 public:
 	/**
-	 * @brief Get the path of the file.
+	 * @brief Get the key of the file.
 	 *
-	 * @return const std::string& The path.
+	 * @return const std::string& The key.
 	 */
 	VITRIO_API
-	const std::string& get_path() const noexcept;
+	const std::string& get_key() const noexcept;
 
 	/**
 	 * @brief Check whether any location addresses the file as a whole.
@@ -121,9 +121,9 @@ public:
 private:
 	friend class image_location_grouping;
 
-	group(const std::string &path, span<const std::size_t> indices) noexcept;
+	group(const std::string &key, span<const std::size_t> indices) noexcept;
 
-	const std::string *m_path;
+	const std::string *m_key;
 	span<const std::size_t> m_indices;
 };
 

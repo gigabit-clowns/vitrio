@@ -59,23 +59,27 @@ target_link_libraries(
 target_sources(
 	vitrio-obj
 	PRIVATE
-		builtin_image_format_registry.cpp
+		builtin_image_file_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
-		selector_image_reader_provider.cpp
 		executor_image_loader.cpp
 		executor_image_saver.cpp
+		file_image_reader_provider.cpp
+		file_image_writer_provider.cpp
 		image_descriptor.cpp
+		image_file_probe.cpp
+		image_file_read_format.cpp
+		image_file_read_format_registry.cpp
+		image_file_read_format_selector.cpp
+		image_file_write_format.cpp
+		image_file_write_format_registry.cpp
+		image_file_write_format_selector.cpp
 		image_loader.cpp
 		image_location.cpp
 		image_location_grouping.cpp
 		image_metadata.cpp
 		image_plan_builders.cpp
-		image_probe.cpp
 		image_read.cpp
-		image_read_format.cpp
-		image_read_format_selector.cpp
-		image_read_format_registry.cpp
 		image_reader.cpp
 		image_reader_provider.cpp
 		image_region_grouping.cpp
@@ -88,16 +92,12 @@ target_sources(
 		image_transfer_sanitizer.cpp
 		image_transfer_shape.cpp
 		image_write.cpp
-		image_write_format.cpp
-		image_write_format_selector.cpp
-		image_write_format_registry.cpp
 		image_writer.cpp
 		image_writer_provider.cpp
 		index_table.cpp
-		interned_path_list.cpp
+		interned_key_list.cpp
 		library_version.cpp
 		logger.cpp
-		managed_image_writer_provider.cpp
 		strict_image_transfer_sanitizer.cpp
 )
 

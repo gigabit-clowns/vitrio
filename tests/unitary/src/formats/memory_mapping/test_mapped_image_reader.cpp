@@ -13,7 +13,7 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -520,7 +520,7 @@ TEST_CASE(
 				make_layout(extents, 2),
 				image_metadata()
 			),
-			image_format_error,
+			image_file_format_error,
 			names_the_file
 		);
 	}

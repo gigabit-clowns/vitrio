@@ -39,7 +39,7 @@ TEST_CASE(
 
 TEST_CASE(
 	"an image_location_grouping names each file once, in ascending order "
-	"of path",
+	"of key",
 	"[image_location_grouping]"
 )
 {
@@ -53,9 +53,9 @@ TEST_CASE(
 	});
 
 	REQUIRE( grouping.get_group_count() == 3 );
-	CHECK( grouping.get_group(0).get_path() == "stack_0.mrcs" );
-	CHECK( grouping.get_group(1).get_path() == "stack_1.mrcs" );
-	CHECK( grouping.get_group(2).get_path() == "stack_2.mrcs" );
+	CHECK( grouping.get_group(0).get_key() == "stack_0.mrcs" );
+	CHECK( grouping.get_group(1).get_key() == "stack_1.mrcs" );
+	CHECK( grouping.get_group(2).get_key() == "stack_2.mrcs" );
 }
 
 TEST_CASE(
@@ -83,7 +83,7 @@ TEST_CASE(
 		const auto expected = grouping.get_group(index);
 		const auto group = shuffled.get_group(index);
 
-		CHECK( group.get_path() == expected.get_path() );
+		CHECK( group.get_key() == expected.get_key() );
 		CHECK( group.is_whole() == expected.is_whole() );
 		CHECK( to_vector(group.get_indices()) ==
 			to_vector(expected.get_indices()) );
@@ -144,27 +144,27 @@ TEST_CASE(
 
 	SECTION( "a file only ever named as a whole carries no index" )
 	{
-		REQUIRE( grouping.get_group(2).get_path() == "volume.mrc" );
+		REQUIRE( grouping.get_group(2).get_key() == "volume.mrc" );
 		CHECK( grouping.get_group(2).is_whole() );
 		CHECK( grouping.get_group(2).get_indices().empty() );
 	}
 
 	SECTION( "a file only ever named by index is not whole" )
 	{
-		REQUIRE( grouping.get_group(0).get_path() == "stack_0.mrcs" );
+		REQUIRE( grouping.get_group(0).get_key() == "stack_0.mrcs" );
 		CHECK_FALSE( grouping.get_group(0).is_whole() );
 	}
 
 	SECTION( "a file named both ways is whole and carries no index" )
 	{
-		REQUIRE( grouping.get_group(1).get_path() == "stack_1.mrcs" );
+		REQUIRE( grouping.get_group(1).get_key() == "stack_1.mrcs" );
 		CHECK( grouping.get_group(1).is_whole() );
 		CHECK( grouping.get_group(1).get_indices().empty() );
 	}
 }
 
 TEST_CASE(
-	"an image_location_grouping tells files apart by their paths as "
+	"an image_location_grouping tells files apart by their keys as "
 	"written",
 	"[image_location_grouping]"
 )
@@ -175,8 +175,8 @@ TEST_CASE(
 	});
 
 	REQUIRE( grouping.get_group_count() == 2 );
-	CHECK( grouping.get_group(0).get_path() == "./stack.mrcs" );
-	CHECK( grouping.get_group(1).get_path() == "stack.mrcs" );
+	CHECK( grouping.get_group(0).get_key() == "./stack.mrcs" );
+	CHECK( grouping.get_group(1).get_key() == "stack.mrcs" );
 }
 
 TEST_CASE(
@@ -207,7 +207,7 @@ TEST_CASE(
 	const auto first = grouping.get_group(0);
 	const auto copy = first;
 
-	CHECK( copy.get_path() == "stack_0.mrcs" );
+	CHECK( copy.get_key() == "stack_0.mrcs" );
 	CHECK( to_vector(copy.get_indices()) == indices );
 	CHECK_FALSE( copy.is_whole() );
 }

@@ -59,7 +59,7 @@ listing the cases needs the JSON support of CMake 3.19.
 
 vitrio is a shared library only. Its image formats register themselves
 through objects at namespace scope, with the macros of
-`src/formats/image_format_registration_macros.hpp`, and a static archive would
+`src/formats/image_file_format_registration_macros.hpp`, and a static archive would
 drop the object files nothing else refers to.
 
 ## Dependencies
@@ -132,13 +132,22 @@ library needs goes in `dependencies`.
 - **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
   element as `static_cast` does. Any type is produced from any other, except
   that a complex number is only produced into another complex type.
-- **Formats, selectors and providers.** Three roles, kept apart. A format
-  knows one file format, and registers itself at namespace scope with the
-  macros of `src/formats/image_format_registration_macros.hpp`. A selector
-  (`image_read_format_selector`, `image_write_format_selector`) holds
-  formats and opens a file with the most suitable of them; its
-  `get_shared()` holds the bundled ones. A provider serves readers or
-  writers by path, and is given a selector: it holds no formats itself.
+- **Keys and files.** A provider (`image_reader_provider`,
+  `image_writer_provider`) is asked with a key, and what a key means is the
+  provider's business. An `image_location` is a key and an index in a stack,
+  and the plans, the loader and the saver carry keys too. What is about
+  files says so in its name: `image_file_probe`, `image_file_error`,
+  `image_file_format_error`, and three roles that are kept apart:
+  - A file format (`image_file_read_format`, `image_file_write_format`, and
+    for one kind of file `mrc_file_read_format`, `tiff_file_write_format`)
+    knows one format, and registers itself at namespace scope with the
+    macros of `src/formats/image_file_format_registration_macros.hpp`.
+  - A selector (`image_file_read_format_selector`,
+    `image_file_write_format_selector`) holds formats and opens a file with
+    the most suitable of them. Its `get_shared()` holds the bundled ones.
+  - The two providers whose keys are paths, `file_image_reader_provider`
+    and `file_image_writer_provider`, are each given a selector and hold no
+    formats themselves.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

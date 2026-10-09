@@ -6,11 +6,11 @@
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
+#include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
-#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
@@ -43,12 +43,12 @@ std::vector<float> counting(std::size_t count)
 
 TEST_CASE(
 	"an MRC file created through the selectors reads back as it was written",
-	"[mrc][image_format_selector]"
+	"[mrc][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_selector readers;
+	image_file_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	// The four shapes an MRC file can hold. The extents of the stack and of
@@ -108,12 +108,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"an MRC file converts to and from the type it holds",
-	"[mrc][image_format_selector]"
+	"[mrc][image_file_format_selector]"
 )
 {
-	image_write_format_selector writers;
+	image_file_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_selector readers;
+	image_file_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const std::vector<std::size_t> extents = {2, 2};

@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include <vitrio/image_format_suitability.hpp>
-#include <vitrio/image_probe.hpp>
-#include <vitrio/image_read_format_selector.hpp>
-#include <vitrio/image_write_format_selector.hpp>
+#include <vitrio/image_file_format_suitability.hpp>
+#include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 
-#include "../mock/mock_image_read_format.hpp"
-#include "../mock/mock_image_write_format.hpp"
+#include "../mock/mock_image_file_read_format.hpp"
+#include "../mock/mock_image_file_write_format.hpp"
 
 #include <memory>
 #include <trompeloeil.hpp>
@@ -41,12 +41,15 @@ public:
 	 * Further expectations may be set on the format returned, provided they
 	 * are destroyed before this fixture.
 	 */
-	Format& add_format(image_format_suitability suitability)
+	Format& add_format(image_file_format_suitability suitability)
 	{
 		auto format = std::make_unique<Format>();
 		auto &result = *format;
 		m_expectations.push_back(
-			NAMED_ALLOW_CALL(result, get_suitability(ANY(const image_probe&)))
+			NAMED_ALLOW_CALL(
+				result,
+				get_suitability(ANY(const image_file_probe&))
+			)
 				.RETURN(suitability)
 		);
 		m_selector->register_format(std::move(format));
@@ -64,13 +67,13 @@ private:
 };
 
 using read_format_selector_fixture = format_selector_fixture<
-	image_read_format_selector,
-	mock_image_read_format
+	image_file_read_format_selector,
+	mock_image_file_read_format
 >;
 
 using write_format_selector_fixture = format_selector_fixture<
-	image_write_format_selector,
-	mock_image_write_format
+	image_file_write_format_selector,
+	mock_image_file_write_format
 >;
 
 } // namespace vitrio

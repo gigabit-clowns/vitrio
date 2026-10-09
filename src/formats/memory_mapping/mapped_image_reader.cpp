@@ -8,7 +8,7 @@
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
 #include <array/array_data.hpp>
@@ -33,7 +33,7 @@ mapped_image_reader::mapped_image_reader(
 		m_layout.get_data_offset() + m_layout.get_data_size();
 	if (m_mapping.get_size() < required)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			path + ": mapped_image_reader: The file is shorter than the "
 			"values it is said to hold."
 		);

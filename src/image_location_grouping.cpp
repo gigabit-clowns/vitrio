@@ -20,16 +20,16 @@ image_location_grouping::image_location_grouping(
 )
 {
 	std::unordered_map<std::string, std::size_t> files;
-	std::vector<std::string> paths;
+	std::vector<std::string> keys;
 	std::vector<std::vector<std::size_t>> named;
 	std::vector<bool> whole;
 
 	for (const auto &location : locations)
 	{
-		const auto inserted = files.emplace(location.get_path(), paths.size());
+		const auto inserted = files.emplace(location.get_key(), keys.size());
 		if (inserted.second)
 		{
-			paths.push_back(location.get_path());
+			keys.push_back(location.get_key());
 			named.emplace_back();
 			whole.push_back(false);
 		}
@@ -45,23 +45,23 @@ image_location_grouping::image_location_grouping(
 		}
 	}
 
-	std::vector<std::size_t> order(paths.size());
+	std::vector<std::size_t> order(keys.size());
 	std::iota(order.begin(), order.end(), std::size_t(0));
 	std::sort(
 		order.begin(),
 		order.end(),
-		[&paths] (std::size_t lhs, std::size_t rhs)
+		[&keys] (std::size_t lhs, std::size_t rhs)
 		{
-			return paths[lhs] < paths[rhs];
+			return keys[lhs] < keys[rhs];
 		}
 	);
 
-	m_paths.reserve(paths.size());
-	m_first_positions.reserve(paths.size() + 1);
+	m_keys.reserve(keys.size());
+	m_first_positions.reserve(keys.size() + 1);
 	m_first_positions.push_back(0);
 	for (const auto file_index : order)
 	{
-		m_paths.push_back(std::move(paths[file_index]));
+		m_keys.push_back(std::move(keys[file_index]));
 
 		if (!whole[file_index])
 		{
@@ -95,7 +95,7 @@ image_location_grouping& image_location_grouping::operator=(
 
 std::size_t image_location_grouping::get_group_count() const noexcept
 {
-	return m_paths.size();
+	return m_keys.size();
 }
 
 image_location_grouping::group
@@ -113,24 +113,24 @@ image_location_grouping::get_group(std::size_t index) const
 	const auto last = m_first_positions[index + 1];
 
 	return group(
-		m_paths[index],
+		m_keys[index],
 		make_span(m_indices.data() + first, last - first)
 	);
 }
 
 image_location_grouping::group::group(
-	const std::string &path,
+	const std::string &key,
 	span<const std::size_t> indices
 ) noexcept
-	: m_path(&path)
+	: m_key(&key)
 	, m_indices(indices)
 {
 }
 
-const std::string& image_location_grouping::group::get_path() const noexcept
+const std::string& image_location_grouping::group::get_key() const noexcept
 {
-	VITRIO_ASSERT(m_path);
-	return *m_path;
+	VITRIO_ASSERT(m_key);
+	return *m_key;
 }
 
 bool image_location_grouping::group::is_whole() const noexcept

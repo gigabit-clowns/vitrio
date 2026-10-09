@@ -19,7 +19,7 @@ public:
 
 	MAKE_MOCK1(
 		find,
-		std::shared_ptr<image_scratch_entry>(const std::string &path),
+		std::shared_ptr<image_scratch_entry>(const std::string &key),
 		override
 	);
 };

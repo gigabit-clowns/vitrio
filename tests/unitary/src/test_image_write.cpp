@@ -10,10 +10,10 @@
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/image_descriptor.hpp>
+#include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_probe.hpp>
-#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
 #include "fixtures/format_selector_fixture.hpp"
@@ -72,7 +72,7 @@ TEST_CASE_METHOD(
 		numerical_type::float32
 	);
 
-	auto &format = add_format(image_format_suitability::normal);
+	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
 	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
@@ -108,7 +108,7 @@ TEST_CASE_METHOD(
 		numerical_type::int16
 	);
 
-	auto &format = add_format(image_format_suitability::normal);
+	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
 	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
@@ -127,7 +127,7 @@ TEST_CASE_METHOD(
 )
 {
 	// No expectation on open: creating the file would violate.
-	add_format(image_format_suitability::normal);
+	add_format(image_file_format_suitability::normal);
 
 	REQUIRE_THROWS_AS(
 		write_single(
@@ -149,7 +149,7 @@ TEST_CASE_METHOD(
 	const std::vector<std::size_t> extents = {2, 3, 4};
 	const auto arr = make_test_array(extents, numerical_type::float32);
 
-	auto &format = add_format(image_format_suitability::normal);
+	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 	ALLOW_CALL(*writer, write(trompeloeil::_, trompeloeil::_));
 	ALLOW_CALL(*writer, flush());
@@ -198,7 +198,7 @@ TEST_CASE_METHOD(
 )
 {
 	// No expectation on open: creating the file would violate.
-	add_format(image_format_suitability::normal);
+	add_format(image_file_format_suitability::normal);
 
 	REQUIRE_THROWS_AS(
 		write_stack(
@@ -226,7 +226,7 @@ TEST_CASE_METHOD(
 		numerical_type::int16
 	);
 
-	auto &format = add_format(image_format_suitability::normal);
+	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
 	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
@@ -259,7 +259,7 @@ TEST_CASE_METHOD(
 	);
 
 	// No expectation on open: creating the file would violate.
-	add_format(image_format_suitability::normal);
+	add_format(image_file_format_suitability::normal);
 
 	REQUIRE_THROWS_AS(
 		write(arr, "out.mrc", *get_selector(), descriptor),
@@ -275,7 +275,7 @@ TEST_CASE_METHOD(
 {
 	const auto arr = make_test_array({2, 3}, numerical_type::float32);
 
-	auto &format = add_format(image_format_suitability::normal);
+	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 	trompeloeil::sequence order;
 

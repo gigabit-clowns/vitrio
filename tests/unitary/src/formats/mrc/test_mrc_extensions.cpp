@@ -38,14 +38,14 @@ TEST_CASE( "the extensions an MRC file is read from", "[mrc_extensions]" )
 
 	SECTION( "the leading dot is part of it" )
 	{
-		// image_probe reports the extension with its dot, so a bare suffix
+		// image_file_probe reports the extension with its dot, so a bare suffix
 		// is not one of these.
 		REQUIRE_FALSE( is_readable_extension("mrc") );
 	}
 
 	SECTION( "it is matched as given, already folded to lower case" )
 	{
-		// image_probe folds the case before this is reached, so an upper
+		// image_file_probe folds the case before this is reached, so an upper
 		// case extension never arrives here and is not matched.
 		REQUIRE_FALSE( is_readable_extension(".MRC") );
 	}

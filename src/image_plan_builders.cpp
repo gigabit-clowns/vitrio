@@ -127,7 +127,7 @@ image_transaction_plan make_batch_plan(
 		}
 
 		transaction.add(
-			transaction.add_file(location.get_path()),
+			transaction.add_file(location.get_key()),
 			make_span(file_offset),
 			make_span(array_offset)
 		);
@@ -181,7 +181,7 @@ image_transaction_plan make_patch_plan(
 		file_offset[0] = location.get_index_in_stack();
 	}
 
-	const auto file_index = transaction.add_file(location.get_path());
+	const auto file_index = transaction.add_file(location.get_key());
 	for (std::size_t i = 0; i < batch_size; ++i)
 	{
 		array_offset[0] = i;

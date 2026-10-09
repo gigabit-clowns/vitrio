@@ -42,8 +42,8 @@ public:
 	 * @param layout Where and how the file holds its values.
 	 * @param metadata What the file states beyond its shape and data type.
 	 * @throws image_file_error If the file can not be mapped.
-	 * @throws image_format_error If the file is shorter than @p layout says
-	 * it is.
+	 * @throws image_file_format_error If the file is shorter than @p layout
+	 * says it is.
 	 */
 	mapped_image_reader(
 		const std::string &path,

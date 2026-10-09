@@ -6,8 +6,8 @@
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/export.hpp>
+#include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/span.hpp>
 
 #include <cstddef>
@@ -44,7 +44,7 @@ VITRIO_API
 void write_single(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -69,7 +69,7 @@ VITRIO_API
 void write_stack(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -95,7 +95,7 @@ VITRIO_API
 void write(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_selector &formats,
+	const image_file_write_format_selector &formats,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata = image_metadata()
 );

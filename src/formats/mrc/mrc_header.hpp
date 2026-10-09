@@ -191,9 +191,9 @@ bool has_map_identifier(span<const byte> bytes) noexcept;
  * @param bytes The bytes of the file, of which the first
  * @ref header_size are read.
  * @return mrc_header The parsed header.
- * @throws image_format_error If there are not enough bytes, if the identifier
- * is missing, if no byte order resolves the mode, or if a field contradicts
- * what the format allows.
+ * @throws image_file_format_error If there are not enough bytes, if the
+ * identifier is missing, if no byte order resolves the mode, or if a field
+ * contradicts what the format allows.
  */
 mrc_header parse_header(span<const byte> bytes);
 

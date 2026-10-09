@@ -2,7 +2,7 @@
 
 #include "tiff_page_decoder.hpp"
 
-#include <vitrio/exceptions/image_format_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/span.hpp>
 
 #include <algorithm>
@@ -23,7 +23,7 @@ tiff_page_layout get_common_layout(
 {
 	if (page_count == 0)
 	{
-		throw image_format_error(
+		throw image_file_format_error(
 			path + ": tiff_page_decoder: The file holds no page."
 		);
 	}
@@ -37,7 +37,7 @@ tiff_page_layout get_common_layout(
 			layout.get_height() != first.get_height() ||
 			layout.get_data_type() != first.get_data_type())
 		{
-			throw image_format_error(
+			throw image_file_format_error(
 				path + ": tiff_page_decoder: The pages of the file differ "
 				"in size or data type."
 			);

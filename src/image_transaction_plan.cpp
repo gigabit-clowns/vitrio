@@ -30,9 +30,9 @@ image_transaction_plan& image_transaction_plan::operator=(
 	image_transaction_plan &&other
 ) noexcept = default;
 
-std::size_t image_transaction_plan::add_file(std::string path)
+std::size_t image_transaction_plan::add_file(std::string key)
 {
-	return m_files.intern(std::move(path));
+	return m_files.intern(std::move(key));
 }
 
 void image_transaction_plan::add(
@@ -41,7 +41,7 @@ void image_transaction_plan::add(
 	span<const std::size_t> array_offset
 )
 {
-	if (file_index >= m_files.get_path_count())
+	if (file_index >= m_files.get_key_count())
 	{
 		throw std::out_of_range(
 			"image_transaction_plan::add: The file index names no file of "
@@ -100,19 +100,19 @@ image_transaction_plan::get_shape() const noexcept
 
 std::size_t image_transaction_plan::get_file_count() const noexcept
 {
-	return m_files.get_path_count();
+	return m_files.get_key_count();
 }
 
 const std::string&
 image_transaction_plan::get_file(std::size_t file_index) const noexcept
 {
-	return m_files.get_path(file_index);
+	return m_files.get_key(file_index);
 }
 
 std::size_t
 image_transaction_plan::get_region_file(std::size_t region_index) const noexcept
 {
-	return m_files.get_path_index(region_index);
+	return m_files.get_key_index(region_index);
 }
 
 span<const std::size_t>

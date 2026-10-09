@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <vitrio/image_file_probe.hpp>
+
+#include <vitrio/byte.hpp>
+
+#include <vitrio/tests/scoped_path.hpp>
+
+#include <cstddef>
+#include <fstream>
+#include <string>
+#include <vector>
+
+using namespace vitrio;
+
+namespace
+{
+
+// Writes `size` bytes counting up from zero and wrapping at 256, so that a
+// test can tell which of them it was handed.
+void write_counting_bytes(const std::string &path, std::size_t size)
+{
+	std::ofstream output(path.c_str(), std::ios::out | std::ios::binary);
+	for (std::size_t i = 0; i < size; ++i)
+	{
+		output.put(static_cast<char>(i % 256));
+	}
+}
+
+} // anonymous namespace
+
+TEST_CASE(
+	"image_file_probe reads the leading bytes once",
+	"[image_file_probe]"
+)
+{
+	SECTION( "a file longer than the limit yields the whole of it" )
+	{
+		const scoped_path path("test_image_file_probe_long.bin");
+		write_counting_bytes(
+			path.get(),
+			image_file_probe::max_leading_bytes * 2
+		);
+		const image_file_probe probe(path.get());
+
+		REQUIRE( probe.exists() );
+		REQUIRE( probe.get_leading_bytes().size() ==
+			image_file_probe::max_leading_bytes );
+		REQUIRE( probe.get_leading_bytes()[0] == byte(0) );
+		REQUIRE( probe.get_leading_bytes()[255] == byte(255) );
+	}
+
+	SECTION( "a file shorter than the limit yields what there is" )
+	{
+		const scoped_path path("test_image_file_probe_short.bin");
+		write_counting_bytes(path.get(), 16);
+		const image_file_probe probe(path.get());
+
+		REQUIRE( probe.exists() );
+		REQUIRE( probe.get_leading_bytes().size() == 16 );
+	}
+
+	SECTION( "an empty file yields no leading bytes" )
+	{
+		const scoped_path path("test_image_file_probe_empty.bin");
+		write_counting_bytes(path.get(), 0);
+		const image_file_probe probe(path.get());
+
+		REQUIRE( probe.exists() );
+		REQUIRE( probe.get_leading_bytes().empty() );
+	}
+}
+
+TEST_CASE(
+	"image_file_probe tolerates a file that is not there",
+	"[image_file_probe]"
+)
+{
+	const image_file_probe probe("test_image_file_probe_absent.mrc");
+
+	SECTION( "it reports the file as absent" )
+	{
+		REQUIRE_FALSE( probe.exists() );
+	}
+
+	SECTION( "it exposes no bytes to decide on" )
+	{
+		REQUIRE( probe.get_leading_bytes().empty() );
+	}
+
+	SECTION( "it still exposes the path and the extension" )
+	{
+		REQUIRE( probe.get_path() == "test_image_file_probe_absent.mrc" );
+		REQUIRE( probe.get_extension() == ".mrc" );
+	}
+}
+
+TEST_CASE( "image_file_probe normalizes the extension", "[image_file_probe]" )
+{
+	SECTION( "an extension is folded to lower case" )
+	{
+		const image_file_probe probe("absent.MRCS");
+
+		REQUIRE( probe.get_extension() == ".mrcs" );
+	}
+
+	SECTION( "a mixed case extension is folded too" )
+	{
+		const image_file_probe probe("absent.TiFf");
+
+		REQUIRE( probe.get_extension() == ".tiff" );
+	}
+
+	SECTION( "only the last extension is reported" )
+	{
+		const image_file_probe probe("absent.tar.gz");
+
+		REQUIRE( probe.get_extension() == ".gz" );
+	}
+
+	SECTION( "a name without an extension yields nothing" )
+	{
+		const image_file_probe probe("absent");
+
+		REQUIRE( probe.get_extension().empty() );
+	}
+
+	SECTION( "a dot in a directory is not an extension" )
+	{
+		const image_file_probe probe("a.b/absent");
+
+		REQUIRE( probe.get_extension().empty() );
+	}
+
+	SECTION( "the path is kept exactly as it was given" )
+	{
+		const image_file_probe probe("Absent.MRCS");
+
+		REQUIRE( probe.get_path() == "Absent.MRCS" );
+	}
+}
