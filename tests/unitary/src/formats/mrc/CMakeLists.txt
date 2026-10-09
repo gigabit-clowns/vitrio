@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+target_sources(
+	vitrio-unitary-tests
+	PRIVATE
+		test_mrc_constants.cpp
+		test_mrc_extensions.cpp
+		test_mrc_geometry.cpp
+		test_mrc_header.cpp
+		test_mrc_mode.cpp
+		test_mrc_read_format.cpp
+		test_mrc_write_format.cpp
+)

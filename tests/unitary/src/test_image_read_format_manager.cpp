@@ -7,7 +7,7 @@
 #include <vitrio/image_read_format_manager.hpp>
 
 #include "fixtures/format_manager_fixture.hpp"
-#include "fixtures/scoped_path.hpp"
+#include <vitrio/tests/scoped_path.hpp>
 #include "mock/mock_image_reader.hpp"
 #include "mock/mock_image_read_format.hpp"
 

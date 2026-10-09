@@ -5,7 +5,9 @@
   "dependencies": [
     "boost-container-hash",
     "boost-filesystem",
-    "half"
+    "boost-interprocess",
+    "half",
+    "spdlog"
   ],
   "default-features": [
     "tests"

@@ -26,6 +26,7 @@ target_sources(
 		test_index_table.cpp
 		test_interned_path_list.cpp
 		test_library_version.cpp
+		test_logger.cpp
 		test_span.cpp
 		test_strict_image_transfer_sanitizer.cpp
 		test_version.cpp
@@ -35,3 +36,4 @@ add_subdirectory(array)
 add_subdirectory(concurrency)
 add_subdirectory(formats)
 add_subdirectory(memory)
+add_subdirectory(system)

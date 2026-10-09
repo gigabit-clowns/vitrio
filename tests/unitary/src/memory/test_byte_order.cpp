@@ -153,6 +153,46 @@ TEST_CASE(
 }
 
 TEST_CASE(
+	"convert_byte_order reverses an integer only between different orders",
+	"[byte_order]"
+)
+{
+	const std::uint32_t value = 0x12345678;
+
+	SECTION( "the same order leaves it as it is" )
+	{
+		REQUIRE( convert_byte_order(
+			value, byte_order::little_endian, byte_order::little_endian
+		) == value );
+		REQUIRE( convert_byte_order(
+			value, byte_order::big_endian, byte_order::big_endian
+		) == value );
+	}
+
+	SECTION( "another order reverses its bytes" )
+	{
+		REQUIRE( convert_byte_order(
+			value, byte_order::little_endian, byte_order::big_endian
+		) == 0x78563412 );
+		REQUIRE( convert_byte_order(
+			value, byte_order::big_endian, byte_order::little_endian
+		) == 0x78563412 );
+	}
+
+	SECTION( "converting there and back is the identity" )
+	{
+		const std::int16_t negative = -2;
+		const auto there = convert_byte_order(
+			negative, byte_order::little_endian, byte_order::big_endian
+		);
+
+		REQUIRE( convert_byte_order(
+			there, byte_order::big_endian, byte_order::little_endian
+		) == negative );
+	}
+}
+
+TEST_CASE(
 	"get_system_byte_order reports how this machine stores its numbers",
 	"[byte_order]"
 )

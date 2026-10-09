@@ -18,12 +18,15 @@ in the same commit that causes it.
 | `include/vitrio/concurrency/` | Executors, the tasks they run and the completions that report them |
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
-| `src/formats/` | What the image formats are built with. One directory per format will follow |
+| `src/formats/` | The image formats and what they are built with. Each format has a directory and a namespace of its own, such as `vitrio::mrc` |
 | `src/formats/strided_transfer/` | Moves regions between a file and an array: resolves where each one starts, works out the order to walk it in, and converts its elements |
+| `src/formats/memory_mapping/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are, and advises the pages a read is about to touch |
+| `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, the cast between two of them, their byte order |
+| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
-| `tests/assets/` | What the tests are given, and the directory under the build tree they write to |
+| `tests/assets/` | The files the tests are given, read where they are, the directory under the build tree the tests write to, and the helpers that name paths in both |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
 | `cmake/modules/` | CMake modules of the project |
@@ -74,8 +77,9 @@ library needs goes in `dependencies`.
 | Dependency | Needed by |
 |---|---|
 | Threads | The library, privately |
-| Boost 1.70 or newer: Filesystem, ContainerHash | The library, privately |
+| Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
 | half | The library, privately, for half precision numbers. It ships no CMake package, so `cmake/modules/Findhalf.cmake` finds its header |
+| spdlog 1.4 or newer | The library, privately and header only, for its log |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
 
@@ -128,6 +132,13 @@ library needs goes in `dependencies`.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.
+- **Logging.** What can be reported in no other way is logged with the
+  `VITRIO_LOG_*` macros of `src/logger.hpp`, which wrap spdlog and take its
+  format strings. They write to a logger of the library's own, on the
+  standard error stream, and never to the default logger of spdlog. spdlog
+  stays out of the public headers.
+- **Tuning.** A number that tunes the library is a macro in `src/config.hpp`,
+  with a default that the build may override.
 - **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
   release may break the ABI, so the name of the shared library carries the
   minor version (`libvitrio.so.0.1`).

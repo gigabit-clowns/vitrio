@@ -6,7 +6,7 @@
 
 #include <vitrio/byte.hpp>
 
-#include "fixtures/scoped_path.hpp"
+#include <vitrio/tests/scoped_path.hpp>
 
 #include <cstddef>
 #include <fstream>

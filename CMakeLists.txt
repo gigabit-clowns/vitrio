@@ -55,6 +55,7 @@ endif()
 find_package(Threads REQUIRED)
 find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
 find_package(half REQUIRED)
+find_package(spdlog 1.4 REQUIRED CONFIG)
 
 add_subdirectory(src)
 

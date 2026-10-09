@@ -84,6 +84,20 @@ float16_t reverse_byte_order(float16_t x) noexcept;
 template <typename T>
 std::complex<T> reverse_byte_order(const std::complex<T> &x) noexcept;
 
+/**
+ * @brief Convert an integer from one byte order to another.
+ *
+ * @tparam T Type of the integer.
+ * @param x The integer, in the byte order @p from.
+ * @param from The byte order @p x is in.
+ * @param to The byte order to convert it to.
+ * @return T @p x when the two byte orders are the same, and @p x with its
+ * bytes reversed otherwise.
+ */
+template <typename T>
+constexpr typename std::enable_if<std::is_integral<T>::value, T>::type
+convert_byte_order(T x, byte_order from, byte_order to) noexcept;
+
 } // namespace vitrio
 
 #include "byte_order.inl"

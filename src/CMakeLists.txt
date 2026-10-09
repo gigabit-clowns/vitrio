@@ -53,6 +53,7 @@ target_link_libraries(
 		Boost::filesystem
 		Boost::headers
 		half::half
+		spdlog::spdlog_header_only
 )
 
 target_sources(
@@ -89,6 +90,7 @@ target_sources(
 		index_table.cpp
 		interned_path_list.cpp
 		library_version.cpp
+		logger.cpp
 		strict_image_transfer_sanitizer.cpp
 )
 
@@ -96,6 +98,7 @@ add_subdirectory(array)
 add_subdirectory(concurrency)
 add_subdirectory(formats)
 add_subdirectory(memory)
+add_subdirectory(system)
 
 # vitrio is a shared library only. Its image formats register themselves
 # through objects at namespace scope, and a static archive would drop the

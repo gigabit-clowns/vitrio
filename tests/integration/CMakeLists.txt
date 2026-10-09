@@ -18,6 +18,7 @@ target_link_libraries(
 	vitrio-integration-tests
 	PRIVATE
 		vitrio
+		vitrio-test-assets-interface
 		Catch2::Catch2WithMain
 )
 

@@ -112,4 +112,11 @@ inline std::complex<T> reverse_byte_order(const std::complex<T> &x) noexcept
 	);
 }
 
+template <typename T>
+constexpr typename std::enable_if<std::is_integral<T>::value, T>::type
+convert_byte_order(T x, byte_order from, byte_order to) noexcept
+{
+	return from == to ? x : reverse_byte_order(x);
+}
+
 } // namespace vitrio
