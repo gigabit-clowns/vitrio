@@ -63,7 +63,7 @@ jobs:
         run: cmake --preset debug
 
       - name: Build
-        run: cmake --build --preset debug --parallel
+        run: cmake --build --preset debug --parallel 4
 
       - name: Test
         run: ctest --preset debug
@@ -97,7 +97,7 @@ jobs:
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} --parallel
+        run: cmake --build --preset ${{ matrix.preset }} --parallel 4
 
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
@@ -133,7 +133,7 @@ jobs:
 
       - name: Build
         run: >-
-          "$RUNNER_TEMP/cmake/bin/cmake" --build build -- -j "$(nproc)"
+          "$RUNNER_TEMP/cmake/bin/cmake" --build build --parallel 4
 
       - name: Test
         working-directory: build
