@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+name: Build and test
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - LICENSE
+      - '**.md'
+      - .clang-tidy
+      - .editorconfig
+      - .gitignore
+      - renovate.json
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }}, ${{ matrix.cxx }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cxx: g++
+          - os: ubuntu-latest
+            cxx: clang++
+          - os: macos-latest
+            cxx: clang++
+          - os: windows-latest
+            cxx: cl
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          key: ${{ matrix.os }}-${{ matrix.cxx }}
+
+      # The Visual Studio generator chooses its own compiler, so CXX is left
+      # empty on Windows.
+      - name: Configure
+        env:
+          CXX: ${{ runner.os != 'Windows' && matrix.cxx || '' }}
+        run: cmake --preset debug
+
+      - name: Build
+        run: cmake --build --preset debug --parallel
+
+      - name: Test
+        run: ctest --preset debug
+
+  sanitize:
+    name: Address and undefined behaviour sanitizers
+    runs-on: ubuntu-latest
+    env:
+      CXX: clang++
+      ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          key: ubuntu-latest-clang++
+
+      - name: Configure
+        run: cmake --preset sanitize
+
+      - name: Build
+        run: cmake --build --preset sanitize --parallel
+
+      - name: Test
+        run: ctest --preset sanitize
+
+  # The presets need CMake 3.21, so this is the one job that does without
+  # them, and the one that holds cmake_minimum_required to its word.
+  minimum-cmake:
+    name: CMake 3.18
+    runs-on: ubuntu-latest
+    env:
+      CXX: g++
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          key: ubuntu-latest-g++
+
+      - name: Install CMake 3.18
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cmake"
+          "$RUNNER_TEMP/cmake/bin/pip" install --quiet cmake==3.18.0
+          "$RUNNER_TEMP/cmake/bin/cmake" --version
+
+      - name: Configure
+        run: >-
+          "$RUNNER_TEMP/cmake/bin/cmake" -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_TOOLCHAIN_FILE="$CMAKE_TOOLCHAIN_FILE"
+          -DVITRIO_CHECK_HEADERS=ON
+
+      - name: Build
+        run: >-
+          "$RUNNER_TEMP/cmake/bin/cmake" --build build -- -j "$(nproc)"
+
+      - name: Test
+        working-directory: build
+        run: >-
+          "$RUNNER_TEMP/cmake/bin/ctest" --output-on-failure
+
+      - name: Install
+        run: >-
+          "$RUNNER_TEMP/cmake/bin/cmake" --install build
+          --prefix "$RUNNER_TEMP/install"

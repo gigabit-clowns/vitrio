@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+name: Set up vcpkg
+description: >-
+  Check vcpkg out at the baseline of the manifest, keep the packages it builds
+  between runs, and make CMake find them.
+
+inputs:
+  key:
+    description: What tells the packages of this job from those of the others.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # CMAKE_TOOLCHAIN_FILE is read from the environment by CMake 3.21 and
+    # newer. An older one has to be given it on the command line.
+    - name: Choose where vcpkg and the packages it builds go
+      shell: bash
+      run: |
+        temp=$(cygpath -m "$RUNNER_TEMP" 2> /dev/null || echo "$RUNNER_TEMP")
+        mkdir -p "$temp/vcpkg-cache"
+        {
+          echo "VCPKG_ROOT=$temp/vcpkg"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$temp/vcpkg-cache"
+          echo "CMAKE_TOOLCHAIN_FILE=$temp/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          echo "VCPKG_DISABLE_METRICS=1"
+        } >> "$GITHUB_ENV"
+
+    - name: Restore the packages vcpkg built before
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: vcpkg-${{ inputs.key }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-${{ inputs.key }}-
+
+    # A clone without blobs still has every commit, which is what vcpkg
+    # needs to resolve the baseline, and fetches only the files it reads.
+    - name: Check vcpkg out at the baseline of the manifest
+      shell: bash
+      run: |
+        baseline=$(sed -n 's/.*"builtin-baseline": *"\([0-9a-f]*\)".*/\1/p' vcpkg.json)
+        if [ -z "$baseline" ]; then
+          echo "vcpkg.json states no builtin-baseline" >&2
+          exit 1
+        fi
+        git clone --quiet --filter=blob:none \
+          https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+        git -C "$VCPKG_ROOT" checkout --quiet "$baseline"
+        "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
