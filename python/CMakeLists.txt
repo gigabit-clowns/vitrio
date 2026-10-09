@@ -9,7 +9,13 @@ set(CMAKE_CXX_STANDARD 17)
 # with this directory on the path.
 set(VITRIO_PYTHON_PACKAGE_DIR ${CMAKE_CURRENT_BINARY_DIR}/vitrio)
 
-nanobind_add_module(vitrio-python)
+# nanobind falls back to the ABI of the interpreter on a Python older than
+# 3.12, whose stable ABI lacks what it needs.
+if(VITRIO_PYTHON_STABLE_ABI)
+	nanobind_add_module(vitrio-python STABLE_ABI)
+else()
+	nanobind_add_module(vitrio-python)
+endif()
 
 set_target_properties(
 	vitrio-python
@@ -36,6 +42,22 @@ target_link_libraries(
 	PRIVATE
 		vitrio::vitrio
 )
+
+# Once installed the library is beside the extension, which is where the
+# extension looks for it. Windows looks there without being told.
+if(APPLE)
+	set_target_properties(
+		vitrio-python
+		PROPERTIES
+			INSTALL_RPATH "@loader_path"
+	)
+elseif(UNIX)
+	set_target_properties(
+		vitrio-python
+		PROPERTIES
+			INSTALL_RPATH "$ORIGIN"
+	)
+endif()
 
 vitrio_enable_warnings(vitrio-python)
 
@@ -66,4 +88,44 @@ nanobind_add_stub(
 	OUTPUT ${VITRIO_PYTHON_PACKAGE_DIR}/_binding.pyi
 	PYTHON_PATH ${CMAKE_CURRENT_BINARY_DIR}
 	DEPENDS vitrio-python
+)
+
+# The package is installed as a component of its own, which a plain install
+# leaves out: it goes where Python looks for packages, and that is not under
+# the prefix the library goes to. pip installs it, or
+#
+#   cmake --install <build> --component vitrio_python --prefix <site-packages>
+#
+# The library goes beside the extension, under the name the extension asks
+# for. The import library of Windows belongs to a component nobody installs.
+install(
+	TARGETS vitrio-python
+	LIBRARY
+		DESTINATION vitrio
+		COMPONENT vitrio_python
+		EXCLUDE_FROM_ALL
+)
+
+install(
+	TARGETS vitrio
+	RUNTIME
+		DESTINATION vitrio
+		COMPONENT vitrio_python
+		EXCLUDE_FROM_ALL
+	LIBRARY
+		DESTINATION vitrio
+		COMPONENT vitrio_python
+		NAMELINK_SKIP
+		EXCLUDE_FROM_ALL
+	ARCHIVE
+		DESTINATION vitrio
+		COMPONENT vitrio_python_import_library
+		EXCLUDE_FROM_ALL
+)
+
+install(
+	FILES ${VITRIO_PYTHON_PACKAGE_DIR}/_binding.pyi
+	DESTINATION vitrio
+	COMPONENT vitrio_python
+	EXCLUDE_FROM_ALL
 )

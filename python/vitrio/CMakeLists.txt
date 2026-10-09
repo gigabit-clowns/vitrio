@@ -10,4 +10,11 @@ foreach(
 	py.typed
 )
 	configure_file(${SOURCE} ${VITRIO_PYTHON_PACKAGE_DIR}/${SOURCE} COPYONLY)
+
+	install(
+		FILES ${SOURCE}
+		DESTINATION vitrio
+		COMPONENT vitrio_python
+		EXCLUDE_FROM_ALL
+	)
 endforeach()

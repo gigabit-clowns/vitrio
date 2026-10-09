@@ -7,8 +7,7 @@ It is under construction. The code is being ported from the image subsystem of
 [rexlib](https://github.com/gigabit-clowns/rexlib). The C++ library is here:
 MRC and TIFF files are read and written, whole or a batch at a time through
 a loader or a saver, and a scratch keeps a copy of what is read in memory
-or in a mapped file. The Python package is built from this tree. It is not
-packaged for pip yet.
+or in a mapped file. The Python package is over it.
 
 ## Building
 
@@ -30,9 +29,18 @@ To leave the tests out, and their two dependencies with them, add
 
 ## The Python package
 
-It is built with `-DVITRIO_BUILD_PYTHON=ON`, which needs Python 3.10 or
-newer with nanobind installed in it. The package is assembled under
-`python/` of the build tree, so that directory goes on `PYTHONPATH`.
+```
+pip install vitrio
+```
+
+The wheels hold everything they need. Where there is none for a platform,
+pip builds the package from its source, as `pip install .` does from this
+tree. The dependencies of the library then have to be installed, as for any
+other build, and pip brings the build tools.
+
+To work on it, build it with `-DVITRIO_BUILD_PYTHON=ON`, which needs Python
+3.10 or newer with nanobind installed in it. The package is assembled
+under `python/` of the build tree, so that directory goes on `PYTHONPATH`.
 
 ```python
 import numpy

@@ -39,6 +39,7 @@ in the same commit that causes it.
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
 | `.github/actions/` | The actions the workflows share. They belong to this repository |
+| `pyproject.toml` | How pip builds the Python package, the versions of what its builds and tests install, and how cibuildwheel builds the wheels |
 
 Every directory holding sources carries a `CMakeLists.txt` naming them. The
 lists are explicit rather than globbed, so a new `.cpp` has to be named there
@@ -75,9 +76,23 @@ as one test. To run pytest by hand:
 PYTHONPATH=build/python python -m pytest tests/python
 ```
 
-`tests/python/requirements.txt` pins what CI installs for it. The cases
-that exchange arrays with PyTorch, JAX and rexlib are skipped where those
-are not installed. The package is not installed by `cmake --install` yet.
+The `dev` group of `pyproject.toml` pins what CI installs for it
+(`pip install --group dev`). The cases that exchange arrays with PyTorch,
+JAX and rexlib are skipped where those are not installed.
+
+`pip install .` builds the same package through scikit-build-core, which
+configures this project as it is. The dependencies have to be found, as in
+any other build: pip installs nothing but the build tools. A plain
+`cmake --install` leaves the package out. It is the component
+`vitrio_python`, which goes into the directory Python looks for packages
+in, with the library beside the extension.
+
+The wheels are built by cibuildwheel, with vcpkg providing the
+dependencies from the same manifest the other workflows use. On Linux and
+macOS vcpkg builds static libraries and on Windows it is asked to, so a
+wheel holds everything it needs. A wheel is built against the stable ABI
+of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
+each.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented
@@ -114,6 +129,7 @@ library needs goes in `dependencies`.
 | trompeloeil | The unit tests, for their mocks |
 | Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and not in the manifest: pip provides nanobind |
 | pytest, numpy | The tests of the Python package |
+| scikit-build-core | A build of the Python package by pip |
 
 ## Conventions
 
@@ -221,5 +237,12 @@ Linux, Clang on macOS and MSVC on Windows, then again with the address and
 undefined behaviour sanitizers and with the thread sanitizer, and once more
 with CMake 3.18. The jobs that are not under a sanitizer build the Python
 package too and run its suite, one of them with the oldest Python the
-package supports. It uses public
-actions and the ones under `.github/actions/`, and none of the organisation's.
+package supports.
+
+`.github/workflows/release.yml` builds the source distribution and, from it,
+the wheels of each platform, and tests each wheel. A tag `v*` publishes
+them to PyPI, which trusts the workflow, so no token is kept. It runs too
+when what decides how they are built changes, and by hand.
+
+Both use public actions and the ones under `.github/actions/`, and none of
+the organisation's.

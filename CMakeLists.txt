@@ -28,6 +28,12 @@ include(vitrio_enable_warnings)
 option(VITRIO_INSTALL "Generate vitrio's install rules" ON)
 option(VITRIO_ENABLE_TIFF "Read and write TIFF files, which needs libtiff" ON)
 option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
+option(
+	VITRIO_PYTHON_STABLE_ABI
+	"Build the extension of the Python package against the stable ABI, so \
+that one build serves Python 3.12 and newer. Needs CMake 3.26"
+	OFF
+)
 option(VITRIO_BUILD_TESTING "Build vitrio's tests" ${BUILD_TESTING})
 option(
 	VITRIO_REGISTER_TESTS_PER_BINARY
@@ -68,9 +74,14 @@ endif()
 # nanobind ships its CMake package inside its Python package, so the
 # interpreter that has it is asked where that is.
 if(VITRIO_BUILD_PYTHON)
+	set(VITRIO_PYTHON_COMPONENTS Interpreter Development.Module)
+	if(VITRIO_PYTHON_STABLE_ABI)
+		list(APPEND VITRIO_PYTHON_COMPONENTS Development.SABIModule)
+	endif()
+
 	find_package(
 		Python 3.10 REQUIRED
-		COMPONENTS Interpreter Development.Module
+		COMPONENTS ${VITRIO_PYTHON_COMPONENTS}
 	)
 
 	if(NOT nanobind_ROOT AND NOT nanobind_DIR)

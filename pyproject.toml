@@ -1,0 +1,157 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[build-system]
+requires = [
+    "scikit-build-core==1.0.3",
+    "nanobind==3.1.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "vitrio"
+dynamic = ["version"]
+description = "Reads and writes the image files of electron microscopy"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "LGPL-2.1-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Oier Lauzirika Zarrabeitia", email = "oierlauzi@bizkaia.eu" },
+]
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/gigabit-clowns/vitrio"
+Issues = "https://github.com/gigabit-clowns/vitrio/issues"
+
+# numpy drops a version of Python sooner than vitrio does, so each gets the
+# last release that still has it.
+[dependency-groups]
+test = [
+    "pytest==9.1.1",
+    "numpy==2.2.6; python_version == '3.10'",
+    "numpy==2.4.6; python_version == '3.11'",
+    "numpy==2.5.3; python_version >= '3.12'",
+]
+# What building the package with CMake alone takes, besides its tests.
+dev = [
+    { include-group = "test" },
+    "nanobind==3.1.0",
+]
+# What the workflow that builds the distributions installs.
+sdist = [
+    "build==1.6.1",
+]
+repair-windows = [
+    "delvewheel==1.13.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+
+[tool.scikit-build]
+# The component of the stable ABI of Python arrived in CMake 3.26.
+cmake.version = ">=3.26"
+cmake.build-type = "Release"
+
+# One wheel serves Python 3.12 and every later one. An older Python gets a
+# wheel of its own, which is built without this being asked for.
+wheel.py-api = "cp312"
+
+# CMake installs the whole package, as the component below, so nothing is
+# gathered beside it. The headers and the CMake package of the library are
+# other components, and stay out of a wheel.
+wheel.packages = []
+install.components = ["vitrio_python"]
+
+# The library is installed under its full version with a link beside it,
+# named as the extension asks for it. A wheel cannot hold a link, so it
+# would store the library twice.
+wheel.exclude = [
+    "vitrio/libvitrio.so.*.*.*",
+    "vitrio/libvitrio.*.*.*.dylib",
+]
+
+sdist.exclude = [
+    ".github/**",
+    ".vscode/**",
+    "renovate.json",
+]
+
+# The last two are read by the toolchain of vcpkg, when that is what
+# provides the dependencies: a wheel has no use for what the tests need.
+[tool.scikit-build.cmake.define]
+VITRIO_BUILD_PYTHON = "ON"
+VITRIO_PYTHON_STABLE_ABI = "ON"
+VITRIO_BUILD_TESTING = "OFF"
+BUILD_TESTING = "OFF"
+VCPKG_MANIFEST_NO_DEFAULT_FEATURES = "ON"
+VCPKG_MANIFEST_FEATURES = "tiff"
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "VERSION"
+regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
+
+# The wheels are built with the dependencies vcpkg provides, from the same
+# manifest the other workflows use. Whoever runs cibuildwheel has a vcpkg
+# checkout at the baseline of the manifest and points CMAKE_TOOLCHAIN_FILE
+# at its toolchain, as .github/actions/setup-vcpkg does. On Linux and macOS
+# vcpkg builds static libraries, which end up inside the library of vitrio,
+# so a wheel needs nothing that is not in it.
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+skip = ["*-musllinux_*"]
+archs = ["auto64"]
+test-groups = ["test"]
+test-command = "pytest {project}/tests/python"
+
+# A wheel for Linux is built in a container, which sees the files of the
+# machine under /host. vcpkg is given the tools it unpacks its downloads
+# with, and git is told that a checkout owned by someone else is fine.
+[tool.cibuildwheel.linux]
+before-all = [
+    "dnf install -y zip unzip",
+    "git config --global --add safe.directory '*'",
+]
+environment-pass = ["VCPKG_ROOT", "VCPKG_DEFAULT_BINARY_CACHE"]
+
+[tool.cibuildwheel.linux.environment]
+CMAKE_TOOLCHAIN_FILE = "/host$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+VCPKG_ROOT = "/host$VCPKG_ROOT"
+VCPKG_DEFAULT_BINARY_CACHE = "/host$VCPKG_DEFAULT_BINARY_CACHE"
+
+# vcpkg builds in an environment of its own, and has to be told to keep
+# the oldest macOS the wheel is for.
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+VCPKG_KEEP_ENV_VARS = "MACOSX_DEPLOYMENT_TARGET"
+
+# On Windows vcpkg builds dynamic libraries unless it is asked for this
+# triplet. delvewheel adds the runtime of the compiler, which Windows does
+# not have until something installs it.
+[tool.cibuildwheel.windows]
+before-build = "pip install --group repair-windows"
+repair-wheel-command = """\
+    delvewheel repair --analyze-existing -w {dest_dir} {wheel}"""
+
+[tool.cibuildwheel.windows.environment]
+CMAKE_ARGS = "-DVCPKG_TARGET_TRIPLET=x64-windows-static-md"

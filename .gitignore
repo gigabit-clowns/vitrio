@@ -43,3 +43,7 @@ Testing/Temporary
 # Python
 __pycache__
 .pytest_cache
+
+# What pip builds
+dist
+wheelhouse
