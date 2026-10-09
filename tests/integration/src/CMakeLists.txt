@@ -5,6 +5,7 @@ target_sources(
 	PRIVATE
 		test_image_file_format_selectors.cpp
 		test_image_read.cpp
+		test_image_scratch.cpp
 		test_image_write.cpp
 		test_library_version.cpp
 		test_mrc_real_files.cpp

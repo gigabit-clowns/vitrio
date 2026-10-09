@@ -11,6 +11,7 @@ target_sources(
 		test_file_image_reader_provider.cpp
 		test_file_image_writer_provider.cpp
 		test_find_most_suitable_format.cpp
+		test_host_image_scratch_storage.cpp
 		test_image_descriptor.cpp
 		test_image_file_format_registration.cpp
 		test_image_file_format_suitability.cpp
@@ -31,9 +32,14 @@ target_sources(
 		test_image_transfer_shape.cpp
 		test_image_write.cpp
 		test_index_table.cpp
+		test_indexed_image_scratch.cpp
+		test_indexed_image_scratch_entry.cpp
 		test_interned_key_list.cpp
 		test_library_version.cpp
 		test_logger.cpp
+		test_mapped_file_image_scratch_storage.cpp
+		test_scratch_image_reader.cpp
+		test_scratch_image_reader_provider.cpp
 		test_span.cpp
 		test_strict_image_transfer_sanitizer.cpp
 		test_version.cpp

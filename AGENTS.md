@@ -122,6 +122,10 @@ library needs goes in `dependencies`.
   marked `VITRIO_API` and defined in its `.cpp`. C++14 needs that definition
   whenever the constant is bound to a reference, and a consumer gets it from
   the shared library.
+- **Files a test writes.** `scoped_path` names a file under the build tree
+  and removes it. Every case runs as a process of its own and several may
+  run at once, so no two cases may name the same file: a fixture that
+  several cases share names its files after the running case.
 - **Mocks.** A test that needs a stand-in for an interface uses the
   trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
   fake. A mock is added with the first test that uses it.

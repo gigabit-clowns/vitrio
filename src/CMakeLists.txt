@@ -66,6 +66,7 @@ target_sources(
 		executor_image_saver.cpp
 		file_image_reader_provider.cpp
 		file_image_writer_provider.cpp
+		host_image_scratch_storage.cpp
 		image_descriptor.cpp
 		image_file_probe.cpp
 		image_file_read_format.cpp
@@ -95,9 +96,14 @@ target_sources(
 		image_writer.cpp
 		image_writer_provider.cpp
 		index_table.cpp
+		indexed_image_scratch.cpp
+		indexed_image_scratch_entry.cpp
 		interned_key_list.cpp
 		library_version.cpp
 		logger.cpp
+		mapped_file_image_scratch_storage.cpp
+		scratch_image_reader.cpp
+		scratch_image_reader_provider.cpp
 		strict_image_transfer_sanitizer.cpp
 )
 

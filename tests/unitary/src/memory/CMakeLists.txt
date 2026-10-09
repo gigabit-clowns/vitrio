@@ -3,6 +3,7 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
+		test_align.cpp
 		test_aligned_alloc.cpp
 		test_byte_order.cpp
 )
