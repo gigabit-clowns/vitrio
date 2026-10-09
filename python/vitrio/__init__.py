@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""Reads and writes the image files of electron microscopy.
+"""High-throughput image I/O for Cryo-Electron Microscopy (CryoEM).
 
 The package is imported as `vio`:
 

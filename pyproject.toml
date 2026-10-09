@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "vitrio"
 dynamic = ["version"]
-description = "Reads and writes the image files of electron microscopy"
+description = "High-throughput image I/O for Cryo-Electron Microscopy (CryoEM)"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "LGPL-2.1-or-later"
 license-files = ["LICENSE"]

@@ -13,7 +13,8 @@ string(STRIP "${PROJECT_VERSION}" PROJECT_VERSION)
 project(
 	vitrio
 	VERSION ${PROJECT_VERSION}
-	DESCRIPTION "Reads and writes the image files of electron microscopy"
+	DESCRIPTION
+		"High-throughput image I/O for Cryo-Electron Microscopy (CryoEM)"
 	LANGUAGES CXX
 )
 

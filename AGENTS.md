@@ -1,9 +1,10 @@
 # Working on vitrio
 
-vitrio reads and writes the image files of electron microscopy. It is a C++
+vitrio is a high-throughput image I/O library tailored to the access patterns
+and file formats common in Cryo-Electron Microscopy (CryoEM). It is a C++
 library with a Python package over it, and it depends on nothing of rexlib,
-where its code comes from: the image subsystem of rexlib at `7bf00d69` is
-being ported here a phase at a time.
+where its code comes from: it was ported from the image subsystem of rexlib
+at `7bf00d69`.
 
 Keep this file true. When a change makes something here wrong or missing, such
 as a moved directory, a new convention, a dependency or a workflow, update it
