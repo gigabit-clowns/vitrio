@@ -17,5 +17,5 @@ TEST_CASE(
 		VITRIO_TEST_VERSION_PATCH
 	);
 
-	CHECK(get_library_version() == expected);
+	CHECK( get_library_version() == expected );
 }

@@ -4,8 +4,8 @@ vitrio reads and writes the image files of electron microscopy, such as MRC
 and TIFF. It is a C++ library with a Python package over it.
 
 It is under construction. The code is being ported from the image subsystem of
-[rexlib](https://github.com/gigabit-clowns/rexlib), and so far only the
-skeleton of the project is here: nothing reads or writes an image yet.
+[rexlib](https://github.com/gigabit-clowns/rexlib), and so far only what the
+image code stands on is here: nothing reads or writes an image yet.
 
 ## Building
 

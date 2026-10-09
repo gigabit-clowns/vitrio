@@ -44,6 +44,19 @@
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
       }
+    },
+    {
+      "name": "sanitize-thread",
+      "displayName": "Debug with the thread sanitizer",
+      "inherits": "debug",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer"
+      }
     }
   ],
   "buildPresets": [
@@ -60,6 +73,11 @@
     {
       "name": "sanitize",
       "configurePreset": "sanitize",
+      "configuration": "Debug"
+    },
+    {
+      "name": "sanitize-thread",
+      "configurePreset": "sanitize-thread",
       "configuration": "Debug"
     }
   ],
@@ -83,6 +101,14 @@
     {
       "name": "sanitize",
       "configurePreset": "sanitize",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "sanitize-thread",
+      "configurePreset": "sanitize-thread",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

@@ -14,7 +14,10 @@ in the same commit that causes it.
 | Path | Holds |
 |---|---|
 | `include/vitrio/` | The public headers. Everything here is part of the API |
-| `src/` | The implementation, plus the headers that are not public |
+| `include/vitrio/array/` | What describes the elements of an array |
+| `include/vitrio/concurrency/` | Executors, the tasks they run and the completions that report them |
+| `include/vitrio/exceptions/` | The exception types |
+| `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
@@ -40,7 +43,7 @@ ctest --test-dir build
 
 With CMake 3.21 or newer the presets do the same: `cmake --preset debug`,
 `cmake --build --preset debug`, `ctest --preset debug`. There are `release` and
-`sanitize` presets too. CMake 3.18 is the minimum, and one CI job builds with
+`sanitize` and `sanitize-thread` presets too. CMake 3.18 is the minimum, and one CI job builds with
 exactly that version. Under it CTest runs each suite as a single test, because
 listing the cases needs the JSON support of CMake 3.19.
 
@@ -64,6 +67,7 @@ library needs goes in `dependencies`.
 
 | Dependency | Needed by |
 |---|---|
+| Threads | The library, privately |
 | Catch2 3 | The test suites |
 
 ## Conventions
@@ -82,6 +86,14 @@ library needs goes in `dependencies`.
 - **Formatting.** Tabs, 80 columns. The code is formatted by hand and there is
   no `.clang-format`: none reproduces the style, so one would rewrite the code
   it was run on.
+- **Vocabulary types.** `vitrio::span` is a view of contiguous elements, of
+  dynamic extent only. It is a type of its own under every C++ standard and
+  never an alias of `std::span`, so that the ABI does not depend on the
+  standard a consumer compiles with. `vitrio::byte` is `unsigned char`, the
+  type C++14 lets the memory of any object be accessed through.
+- **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
+  relies on. What a caller of the public API may get wrong is reported with an
+  exception instead.
 - **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
   release may break the ABI, so the name of the shared library carries the
   minor version (`libvitrio.so.0.1`).
@@ -90,5 +102,6 @@ library needs goes in `dependencies`.
 
 `.github/workflows/build-and-test.yml` builds and tests with GCC and Clang on
 Linux, Clang on macOS and MSVC on Windows, then again with the address and
-undefined behaviour sanitizers, and once more with CMake 3.18. It uses public
+undefined behaviour sanitizers and with the thread sanitizer, and once more
+with CMake 3.18. It uses public
 actions and the ones under `.github/actions/`, and none of the organisation's.

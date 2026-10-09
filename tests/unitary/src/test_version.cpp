@@ -15,9 +15,9 @@ TEST_CASE(
 {
 	const version ver(1, 2, 3);
 
-	CHECK(ver.get_major() == 1);
-	CHECK(ver.get_minor() == 2);
-	CHECK(ver.get_patch() == 3);
+	CHECK( ver.get_major() == 1 );
+	CHECK( ver.get_minor() == 2 );
+	CHECK( ver.get_patch() == 3 );
 }
 
 TEST_CASE(
@@ -40,13 +40,13 @@ TEST_CASE(
 {
 	const version ver(1, 2, 3);
 
-	CHECK(ver == version(1, 2, 3));
-	CHECK_FALSE(ver != version(1, 2, 3));
+	CHECK( ver == version(1, 2, 3) );
+	CHECK_FALSE( ver != version(1, 2, 3) );
 
-	CHECK(ver != version(9, 2, 3));
-	CHECK(ver != version(1, 9, 3));
-	CHECK(ver != version(1, 2, 9));
-	CHECK_FALSE(ver == version(1, 2, 9));
+	CHECK( ver != version(9, 2, 3) );
+	CHECK( ver != version(1, 9, 3) );
+	CHECK( ver != version(1, 2, 9) );
+	CHECK_FALSE( ver == version(1, 2, 9) );
 }
 
 TEST_CASE(
@@ -55,15 +55,15 @@ TEST_CASE(
 )
 {
 	// The major component outweighs the other two.
-	CHECK(version(1, 9, 9) < version(2, 0, 0));
-	CHECK(version(2, 0, 0) > version(1, 9, 9));
+	CHECK( version(1, 9, 9) < version(2, 0, 0) );
+	CHECK( version(2, 0, 0) > version(1, 9, 9) );
 
 	// The minor component outweighs the patch.
-	CHECK(version(1, 2, 9) < version(1, 3, 0));
-	CHECK(version(1, 3, 0) > version(1, 2, 9));
+	CHECK( version(1, 2, 9) < version(1, 3, 0) );
+	CHECK( version(1, 3, 0) > version(1, 2, 9) );
 
-	CHECK(version(1, 2, 3) < version(1, 2, 4));
-	CHECK(version(1, 2, 4) > version(1, 2, 3));
+	CHECK( version(1, 2, 3) < version(1, 2, 4) );
+	CHECK( version(1, 2, 4) > version(1, 2, 3) );
 }
 
 TEST_CASE(
@@ -73,13 +73,13 @@ TEST_CASE(
 {
 	const version ver(1, 2, 3);
 
-	CHECK(ver <= version(1, 2, 3));
-	CHECK(ver >= version(1, 2, 3));
-	CHECK_FALSE(ver < version(1, 2, 3));
-	CHECK_FALSE(ver > version(1, 2, 3));
+	CHECK( ver <= version(1, 2, 3) );
+	CHECK( ver >= version(1, 2, 3) );
+	CHECK_FALSE( ver < version(1, 2, 3) );
+	CHECK_FALSE( ver > version(1, 2, 3) );
 
-	CHECK(ver <= version(1, 2, 4));
-	CHECK_FALSE(ver >= version(1, 2, 4));
+	CHECK( ver <= version(1, 2, 4) );
+	CHECK_FALSE( ver >= version(1, 2, 4) );
 }
 
 TEST_CASE(
@@ -91,7 +91,7 @@ TEST_CASE(
 
 	text << version(1, 20, 300);
 
-	CHECK(text.str() == "1.20.300");
+	CHECK( text.str() == "1.20.300" );
 }
 
 TEST_CASE(
@@ -103,5 +103,5 @@ TEST_CASE(
 
 	text << version(1, 20, 300);
 
-	CHECK(text.str() == L"1.20.300");
+	CHECK( text.str() == L"1.20.300" );
 }

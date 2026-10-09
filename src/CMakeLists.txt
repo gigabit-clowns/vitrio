@@ -46,11 +46,21 @@ endif()
 
 vitrio_enable_warnings(vitrio-obj)
 
+target_link_libraries(
+	vitrio-obj
+	PUBLIC
+		Threads::Threads
+)
+
 target_sources(
 	vitrio-obj
 	PRIVATE
+		index_table.cpp
 		library_version.cpp
 )
+
+add_subdirectory(array)
+add_subdirectory(concurrency)
 
 # vitrio is a shared library only. Its image formats register themselves
 # through objects at namespace scope, and a static archive would drop the
