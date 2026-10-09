@@ -13,15 +13,10 @@ buffer in C++.
 It is a C++14 library with a Python package on top.
 
 ```python
-import numpy as np
 import vitrio as vio
 
-# 64 particles of a stack, read concurrently into one array
-BATCH_SIZE = 64
-size = vio.get_core_extents(vio.query_descriptor("particles.mrcs"))
-particles = np.empty((BATCH_SIZE, *size), dtype=np.float32)
-locations = [vio.ImageLocation("particles.mrcs", i) for i in range(BATCH_SIZE)]
-vio.read_batch_async(vio.loader(), particles, locations).get()
+micrograph = vio.read("/path/to/micrograph.mrc")
+movie = vio.read("/path/to/movie.tif")
 ```
 
 vitrio is young. It grew out of the image I/O of
@@ -73,6 +68,9 @@ The C++ library is built from source for now.
 
 ## Using it from Python
 
+`read` works the format out from the file and returns an array that NumPy,
+PyTorch and the rest use without a copy.
+
 ```python
 import numpy as np
 import torch
@@ -82,10 +80,41 @@ micrograph = vio.read("micrograph.mrc", data_type=np.float32)
 pixels = np.asarray(micrograph)           # the same memory, not a copy
 tensor = torch.from_dlpack(micrograph)    # and again
 
-# Crop two 128 pixel boxes around (y, x) centres
+vio.write_single(pixels, "copy.tif")
+```
+
+Reading many images is done in batches. A batch goes into one array, on a
+thread pool, and the call returns before it is in. So the next batch can be
+on its way while you work on the current one:
+
+```python
+BATCH_SIZE = 64
+STACK = "particles.mrcs"
+
+count, *size = vio.query_descriptor(STACK).extents
 loader = vio.loader()
+
+def start_reading(first):
+    last = min(first + BATCH_SIZE, count)
+    particles = np.empty((last - first, *size), dtype=np.float32)
+    locations = [vio.ImageLocation(STACK, i) for i in range(first, last)]
+    return particles, vio.read_batch_async(loader, particles, locations)
+
+particles, reading = start_reading(0)
+for first in range(BATCH_SIZE, count, BATCH_SIZE):
+    upcoming = start_reading(first)    # runs in the background
+    reading.get()                      # wait for the current batch
+    process(particles)                 # your code
+    particles, reading = upcoming
+reading.get()
+process(particles)
+```
+
+Patches are cropped out of an image the same way, around a list of centres:
+
+```python
 patches = np.zeros((2, 128, 128), dtype=np.float32)
-centres = [(1024, 512), (300, 2100)]
+centres = [(1024, 512), (300, 2100)]    # (y, x)
 location = vio.ImageLocation("micrograph.mrc")
 vio.read_patches_async(loader, patches, location, centres).get()
 
@@ -94,8 +123,7 @@ vio.write_stack(patches, "patches.mrcs", data_type="float16")
 
 An array can be anything that hands out host memory through DLPack or the
 buffer protocol: a NumPy array, a PyTorch or JAX tensor, a `memoryview`. It
-is read or written where it is, views included. Reads that allocate return
-a `vitrio.Array`, which NumPy, PyTorch and the rest take without a copy.
+is read or written where it is, views included.
 
 The `_async` functions return right away with a completion. Call `get()` on
 it to wait and to find out whether anything failed. The completion keeps
@@ -103,7 +131,8 @@ its array alive, and dropping one that is not ready waits for it.
 
 [examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
 is a complete program. It crops the particles picked on a set of micrographs
-into stacks, reading and writing the STAR files of RELION.
+into stacks, reading and writing the STAR files of RELION, with several
+batches in flight at once.
 
 ## Using it from C++
 
