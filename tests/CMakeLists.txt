@@ -27,3 +27,7 @@ endfunction()
 add_subdirectory(assets)
 add_subdirectory(unitary)
 add_subdirectory(integration)
+
+if(VITRIO_BUILD_PYTHON)
+	add_subdirectory(python)
+endif()

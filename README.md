@@ -7,7 +7,8 @@ It is under construction. The code is being ported from the image subsystem of
 [rexlib](https://github.com/gigabit-clowns/rexlib). The C++ library is here:
 MRC and TIFF files are read and written, whole or a batch at a time through
 a loader or a saver, and a scratch keeps a copy of what is read in memory
-or in a mapped file. The Python package is still to come.
+or in a mapped file. The Python package is built from this tree. It is not
+packaged for pip yet.
 
 ## Building
 
@@ -26,6 +27,36 @@ cmake --install build --prefix <where>
 To leave the tests out, and their two dependencies with them, add
 `-DVITRIO_BUILD_TESTING=OFF`. To leave TIFF out, and libtiff with it, add
 `-DVITRIO_ENABLE_TIFF=OFF`.
+
+## The Python package
+
+It is built with `-DVITRIO_BUILD_PYTHON=ON`, which needs Python 3.10 or
+newer with nanobind installed in it. The package is assembled under
+`python/` of the build tree, so that directory goes on `PYTHONPATH`.
+
+```python
+import numpy
+import torch
+import vitrio
+
+image = vitrio.read("map.mrc")
+values = numpy.asarray(image)           # the same memory, not a copy
+tensor = torch.from_dlpack(image)       # and again
+
+stack = numpy.empty((64, 256, 256), dtype=numpy.float32)
+locations = [vitrio.ImageLocation("stack.mrcs", i) for i in range(64)]
+vitrio.read_batch_async(vitrio.loader(), stack, locations).get()
+
+vitrio.write_stack(stack, "copy.mrcs")
+```
+
+An array is given as whatever hands out host memory through DLPack or the
+buffer protocol: a numpy array, a tensor of PyTorch or JAX, a `memoryview`.
+It is read or written where it is. The reads that allocate return a
+`vitrio.Array`, which hands its memory out in both ways too.
+
+An asynchronous read or write returns a completion that keeps its array
+alive. Dropping a completion that is not ready waits for it.
 
 ## Using it from CMake
 

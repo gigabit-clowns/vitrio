@@ -27,6 +27,7 @@ include(vitrio_enable_warnings)
 
 option(VITRIO_INSTALL "Generate vitrio's install rules" ON)
 option(VITRIO_ENABLE_TIFF "Read and write TIFF files, which needs libtiff" ON)
+option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
 option(VITRIO_BUILD_TESTING "Build vitrio's tests" ${BUILD_TESTING})
 option(
 	VITRIO_REGISTER_TESTS_PER_BINARY
@@ -64,7 +65,31 @@ if(VITRIO_ENABLE_TIFF)
 	find_package(TIFF 4.5 REQUIRED)
 endif()
 
+# nanobind ships its CMake package inside its Python package, so the
+# interpreter that has it is asked where that is.
+if(VITRIO_BUILD_PYTHON)
+	find_package(
+		Python 3.10 REQUIRED
+		COMPONENTS Interpreter Development.Module
+	)
+
+	if(NOT nanobind_ROOT AND NOT nanobind_DIR)
+		execute_process(
+			COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir
+			OUTPUT_VARIABLE nanobind_ROOT
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET
+		)
+	endif()
+
+	find_package(nanobind 3.0 REQUIRED CONFIG)
+endif()
+
 add_subdirectory(src)
+
+if(VITRIO_BUILD_PYTHON)
+	add_subdirectory(python)
+endif()
 
 if(BUILD_TESTING AND VITRIO_BUILD_TESTING)
 	add_subdirectory(tests)

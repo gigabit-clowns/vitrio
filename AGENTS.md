@@ -31,14 +31,21 @@ in the same commit that causes it.
 | `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
+| `python/src/` | The extension of the Python package, `vitrio._binding`, written with nanobind. Each public header it binds has a source of the same name here, with one function that adds it to the module |
+| `python/src/array/`, `concurrency/` | Beside the bindings of those directories, how an array given from Python becomes one of vitrio: the loan of its memory and the completion that holds the loan |
+| `python/vitrio/` | The Python package: what Python expects on top of the binding, such as arguments with defaults |
+| `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `cmake/modules/` | CMake modules of the project |
 | `cmake/config/` | The template of the installed CMake package config |
+| `cmake/scripts/` | CMake scripts the build runs |
 | `.github/actions/` | The actions the workflows share. They belong to this repository |
 
 Every directory holding sources carries a `CMakeLists.txt` naming them. The
 lists are explicit rather than globbed, so a new `.cpp` has to be named there
-before it is built. The header check is the one exception: it globs
-`include/`, so that a new header is checked without being listed.
+before it is built. That holds for the Python sources of `python/vitrio/`
+too. There are two exceptions. The header check globs `include/`, so that
+a new header is checked without being listed, and pytest finds the files of
+`tests/python/` itself.
 
 Tests mirror what they test: a header or source with a function body has a
 test file of its own, at the same relative path under `tests/unitary/src/`.
@@ -56,6 +63,26 @@ With CMake 3.21 or newer the presets do the same: `cmake --preset debug`,
 `sanitize` and `sanitize-thread` presets too. CMake 3.18 is the minimum, and one CI job builds with
 exactly that version. Under it CTest runs each suite as a single test, because
 listing the cases needs the JSON support of CMake 3.19.
+
+The Python package is built with `-DVITRIO_BUILD_PYTHON=ON`, which needs
+Python 3.10 or newer and nanobind in it (`pip install nanobind`). CMake asks
+that interpreter where nanobind is; `-DPython_EXECUTABLE=<python>` chooses
+it. The package is assembled under `python/` of the build tree, the
+extension and its stubs beside the Python sources, and CTest runs its suite
+as one test. To run pytest by hand:
+
+```
+PYTHONPATH=build/python python -m pytest tests/python
+```
+
+`tests/python/requirements.txt` pins what CI installs for it. The cases
+that exchange arrays with PyTorch, JAX and rexlib are skipped where those
+are not installed. The package is not installed by `cmake --install` yet.
+
+The sanitizer presets leave the Python package out. Its stubs are written
+by importing the extension, and an interpreter that is not instrumented
+itself only loads an instrumented extension with the runtime of the
+sanitizer preloaded.
 
 vitrio is a shared library only. Its image formats register themselves
 through objects at namespace scope, with the macros of
@@ -85,6 +112,8 @@ library needs goes in `dependencies`.
 | libtiff 4.5 or newer | The library, privately, for the TIFF format. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, and it is the `tiff` feature of the manifest |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
+| Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and not in the manifest: pip provides nanobind |
+| pytest, numpy | The tests of the Python package |
 
 ## Conventions
 
@@ -162,6 +191,25 @@ library needs goes in `dependencies`.
   stays out of the public headers.
 - **Tuning.** A number that tunes the library is a macro in `src/config.hpp`,
   with a default that the build may override.
+- **The Python binding.** `vitrio._binding` mirrors the C++ API, with the
+  same names and the same required arguments. What Python expects on top,
+  such as defaults and the ways a data type is stated, is Python code in
+  `python/vitrio/`, and `__init__.py` is the whole public surface. The
+  extension is the one target built as C++17, which nanobind needs. Python
+  sources are indented with tabs, as the C++ ones are.
+- **Arrays across the binding.** A function takes an array as an
+  `nb::ndarray`, which nanobind fills from DLPack or the buffer protocol
+  without a copy, and `Array` hands its memory out through the object
+  nanobind exports arrays with. vitrio has no DLPack code of its own.
+  Memory given from Python is lent (`memory_loan`): the arrays over it are
+  given an owner that owns nothing, and the loan returns the memory once
+  they are gone. So no thread but one that holds the GIL ever releases
+  anything of Python, which a worker thread could not do safely while the
+  interpreter shuts down. An asynchronous function hands the loan to the
+  `Completion` it returns, and destroying that waits for the work.
+- **The GIL.** A bound function that reads, writes or waits releases the
+  GIL meanwhile. So does destroying a thread pool, which waits for its
+  workers.
 - **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
   release may break the ABI, so the name of the shared library carries the
   minor version (`libvitrio.so.0.1`).
@@ -171,5 +219,7 @@ library needs goes in `dependencies`.
 `.github/workflows/build-and-test.yml` builds and tests with GCC and Clang on
 Linux, Clang on macOS and MSVC on Windows, then again with the address and
 undefined behaviour sanitizers and with the thread sanitizer, and once more
-with CMake 3.18. It uses public
+with CMake 3.18. The jobs that are not under a sanitizer build the Python
+package too and run its suite, one of them with the oldest Python the
+package supports. It uses public
 actions and the ones under `.github/actions/`, and none of the organisation's.

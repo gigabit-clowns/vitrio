@@ -39,3 +39,7 @@ vcpkg_installed
 
 # CTest
 Testing/Temporary
+
+# Python
+__pycache__
+.pytest_cache
