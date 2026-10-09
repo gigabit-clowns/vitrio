@@ -84,24 +84,34 @@ vio.write_single(pixels, "copy.tif")
 ```
 
 Reading many images is done in batches. A batch goes into one array, on a
-thread pool, and the call returns before it is in. So the next batch can be
-on its way while you work on the current one:
+thread pool, and its images may come from any number of files. The call
+returns before the batch is in, so the next one can be on its way while you
+work on the current one:
 
 ```python
-BATCH_SIZE = 64
-STACK = "particles.mrcs"
+import random
 
-count, *size = vio.query_descriptor(STACK).extents
-loader = vio.loader()
+BATCH_SIZE = 64
+STACKS = ["first.mrcs", "second.mrcs", "third.mrcs"]
+
+# Every particle of every stack, in the order they will be read
+locations = [
+    vio.ImageLocation(stack, index)
+    for stack in STACKS
+    for index in range(vio.query_descriptor(stack).extents[0])
+]
+random.shuffle(locations)
+
+size = vio.get_core_extents(vio.query_descriptor(STACKS[0]))
+loader = vio.loader(cache=len(STACKS))    # keeps the stacks open
 
 def start_reading(first):
-    last = min(first + BATCH_SIZE, count)
-    particles = np.empty((last - first, *size), dtype=np.float32)
-    locations = [vio.ImageLocation(STACK, i) for i in range(first, last)]
-    return particles, vio.read_batch_async(loader, particles, locations)
+    batch = locations[first:first + BATCH_SIZE]
+    particles = np.empty((len(batch), *size), dtype=np.float32)
+    return particles, vio.read_batch_async(loader, particles, batch)
 
 particles, reading = start_reading(0)
-for first in range(BATCH_SIZE, count, BATCH_SIZE):
+for first in range(BATCH_SIZE, len(locations), BATCH_SIZE):
     upcoming = start_reading(first)    # runs in the background
     reading.get()                      # wait for the current batch
     process(particles)                 # your code
