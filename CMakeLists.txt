@@ -45,6 +45,13 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Windows looks for a library beside the executable that needs it, and has no
+# other way to be told where one is. So the library, the libraries it needs
+# in turn and the test executables are all built into one directory.
+if(WIN32 AND NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+endif()
+
 find_package(Threads REQUIRED)
 find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
 find_package(half REQUIRED)

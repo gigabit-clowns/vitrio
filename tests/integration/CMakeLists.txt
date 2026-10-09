@@ -21,17 +21,5 @@ target_link_libraries(
 		Catch2::Catch2WithMain
 )
 
-# Windows looks for a library beside the executable that needs it.
-if(WIN32)
-	add_custom_command(
-		TARGET vitrio-integration-tests
-		POST_BUILD
-		COMMAND
-			${CMAKE_COMMAND} -E copy
-			$<TARGET_FILE:vitrio>
-			$<TARGET_FILE_DIR:vitrio-integration-tests>
-	)
-endif()
-
 vitrio_enable_warnings(vitrio-integration-tests)
 vitrio_register_tests(vitrio-integration-tests integration)
