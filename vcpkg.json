@@ -27,7 +27,7 @@
       ]
     },
     "tests": {
-      "description": "What the test suites are built with",
+      "description": "Test tooling",
       "dependencies": [
         "catch2",
         "trompeloeil"
