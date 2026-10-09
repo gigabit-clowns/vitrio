@@ -4,7 +4,7 @@
 
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/image_writer.hpp>
 
 #include <assert.hpp>
@@ -22,7 +22,7 @@ class managed_image_writer_provider::implementation
 {
 public:
 	explicit implementation(
-		std::shared_ptr<const image_write_format_manager> formats
+		std::shared_ptr<const image_write_format_selector> formats
 	)
 		: m_formats(std::move(formats))
 	{
@@ -173,18 +173,18 @@ private:
 	};
 
 	mutable std::mutex m_mutex;
-	std::shared_ptr<const image_write_format_manager> m_formats;
+	std::shared_ptr<const image_write_format_selector> m_formats;
 	std::unordered_map<std::string, declared_file> m_files;
 };
 
 managed_image_writer_provider::managed_image_writer_provider(
-	std::shared_ptr<const image_write_format_manager> formats
+	std::shared_ptr<const image_write_format_selector> formats
 )
 {
 	if (!formats)
 	{
 		throw std::invalid_argument(
-			"managed_image_writer_provider: The format manager must not be "
+			"managed_image_writer_provider: The format selector must not be "
 			"null."
 		);
 	}

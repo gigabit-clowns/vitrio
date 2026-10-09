@@ -15,7 +15,7 @@ namespace vitrio
 
 class image_descriptor;
 class image_metadata;
-class image_write_format_manager;
+class image_write_format_selector;
 
 /**
  * @brief A provider whose files are explicitly declared and closed by the
@@ -28,7 +28,7 @@ class image_write_format_manager;
  *
  * Each file therefore has one lifecycle, **declare, acquire as often as
  * needed, close**:
- * - A declared file is created, through the format manager, the first time
+ * - A declared file is created, through the format selector, the first time
  *   it is acquired, so declaring many files costs no file descriptor until
  *   each is reached. Every later acquire returns that same writer until the
  *   file is closed, and a path never declared is refused with
@@ -48,13 +48,13 @@ class VITRIO_API managed_image_writer_provider final
 {
 public:
 	/**
-	 * @brief Construct a provider creating files through a format manager.
+	 * @brief Construct a provider creating files through a format selector.
 	 *
 	 * @param formats The formats a file may be created with.
 	 * @throws std::invalid_argument If @p formats is null.
 	 */
 	explicit managed_image_writer_provider(
-		std::shared_ptr<const image_write_format_manager> formats
+		std::shared_ptr<const image_write_format_selector> formats
 	);
 
 	~managed_image_writer_provider() override;

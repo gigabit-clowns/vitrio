@@ -3,7 +3,7 @@
 #include <vitrio/image_write_format_registry.hpp>
 
 #include <vitrio/image_write_format.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 
 namespace vitrio
 {
@@ -20,12 +20,12 @@ void image_write_format_registry::add(image_write_format_factory factory)
 }
 
 void image_write_format_registry::register_all(
-	image_write_format_manager &manager
+	image_write_format_selector &selector
 ) const
 {
 	for (const auto factory : m_factories)
 	{
-		manager.register_format(factory());
+		selector.register_format(factory());
 	}
 }
 

@@ -8,18 +8,16 @@
 
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/concurrency/synchronous_executor.hpp>
-#include <vitrio/direct_image_reader_provider.hpp>
 #include <vitrio/executor_image_loader.hpp>
 #include <vitrio/image_location.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_write.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/index_table.hpp>
+#include <vitrio/selector_image_reader_provider.hpp>
 #include <vitrio/tests/assets.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
-
-#include "fixtures/builtin_formats.hpp"
 
 #include <array>
 #include <cmath>
@@ -73,10 +71,10 @@ TEST_CASE(
 	"[mrc][image_read]"
 )
 {
-	const auto manager =
-		make_builtin_read_formats();
+	const auto selector =
+		image_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<direct_image_reader_provider>(manager);
+		std::make_shared<selector_image_reader_provider>(selector);
 	const auto path = get_mrc_asset_path("EMD-3197.map");
 	const image_location location(path);
 
@@ -177,12 +175,12 @@ TEST_CASE(
 	write_stack(
 		stack,
 		path.get(),
-		*make_builtin_write_formats()
+		*image_write_format_selector::get_shared()
 	);
 
 	const auto loader = std::make_shared<executor_image_loader>(
-		std::make_shared<direct_image_reader_provider>(
-			make_builtin_read_formats()
+		std::make_shared<selector_image_reader_provider>(
+			image_read_format_selector::get_shared()
 		),
 		std::make_shared<synchronous_executor>()
 	);

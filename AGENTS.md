@@ -132,6 +132,13 @@ library needs goes in `dependencies`.
 - **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
   element as `static_cast` does. Any type is produced from any other, except
   that a complex number is only produced into another complex type.
+- **Formats, selectors and providers.** Three roles, kept apart. A format
+  knows one file format, and registers itself at namespace scope with the
+  macros of `src/formats/image_format_registration_macros.hpp`. A selector
+  (`image_read_format_selector`, `image_write_format_selector`) holds
+  formats and opens a file with the most suitable of them; its
+  `get_shared()` holds the bundled ones. A provider serves readers or
+  writers by path, and is given a selector: it holds no formats itself.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

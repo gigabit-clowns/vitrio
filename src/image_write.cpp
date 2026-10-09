@@ -44,7 +44,7 @@ numerical_type resolve_data_type(
 void write_single(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -61,13 +61,13 @@ void write_single(
 		resolve_data_type(arr, data_type)
 	);
 
-	write(arr, path, manager, descriptor, metadata);
+	write(arr, path, formats, descriptor, metadata);
 }
 
 void write_stack(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -87,13 +87,13 @@ void write_stack(
 		resolve_data_type(arr, data_type)
 	);
 
-	write(arr, path, manager, descriptor, metadata);
+	write(arr, path, formats, descriptor, metadata);
 }
 
 void write(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata
 )
@@ -113,7 +113,7 @@ void write(
 		);
 	}
 
-	const auto writer = manager.open(path, descriptor, metadata);
+	const auto writer = formats.open(path, descriptor, metadata);
 	writer->write(arr, make_location_plan(descriptor, image_location(path)));
 	writer->flush();
 }

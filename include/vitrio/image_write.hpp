@@ -7,7 +7,7 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/export.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/span.hpp>
 
 #include <cstddef>
@@ -31,7 +31,7 @@ class image_saver;
  *
  * @param arr The values to write.
  * @param path Path to the file to create.
- * @param manager The formats the file may be created with.
+ * @param formats The formats the file may be created with.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
  * @param metadata How its samples map onto physical space.
@@ -44,7 +44,7 @@ VITRIO_API
 void write_single(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -58,7 +58,7 @@ void write_single(
  *
  * @param arr The values to write.
  * @param path Path to the file to create.
- * @param manager The formats the file may be created with.
+ * @param formats The formats the file may be created with.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
  * @param metadata How its samples map onto physical space.
@@ -69,7 +69,7 @@ VITRIO_API
 void write_stack(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -85,7 +85,7 @@ void write_stack(
  * @param arr The values to write. Its extents must be those of
  * @p descriptor.
  * @param path Path to the file to create.
- * @param manager The formats the file may be created with.
+ * @param formats The formats the file may be created with.
  * @param descriptor What the file holds.
  * @param metadata How its samples map onto physical space.
  * @throws std::invalid_argument If the extents of @p arr are not those of
@@ -95,7 +95,7 @@ VITRIO_API
 void write(
 	const_array_ref arr,
 	const std::string &path,
-	const image_write_format_manager &manager,
+	const image_write_format_selector &formats,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata = image_metadata()
 );

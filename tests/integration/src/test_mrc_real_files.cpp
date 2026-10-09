@@ -6,7 +6,7 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_probe.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
@@ -115,11 +115,11 @@ std::size_t element_count(span<const std::size_t> extents)
 
 TEST_CASE(
 	"MRC files this project did not write are read as they state",
-	"[mrc][image_format_manager]"
+	"[mrc][image_format_selector]"
 )
 {
-	image_read_format_manager manager;
-	manager.register_builtin_formats();
+	image_read_format_selector selector;
+	selector.register_builtin_formats();
 
 	SECTION( "a pre-2014 volume is claimed and read" )
 	{
@@ -131,10 +131,10 @@ TEST_CASE(
 		REQUIRE( field(raw, 88) == 1 );
 		REQUIRE( field(raw, 92) == 0 );
 
-		REQUIRE( manager.get_most_suitable_format(image_probe(path)) !=
+		REQUIRE( selector.get_most_suitable_format(image_probe(path)) !=
 			nullptr );
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		const std::vector<std::size_t> extents = {20, 20, 20};
 
@@ -154,7 +154,7 @@ TEST_CASE(
 		REQUIRE( field(raw, 36) == 72 );
 		REQUIRE( field(raw, 92) == 160 );
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
 		REQUIRE( reader->get_descriptor().get_extents().size() == 3 );
@@ -172,7 +172,7 @@ TEST_CASE(
 		REQUIRE( field(raw, 68) == 1 );
 		REQUIRE( field(raw, 72) == 2 );
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 		const auto extents = reader->get_descriptor().get_extents();
 
 		REQUIRE( extents.size() == 3 );
@@ -184,11 +184,11 @@ TEST_CASE(
 
 TEST_CASE(
 	"the values of a real MRC file arrive along the axes its header names",
-	"[mrc][image_format_manager]"
+	"[mrc][image_format_selector]"
 )
 {
-	image_read_format_manager manager;
-	manager.register_builtin_formats();
+	image_read_format_selector selector;
+	selector.register_builtin_formats();
 
 	const std::array<std::string, 2> names = {
 		"EMD-3197.map", "EMD-3001.map"
@@ -196,7 +196,7 @@ TEST_CASE(
 	for (const auto &name : names)
 	{
 		const auto path = get_mrc_asset_path(name);
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 		const auto extents = reader->get_descriptor().get_extents();
 		const std::vector<std::size_t> shape(
 			extents.begin(), extents.end());

@@ -6,21 +6,19 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/direct_image_reader_provider.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_read.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/image_write.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
+#include <vitrio/selector_image_reader_provider.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
-
-#include "fixtures/builtin_formats.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -51,13 +49,13 @@ std::vector<float> counting(std::size_t count)
 } // anonymous namespace
 
 TEST_CASE(
-	"a TIFF file created through the managers reads back as it was written",
-	"[tiff][image_format_manager]"
+	"a TIFF file created through the selectors reads back as it was written",
+	"[tiff][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_manager readers;
+	image_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	// The two shapes a TIFF file can hold, under both of its extensions.
@@ -66,8 +64,8 @@ TEST_CASE(
 		{2, 3, 4}
 	};
 	const std::vector<std::string> names = {
-		"round_trip_managers.tif",
-		"round_trip_managers.tiff"
+		"round_trip_selectors.tif",
+		"round_trip_selectors.tiff"
 	};
 
 	for (const auto &name : names)
@@ -114,12 +112,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"a TIFF file converts to and from the type it holds",
-	"[tiff][image_format_manager]"
+	"[tiff][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_manager readers;
+	image_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const std::vector<std::size_t> extents = {2, 2};
@@ -177,12 +175,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"a TIFF stack is written a page at a time and read back whole",
-	"[tiff][image_format_manager]"
+	"[tiff][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_manager readers;
+	image_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const scoped_path path("round_trip_paged.tif");
@@ -237,9 +235,10 @@ TEST_CASE(
 )
 {
 	const auto writers =
-		make_builtin_write_formats();
-	const auto readers = std::make_shared<direct_image_reader_provider>(
-		make_builtin_read_formats());
+		image_write_format_selector::get_shared();
+	const auto readers = std::make_shared<selector_image_reader_provider>(
+		image_read_format_selector::get_shared()
+	);
 
 	SECTION( "a stack" )
 	{
@@ -286,11 +285,11 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"what a TIFF file can not hold is refused through the managers",
-	"[tiff][image_format_manager]"
+	"what a TIFF file can not hold is refused through the selectors",
+	"[tiff][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
 	const scoped_path path("round_trip_refused.tif");
 

@@ -6,7 +6,7 @@
 
 #include <vitrio/managed_image_writer_provider.hpp>
 
-#include "fixtures/format_manager_fixture.hpp"
+#include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_writer.hpp"
 
 #include <vitrio/image_descriptor.hpp>
@@ -42,7 +42,7 @@ void declare_stack(
 
 } // anonymous namespace
 
-TEST_CASE( "a managed writer provider needs a format manager",
+TEST_CASE( "a managed writer provider needs a format selector",
 	"[managed_image_writer_provider]" )
 {
 	REQUIRE_THROWS_AS(
@@ -52,14 +52,14 @@ TEST_CASE( "a managed writer provider needs a format manager",
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"a managed writer provider serves only what was declared",
 	"[managed_image_writer_provider]"
 )
 {
 	// No expectation on open: creating any file would violate.
 	add_format(image_format_suitability::normal);
-	managed_image_writer_provider provider(get_manager());
+	managed_image_writer_provider provider(get_selector());
 
 	SECTION( "it starts serving nothing" )
 	{
@@ -98,13 +98,13 @@ TEST_CASE_METHOD(
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"a managed writer provider creates a file once",
 	"[managed_image_writer_provider]"
 )
 {
 	auto &format = add_format(image_format_suitability::normal);
-	managed_image_writer_provider provider(get_manager());
+	managed_image_writer_provider provider(get_selector());
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
@@ -127,13 +127,13 @@ TEST_CASE_METHOD(
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"closing a file finishes it",
 	"[managed_image_writer_provider]"
 )
 {
 	auto &format = add_format(image_format_suitability::normal);
-	managed_image_writer_provider provider(get_manager());
+	managed_image_writer_provider provider(get_selector());
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
@@ -218,13 +218,13 @@ TEST_CASE_METHOD(
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"a managed writer provider flushes what it opened and no more",
 	"[managed_image_writer_provider]"
 )
 {
 	auto &format = add_format(image_format_suitability::normal);
-	managed_image_writer_provider provider(get_manager());
+	managed_image_writer_provider provider(get_selector());
 	declare_stack(provider, "stack_0.mrcs");
 	declare_stack(provider, "stack_1.mrcs");
 	declare_stack(provider, "stack_2.mrcs");

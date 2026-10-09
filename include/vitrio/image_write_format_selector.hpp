@@ -18,28 +18,46 @@ class image_probe;
 class image_write_format;
 
 /**
- * @brief Holds the image formats that can be written, and creates a file
- * with the most suitable of them.
+ * @brief Holds the image formats that can be written, selects the most suitable
+ * of them for a file, and creates the file with it.
  *
  * @ref register_builtin_formats adds the formats bundled with the library,
- * and @ref register_format adds any other.
+ * and @ref register_format adds any other. @ref get_shared is a selector
+ * that already holds the bundled ones.
  *
- * @see image_read_format_manager
+ * @par Thread safety
+ * Every method may be called concurrently.
+ *
+ * @see image_read_format_selector
  */
-class VITRIO_API image_write_format_manager final
+class VITRIO_API image_write_format_selector final
 {
 public:
-	image_write_format_manager() noexcept;
-	image_write_format_manager(
-		const image_write_format_manager &other
+	/**
+	 * @brief Construct a selector with no formats.
+	 */
+	image_write_format_selector();
+	image_write_format_selector(
+		const image_write_format_selector &other
 	) = delete;
-	image_write_format_manager(image_write_format_manager &&other) = delete;
-	~image_write_format_manager();
+	image_write_format_selector(image_write_format_selector &&other) = delete;
+	~image_write_format_selector();
 
-	image_write_format_manager&
-	operator=(const image_write_format_manager &other) = delete;
-	image_write_format_manager&
-	operator=(image_write_format_manager &&other) = delete;
+	image_write_format_selector&
+	operator=(const image_write_format_selector &other) = delete;
+	image_write_format_selector&
+	operator=(image_write_format_selector &&other) = delete;
+
+	/**
+	 * @brief Get the selector every use may share.
+	 *
+	 * It holds the formats bundled with the library. A format registered on
+	 * it is seen by everyone that shares it.
+	 *
+	 * @return const std::shared_ptr<image_write_format_selector>& The selector.
+	 * Never null.
+	 */
+	static const std::shared_ptr<image_write_format_selector>& get_shared();
 
 	/**
 	 * @brief Register the formats bundled with the library.
@@ -89,9 +107,6 @@ private:
 	class implementation;
 	VITRIO_STD_MEMBER_INTERFACE
 	std::unique_ptr<implementation> m_implementation;
-
-	implementation& create_if_null();
-	const implementation& get_implementation() const noexcept;
 };
 
 } // namespace vitrio

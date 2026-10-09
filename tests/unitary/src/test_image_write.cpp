@@ -13,10 +13,10 @@
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_probe.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
-#include "fixtures/format_manager_fixture.hpp"
+#include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_saver.hpp"
 #include "mock/mock_image_writer.hpp"
 
@@ -59,7 +59,7 @@ const_array make_const_array(const std::vector<std::size_t> &extents)
 } // anonymous namespace
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_single(...) creates one image or volume of the array's extents",
 	"[image_write]"
 )
@@ -91,11 +91,11 @@ TEST_CASE_METHOD(
 		);
 	ALLOW_CALL(*writer, flush());
 
-	write_single(arr, "out.mrc", *get_manager());
+	write_single(arr, "out.mrc", *get_selector());
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_single(...) converts to the data type it is given",
 	"[image_write]"
 )
@@ -117,11 +117,11 @@ TEST_CASE_METHOD(
 	ALLOW_CALL(*writer, write(trompeloeil::_, trompeloeil::_));
 	ALLOW_CALL(*writer, flush());
 
-	write_single(arr, "out.mrc", *get_manager(), numerical_type::int16);
+	write_single(arr, "out.mrc", *get_selector(), numerical_type::int16);
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_single(...) refuses an array with no extents",
 	"[image_write]"
 )
@@ -133,14 +133,14 @@ TEST_CASE_METHOD(
 		write_single(
 			make_test_array({}, numerical_type::float32),
 			"out.mrc",
-			*get_manager()
+			*get_selector()
 		),
 		std::invalid_argument
 	);
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_stack(...) stacks the file along the leading extent",
 	"[image_write]"
 )
@@ -169,7 +169,7 @@ TEST_CASE_METHOD(
 			.LR_WITH( _1.get_path() == "stack.mrcs" && _2 == expected )
 			.RETURN(writer);
 
-		write_stack(arr, "stack.mrcs", *get_manager());
+		write_stack(arr, "stack.mrcs", *get_selector());
 	}
 
 	SECTION( "in the data type it is given" )
@@ -187,12 +187,12 @@ TEST_CASE_METHOD(
 			.LR_WITH( _2 == expected )
 			.RETURN(writer);
 
-		write_stack(arr, "stack.mrcs", *get_manager(), numerical_type::int16);
+		write_stack(arr, "stack.mrcs", *get_selector(), numerical_type::int16);
 	}
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_stack(...) refuses an array with nothing to stack",
 	"[image_write]"
 )
@@ -204,14 +204,14 @@ TEST_CASE_METHOD(
 		write_stack(
 			make_test_array({4}, numerical_type::float32),
 			"stack.mrcs",
-			*get_manager()
+			*get_selector()
 		),
 		std::invalid_argument
 	);
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write(..., descriptor) creates the file the descriptor states",
 	"[image_write]"
 )
@@ -241,11 +241,11 @@ TEST_CASE_METHOD(
 		);
 	ALLOW_CALL(*writer, flush());
 
-	write(arr, "stack.mrcs", *get_manager(), descriptor);
+	write(arr, "stack.mrcs", *get_selector(), descriptor);
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write(..., descriptor) refuses a descriptor of other extents",
 	"[image_write]"
 )
@@ -262,13 +262,13 @@ TEST_CASE_METHOD(
 	add_format(image_format_suitability::normal);
 
 	REQUIRE_THROWS_AS(
-		write(arr, "out.mrc", *get_manager(), descriptor),
+		write(arr, "out.mrc", *get_selector(), descriptor),
 		std::invalid_argument
 	);
 }
 
 TEST_CASE_METHOD(
-	write_format_manager_fixture,
+	write_format_selector_fixture,
 	"write_single(...) flushes after writing",
 	"[image_write]"
 )
@@ -286,7 +286,7 @@ TEST_CASE_METHOD(
 	REQUIRE_CALL(*writer, flush())
 		.IN_SEQUENCE(order);
 
-	write_single(arr, "out.mrc", *get_manager());
+	write_single(arr, "out.mrc", *get_selector());
 }
 
 TEST_CASE(

@@ -2,14 +2,14 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vitrio/direct_image_reader_provider.hpp>
+#include <vitrio/selector_image_reader_provider.hpp>
 
-#include "fixtures/format_manager_fixture.hpp"
+#include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_reader.hpp"
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_probe.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 
 #include <memory>
 #include <stdexcept>
@@ -17,23 +17,23 @@
 
 using namespace vitrio;
 
-TEST_CASE( "a direct reader provider needs a format manager",
-	"[direct_image_reader_provider]" )
+TEST_CASE( "a selector reader provider needs a format selector",
+	"[selector_image_reader_provider]" )
 {
 	REQUIRE_THROWS_AS(
-		direct_image_reader_provider(nullptr),
+		selector_image_reader_provider(nullptr),
 		std::invalid_argument
 	);
 }
 
 TEST_CASE_METHOD(
-	read_format_manager_fixture,
-	"a direct reader provider opens a file every time it is asked",
-	"[direct_image_reader_provider]"
+	read_format_selector_fixture,
+	"a selector reader provider opens a file every time it is asked",
+	"[selector_image_reader_provider]"
 )
 {
 	auto &format = add_format(image_format_suitability::normal);
-	direct_image_reader_provider provider(get_manager());
+	selector_image_reader_provider provider(get_selector());
 
 	SECTION( "one request opens the file once" )
 	{
@@ -74,13 +74,15 @@ TEST_CASE_METHOD(
 	}
 }
 
-TEST_CASE( "a direct reader provider reports what the manager reports",
-	"[direct_image_reader_provider]" )
+TEST_CASE(
+	"a selector reader provider reports what the selector reports",
+	"[selector_image_reader_provider]"
+)
 {
-	// A manager with no format recognizes nothing, and the provider adds
+	// A selector with no format recognizes nothing, and the provider adds
 	// no opinion of its own.
-	direct_image_reader_provider provider(
-		std::make_shared<image_read_format_manager>()
+	selector_image_reader_provider provider(
+		std::make_shared<image_read_format_selector>()
 	);
 
 	REQUIRE_THROWS_AS(

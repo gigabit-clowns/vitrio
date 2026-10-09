@@ -1,37 +1,43 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
-#include <assert.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_probe.hpp>
 #include <vitrio/image_write_format.hpp>
 #include <vitrio/image_writer.hpp>
 
-#include <find_most_suitable_format.hpp>
+#include <assert.hpp>
 #include <builtin_image_format_registry.hpp>
+#include <find_most_suitable_format.hpp>
 
+#include <mutex>
 #include <utility>
 #include <vector>
 
 namespace vitrio
 {
 
-class image_write_format_manager::implementation
+class image_write_format_selector::implementation
 {
 public:
-	bool register_format(std::unique_ptr<image_write_format> format)
+	void register_format(std::unique_ptr<image_write_format> format)
 	{
 		VITRIO_ASSERT(format);
+
+		const std::lock_guard<std::mutex> lock(m_mutex);
 		m_formats.push_back(std::move(format));
-		return true;
 	}
 
+	// The lock is held while the formats are asked and no longer. A format
+	// is never removed, so the one found stays valid after it.
 	const image_write_format*
 	get_most_suitable_format(const image_probe &probe) const
 	{
+		const std::lock_guard<std::mutex> lock(m_mutex);
+
 		const auto ite = find_most_suitable_format(
 			m_formats.begin(),
 			m_formats.end(),
@@ -59,7 +65,7 @@ public:
 		if (!format)
 		{
 			throw unsupported_operation_error(
-				probe.get_path() + ": image_write_format_manager::open: No "
+				probe.get_path() + ": image_write_format_selector::open: No "
 				"registered format can create the file."
 			);
 		}
@@ -68,19 +74,37 @@ public:
 	}
 
 private:
+	mutable std::mutex m_mutex;
 	std::vector<std::unique_ptr<image_write_format>> m_formats;
-
 };
 
-image_write_format_manager::image_write_format_manager() noexcept = default;
-image_write_format_manager::~image_write_format_manager() = default;
+image_write_format_selector::image_write_format_selector()
+	: m_implementation(std::make_unique<implementation>())
+{
+}
 
-void image_write_format_manager::register_builtin_formats()
+image_write_format_selector::~image_write_format_selector() = default;
+
+const std::shared_ptr<image_write_format_selector>&
+image_write_format_selector::get_shared()
+{
+	static const auto instance = [] ()
+	{
+		auto result = std::make_shared<image_write_format_selector>();
+		result->register_builtin_formats();
+
+		return result;
+	}();
+
+	return instance;
+}
+
+void image_write_format_selector::register_builtin_formats()
 {
 	get_builtin_image_write_format_registry().register_all(*this);
 }
 
-bool image_write_format_manager::register_format(
+bool image_write_format_selector::register_format(
 	std::unique_ptr<image_write_format> format
 )
 {
@@ -89,42 +113,26 @@ bool image_write_format_manager::register_format(
 		return false;
 	}
 
-	return create_if_null().register_format(std::move(format));
+	m_implementation->register_format(std::move(format));
+
+	return true;
 }
 
-std::shared_ptr<image_writer> image_write_format_manager::open(
+std::shared_ptr<image_writer> image_write_format_selector::open(
 	const std::string &path,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata
 ) const
 {
-	return get_implementation().open(image_probe(path), descriptor, metadata);
+	return m_implementation->open(image_probe(path), descriptor, metadata);
 }
 
 const image_write_format*
-image_write_format_manager::get_most_suitable_format(
+image_write_format_selector::get_most_suitable_format(
 	const image_probe &probe
 ) const
 {
-	return get_implementation().get_most_suitable_format(probe);
-}
-
-image_write_format_manager::implementation&
-image_write_format_manager::create_if_null()
-{
-	if (!m_implementation)
-	{
-		m_implementation = std::make_unique<implementation>();
-	}
-
-	return *m_implementation;
-}
-
-const image_write_format_manager::implementation&
-image_write_format_manager::get_implementation() const noexcept
-{
-	static const implementation empty_implementation;
-	return m_implementation ? *m_implementation : empty_implementation;
+	return m_implementation->get_most_suitable_format(probe);
 }
 
 } // namespace vitrio

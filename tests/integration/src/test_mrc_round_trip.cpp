@@ -7,10 +7,10 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
-#include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/image_write_format_selector.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
@@ -42,13 +42,13 @@ std::vector<float> counting(std::size_t count)
 } // anonymous namespace
 
 TEST_CASE(
-	"an MRC file created through the managers reads back as it was written",
-	"[mrc][image_format_manager]"
+	"an MRC file created through the selectors reads back as it was written",
+	"[mrc][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_manager readers;
+	image_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	// The four shapes an MRC file can hold. The extents of the stack and of
@@ -69,7 +69,7 @@ TEST_CASE(
 
 	for (const auto &subject : shapes)
 	{
-		const scoped_path path("round_trip_managers.mrc");
+		const scoped_path path("round_trip_selectors.mrc");
 		const auto values = counting(count_elements(subject.extents));
 
 		auto source =
@@ -108,12 +108,12 @@ TEST_CASE(
 
 TEST_CASE(
 	"an MRC file converts to and from the type it holds",
-	"[mrc][image_format_manager]"
+	"[mrc][image_format_selector]"
 )
 {
-	image_write_format_manager writers;
+	image_write_format_selector writers;
 	writers.register_builtin_formats();
-	image_read_format_manager readers;
+	image_read_format_selector readers;
 	readers.register_builtin_formats();
 
 	const std::vector<std::size_t> extents = {2, 2};

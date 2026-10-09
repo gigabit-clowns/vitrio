@@ -7,7 +7,7 @@
 #include <vitrio/exceptions/image_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_probe.hpp>
-#include <vitrio/image_read_format_manager.hpp>
+#include <vitrio/image_read_format_selector.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
@@ -75,21 +75,21 @@ std::vector<float> float32_samples(std::size_t count)
 
 TEST_CASE(
 	"TIFF files vitrio did not write are read as they state",
-	"[tiff][image_format_manager]"
+	"[tiff][image_format_selector]"
 )
 {
-	image_read_format_manager manager;
-	manager.register_builtin_formats();
+	image_read_format_selector selector;
+	selector.register_builtin_formats();
 
 	SECTION( "a compressed stack cut into several strips" )
 	{
 		const auto path = get_tiff_asset_path("stack_uint8_lzw.tif");
 		const std::vector<std::size_t> extents = {3, 6, 8};
 
-		REQUIRE( manager.get_most_suitable_format(image_probe(path)) !=
+		REQUIRE( selector.get_most_suitable_format(image_probe(path)) !=
 			nullptr );
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint8) );
@@ -108,7 +108,7 @@ TEST_CASE(
 			get_tiff_asset_path("image_uint16_deflate_predictor.tif");
 		const std::vector<std::size_t> extents = {6, 8};
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint16) );
@@ -126,7 +126,7 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("image_float32_tiled.tif");
 		const std::vector<std::size_t> extents = {24, 40};
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::float32) );
@@ -144,7 +144,7 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("image_int16_big_endian.tif");
 		const std::vector<std::size_t> extents = {6, 8};
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::int16) );
@@ -162,7 +162,7 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("stack_uint8_bigtiff.tif");
 		const std::vector<std::size_t> extents = {2, 6, 8};
 
-		const auto reader = manager.open(path);
+		const auto reader = selector.open(path);
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint8) );
@@ -178,16 +178,16 @@ TEST_CASE(
 
 TEST_CASE(
 	"regions of a real TIFF file arrive where they are placed",
-	"[tiff][image_format_manager]"
+	"[tiff][image_format_selector]"
 )
 {
-	image_read_format_manager manager;
-	manager.register_builtin_formats();
+	image_read_format_selector selector;
+	selector.register_builtin_formats();
 
 	SECTION( "one page of a stack, converted on the way" )
 	{
 		const auto reader =
-			manager.open(get_tiff_asset_path("stack_uint8_lzw.tif"));
+			selector.open(get_tiff_asset_path("stack_uint8_lzw.tif"));
 
 		const std::vector<std::size_t> extents = {6, 8};
 		auto destination =
@@ -209,7 +209,7 @@ TEST_CASE(
 	SECTION( "a patch across the tiles of an image" )
 	{
 		const auto reader =
-			manager.open(get_tiff_asset_path("image_float32_tiled.tif"));
+			selector.open(get_tiff_asset_path("image_float32_tiled.tif"));
 
 		// Two rows from the fifteenth and three columns from the thirty
 		// first, where two rows and two columns of tiles meet.
@@ -240,11 +240,11 @@ TEST_CASE(
 
 TEST_CASE(
 	"well formed TIFF files vitrio does not support are refused",
-	"[tiff][image_format_manager]"
+	"[tiff][image_format_selector]"
 )
 {
-	image_read_format_manager manager;
-	manager.register_builtin_formats();
+	image_read_format_selector selector;
+	selector.register_builtin_formats();
 
 	const std::vector<std::string> names = {
 		"refused_rgb.tif",
@@ -254,8 +254,8 @@ TEST_CASE(
 	{
 		const auto path = get_tiff_asset_path(name);
 
-		REQUIRE( manager.get_most_suitable_format(image_probe(path)) !=
+		REQUIRE( selector.get_most_suitable_format(image_probe(path)) !=
 			nullptr );
-		REQUIRE_THROWS_AS( manager.open(path), image_format_error );
+		REQUIRE_THROWS_AS( selector.open(path), image_format_error );
 	}
 }

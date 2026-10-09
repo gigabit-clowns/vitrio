@@ -62,7 +62,7 @@ target_sources(
 		builtin_image_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
-		direct_image_reader_provider.cpp
+		selector_image_reader_provider.cpp
 		executor_image_loader.cpp
 		executor_image_saver.cpp
 		image_descriptor.cpp
@@ -74,7 +74,7 @@ target_sources(
 		image_probe.cpp
 		image_read.cpp
 		image_read_format.cpp
-		image_read_format_manager.cpp
+		image_read_format_selector.cpp
 		image_read_format_registry.cpp
 		image_reader.cpp
 		image_reader_provider.cpp
@@ -89,7 +89,7 @@ target_sources(
 		image_transfer_shape.cpp
 		image_write.cpp
 		image_write_format.cpp
-		image_write_format_manager.cpp
+		image_write_format_selector.cpp
 		image_write_format_registry.cpp
 		image_writer.cpp
 		image_writer_provider.cpp
