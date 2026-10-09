@@ -10,9 +10,22 @@
     "spdlog"
   ],
   "default-features": [
-    "tests"
+    "tests",
+    "tiff"
   ],
   "features": {
+    "tiff": {
+      "description": "Read and write TIFF files",
+      "dependencies": [
+        {
+          "name": "tiff",
+          "default-features": false,
+          "features": [
+            "zip"
+          ]
+        }
+      ]
+    },
     "tests": {
       "description": "What the test suites are built with",
       "dependencies": [

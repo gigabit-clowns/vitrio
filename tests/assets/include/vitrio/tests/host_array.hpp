@@ -63,6 +63,52 @@ array make_host_array(
 }
 
 /**
+ * @brief Make a contiguous array whose elements are all zero.
+ *
+ * @tparam T Element type. Must match @p data_type.
+ * @param extents Extents of the array.
+ * @param data_type Data type of the array.
+ * @return array The array.
+ */
+template <typename T>
+array make_host_array(
+	const std::vector<std::size_t> &extents,
+	numerical_type data_type
+)
+{
+	return make_host_array(extents, data_type, T(0));
+}
+
+/**
+ * @brief Make a contiguous array that holds given values.
+ *
+ * @tparam T Element type. Must match @p data_type.
+ * @param extents Extents of the array.
+ * @param data_type Data type of the array.
+ * @param values The values, as many as @p extents hold and in the order
+ * they are stored.
+ * @return array The array.
+ */
+template <typename T>
+array make_host_array(
+	const std::vector<std::size_t> &extents,
+	numerical_type data_type,
+	const std::vector<T> &values
+)
+{
+	auto result = make_array(
+		make_contiguous_array_descriptor(make_span(extents), data_type)
+	);
+	std::copy(
+		values.cbegin(),
+		values.cend(),
+		reinterpret_cast<T*>(result.get_data())
+	);
+
+	return result;
+}
+
+/**
  * @brief Copy the elements of a contiguous array.
  *
  * @tparam T Element type. Must match the data type of @p values.

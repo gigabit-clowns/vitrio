@@ -4,7 +4,7 @@
 
 #include <formats/strided_transfer/image_region_copy.hpp>
 
-#include "../../fixtures/host_array.hpp"
+#include <vitrio/tests/host_array.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>

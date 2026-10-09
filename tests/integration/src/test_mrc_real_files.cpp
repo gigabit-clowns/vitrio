@@ -2,8 +2,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vitrio/array/array.hpp>
-#include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -12,6 +10,7 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/host_array.hpp>
 
 #include <array>
 #include <cstdint>
@@ -22,6 +21,7 @@
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
@@ -108,24 +108,6 @@ std::size_t element_count(span<const std::size_t> extents)
 		extents.end(),
 		std::size_t(1),
 		std::multiplies<std::size_t>()
-	);
-}
-
-template <typename T>
-std::vector<T> values_held_by(const array &values, std::size_t count)
-{
-	const auto *data = reinterpret_cast<const T*>(values.get_data());
-
-	return std::vector<T>(data, data + count);
-}
-
-array make_host_array(
-	const std::vector<std::size_t> &extents,
-	numerical_type data_type
-)
-{
-	return make_array(
-		make_contiguous_array_descriptor(make_span(extents), data_type)
 	);
 }
 
@@ -219,7 +201,8 @@ TEST_CASE(
 		const std::vector<std::size_t> shape(
 			extents.begin(), extents.end());
 
-		auto destination = make_host_array(shape, numerical_type::float32);
+		auto destination =
+			make_host_array<float>(shape, numerical_type::float32);
 
 		image_transfer_plan regions(
 			image_transfer_shape(shape, shape.size(), shape.size())
@@ -235,6 +218,6 @@ TEST_CASE(
 		const auto expected = values_along_space_of(path);
 
 		REQUIRE( expected.size() == count );
-		REQUIRE( values_held_by<float>(destination, count) == expected );
+		REQUIRE( get_values<float>(destination) == expected );
 	}
 }

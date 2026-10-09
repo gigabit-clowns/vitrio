@@ -4,16 +4,16 @@ vitrio reads and writes the image files of electron microscopy, such as MRC
 and TIFF. It is a C++ library with a Python package over it.
 
 It is under construction. The code is being ported from the image subsystem of
-[rexlib](https://github.com/gigabit-clowns/rexlib). So far the MRC format is
-here, read and written through the format managers. TIFF, the loaders and
-savers, the scratch and the Python package are still to come.
+[rexlib](https://github.com/gigabit-clowns/rexlib). So far the MRC and TIFF
+formats are here, read and written through the format managers. The loaders
+and savers, the scratch and the Python package are still to come.
 
 ## Building
 
 vitrio needs a C++14 compiler and CMake 3.18 or newer. Its dependencies are
 found with `find_package`, so they have to be installed first: Boost
-(Filesystem, Interprocess and ContainerHash), half and spdlog, and for the
-tests Catch2 3 and trompeloeil.
+(Filesystem, Interprocess and ContainerHash), half, spdlog and libtiff, and
+for the tests Catch2 3 and trompeloeil.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -23,7 +23,8 @@ cmake --install build --prefix <where>
 ```
 
 To leave the tests out, and their two dependencies with them, add
-`-DVITRIO_BUILD_TESTING=OFF`.
+`-DVITRIO_BUILD_TESTING=OFF`. To leave TIFF out, and libtiff with it, add
+`-DVITRIO_ENABLE_TIFF=OFF`.
 
 ## Using it from CMake
 

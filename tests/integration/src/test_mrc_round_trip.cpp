@@ -2,8 +2,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vitrio/array/array.hpp>
-#include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -13,7 +11,9 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/image_write_format_manager.hpp>
+#include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/whole_region_plan.hpp>
 
 #include <array>
 #include <cstdio>
@@ -23,19 +23,10 @@
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
-
-std::size_t element_count(const std::vector<std::size_t> &extents)
-{
-	return std::accumulate(
-		extents.cbegin(),
-		extents.cend(),
-		std::size_t(1),
-		std::multiplies<std::size_t>()
-	);
-}
 
 std::vector<float> counting(std::size_t count)
 {
@@ -46,37 +37,6 @@ std::vector<float> counting(std::size_t count)
 	}
 
 	return values;
-}
-
-image_transfer_plan whole_of(const std::vector<std::size_t> &extents)
-{
-	image_transfer_plan regions(
-		image_transfer_shape(extents, extents.size(), extents.size())
-	);
-	regions.add(
-		make_span(std::vector<std::size_t>(extents.size(), 0)),
-		make_span(std::vector<std::size_t>(extents.size(), 0))
-	);
-
-	return regions;
-}
-
-template <typename T>
-std::vector<T> values_held_by(const array &values, std::size_t count)
-{
-	const auto *data = reinterpret_cast<const T*>(values.get_data());
-
-	return std::vector<T>(data, data + count);
-}
-
-array make_host_array(
-	const std::vector<std::size_t> &extents,
-	numerical_type data_type
-)
-{
-	return make_array(
-		make_contiguous_array_descriptor(make_span(extents), data_type)
-	);
 }
 
 } // anonymous namespace
@@ -110,9 +70,10 @@ TEST_CASE(
 	for (const auto &subject : shapes)
 	{
 		const scoped_path path("round_trip_managers.mrc");
-		const auto values = counting(element_count(subject.extents));
+		const auto values = counting(count_elements(subject.extents));
 
-		auto source = make_host_array(subject.extents, numerical_type::float32);
+		auto source =
+			make_host_array<float>(subject.extents, numerical_type::float32);
 		std::memcpy(
 			source.get_data(),
 			values.data(),
@@ -138,10 +99,10 @@ TEST_CASE(
 		REQUIRE( reader->get_descriptor() == descriptor );
 
 		auto destination =
-			make_host_array(subject.extents, numerical_type::float32);
+			make_host_array<float>(subject.extents, numerical_type::float32);
 		reader->read(array_ref(destination), whole_of(subject.extents));
 
-		REQUIRE( values_held_by<float>(destination, values.size()) == values );
+		REQUIRE( get_values<float>(destination) == values );
 	}
 }
 
@@ -167,7 +128,7 @@ TEST_CASE(
 	{
 		const scoped_path path("round_trip_conversion.mrc");
 
-		auto source = make_host_array(extents, numerical_type::float32);
+		auto source = make_host_array<float>(extents, numerical_type::float32);
 		std::memcpy(
 			source.get_data(),
 			values.data(),
@@ -190,10 +151,11 @@ TEST_CASE(
 
 		// Read back into a wider type than the file holds, which is the
 		// conversion a caller asks for rather than the one the file forces.
-		auto destination = make_host_array(extents, numerical_type::float64);
+		auto destination =
+			make_host_array<double>(extents, numerical_type::float64);
 		reader->read(array_ref(destination), whole_of(extents));
 
-		const auto read = values_held_by<double>(destination, values.size());
+		const auto read = get_values<double>(destination);
 
 		REQUIRE( read == std::vector<double>(
 			values.begin(), values.end()) );

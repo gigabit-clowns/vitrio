@@ -26,6 +26,7 @@ include(GenerateExportHeader)
 include(vitrio_enable_warnings)
 
 option(VITRIO_INSTALL "Generate vitrio's install rules" ON)
+option(VITRIO_ENABLE_TIFF "Read and write TIFF files, which needs libtiff" ON)
 option(VITRIO_BUILD_TESTING "Build vitrio's tests" ${BUILD_TESTING})
 option(
 	VITRIO_REGISTER_TESTS_PER_BINARY
@@ -56,6 +57,12 @@ find_package(Threads REQUIRED)
 find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
 find_package(half REQUIRED)
 find_package(spdlog 1.4 REQUIRED CONFIG)
+
+# The handlers a file is opened with, which keep its errors apart from those
+# of every other file, arrived in libtiff 4.5.
+if(VITRIO_ENABLE_TIFF)
+	find_package(TIFF 4.5 REQUIRED)
+endif()
 
 add_subdirectory(src)
 

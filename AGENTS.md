@@ -22,11 +22,13 @@ in the same commit that causes it.
 | `src/formats/strided_transfer/` | Moves regions between a file and an array: resolves where each one starts, works out the order to walk it in, and converts its elements |
 | `src/formats/memory_mapping/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are, and advises the pages a read is about to touch |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
+| `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, the cast between two of them, their byte order |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
-| `tests/assets/` | The files the tests are given, read where they are, the directory under the build tree the tests write to, and the helpers that name paths in both |
+| `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
+| `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
 | `cmake/modules/` | CMake modules of the project |
@@ -80,6 +82,7 @@ library needs goes in `dependencies`.
 | Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
 | half | The library, privately, for half precision numbers. It ships no CMake package, so `cmake/modules/Findhalf.cmake` finds its header |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
+| libtiff 4.5 or newer | The library, privately, for the TIFF format. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, and it is the `tiff` feature of the manifest |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
 

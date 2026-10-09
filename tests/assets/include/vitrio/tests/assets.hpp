@@ -58,4 +58,18 @@ inline std::string get_mrc_asset_path(const std::string &name)
 	#endif
 }
 
+/**
+ * @brief Get the path of one of the TIFF files the tests are given.
+ *
+ * @param name Name of the file, as tests/assets/tiff/README.txt lists it.
+ */
+inline std::string get_tiff_asset_path(const std::string &name)
+{
+	#if defined(_WIN32)
+		return get_asset_root() + "\\tiff\\" + name;
+	#else
+		return get_asset_root() + "/tiff/" + name;
+	#endif
+}
+
 } // namespace vitrio

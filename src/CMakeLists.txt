@@ -94,6 +94,10 @@ target_sources(
 		strict_image_transfer_sanitizer.cpp
 )
 
+if(VITRIO_ENABLE_TIFF)
+	target_link_libraries(vitrio-obj PUBLIC TIFF::TIFF)
+endif()
+
 add_subdirectory(array)
 add_subdirectory(concurrency)
 add_subdirectory(formats)
