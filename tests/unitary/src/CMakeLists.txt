@@ -33,4 +33,5 @@ target_sources(
 
 add_subdirectory(array)
 add_subdirectory(concurrency)
+add_subdirectory(formats)
 add_subdirectory(memory)

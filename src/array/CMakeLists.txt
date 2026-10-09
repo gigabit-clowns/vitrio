@@ -4,6 +4,7 @@ target_sources(
 	vitrio-obj
 	PRIVATE
 		array.cpp
+		array_data.cpp
 		array_descriptor.cpp
 		array_implementation.cpp
 		array_memory.cpp

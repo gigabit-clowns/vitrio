@@ -52,6 +52,7 @@ target_link_libraries(
 		Threads::Threads
 		Boost::filesystem
 		Boost::headers
+		half::half
 )
 
 target_sources(
@@ -93,6 +94,7 @@ target_sources(
 
 add_subdirectory(array)
 add_subdirectory(concurrency)
+add_subdirectory(formats)
 add_subdirectory(memory)
 
 # vitrio is a shared library only. Its image formats register themselves

@@ -19,6 +19,8 @@ in the same commit that causes it.
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `src/formats/` | What the image formats are built with. One directory per format will follow |
+| `src/formats/strided_transfer/` | Moves regions between a file and an array: resolves where each one starts, works out the order to walk it in, and converts its elements |
+| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, the cast between two of them, their byte order |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | What the tests are given, and the directory under the build tree they write to |
@@ -73,6 +75,7 @@ library needs goes in `dependencies`.
 |---|---|
 | Threads | The library, privately |
 | Boost 1.70 or newer: Filesystem, ContainerHash | The library, privately |
+| half | The library, privately, for half precision numbers. It ships no CMake package, so `cmake/modules/Findhalf.cmake` finds its header |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
 
@@ -115,6 +118,13 @@ library needs goes in `dependencies`.
 - **Mocks.** A test that needs a stand-in for an interface uses the
   trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
   fake. A mock is added with the first test that uses it.
+- **Private headers use their dependencies openly.** A header under `src/`
+  includes what it needs and names its types as they are: `float16_t` is
+  `half_float::half`, not a class wrapped around it. Hiding a dependency is
+  for public headers only.
+- **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
+  element as `static_cast` does. Any type is produced from any other, except
+  that a complex number is only produced into another complex type.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

@@ -11,7 +11,8 @@ image code stands on is here: nothing reads or writes an image yet.
 
 vitrio needs a C++14 compiler and CMake 3.18 or newer. Its dependencies are
 found with `find_package`, so they have to be installed first: Boost
-(Filesystem and ContainerHash), and for the tests Catch2 3 and trompeloeil.
+(Filesystem and ContainerHash) and half, and for the tests Catch2 3 and
+trompeloeil.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

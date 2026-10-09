@@ -47,6 +47,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
 find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
+find_package(half REQUIRED)
 
 add_subdirectory(src)
 
