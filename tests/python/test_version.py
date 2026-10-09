@@ -2,7 +2,7 @@
 
 import re
 
-import vitrio
+import vitrio as vio
 
 def test_version_is_a_string_of_three_numbers():
-	assert re.fullmatch(r'\d+\.\d+\.\d+', vitrio.__version__)
+	assert re.fullmatch(r'\d+\.\d+\.\d+', vio.__version__)

@@ -43,19 +43,19 @@ To work on it, build it with `-DVITRIO_BUILD_PYTHON=ON`, which needs Python
 under `python/` of the build tree, so that directory goes on `PYTHONPATH`.
 
 ```python
-import numpy
+import numpy as np
 import torch
-import vitrio
+import vitrio as vio
 
-image = vitrio.read("map.mrc")
-values = numpy.asarray(image)           # the same memory, not a copy
-tensor = torch.from_dlpack(image)       # and again
+image = vio.read("map.mrc")
+values = np.asarray(image)           # the same memory, not a copy
+tensor = torch.from_dlpack(image)    # and again
 
-stack = numpy.empty((64, 256, 256), dtype=numpy.float32)
-locations = [vitrio.ImageLocation("stack.mrcs", i) for i in range(64)]
-vitrio.read_batch_async(vitrio.loader(), stack, locations).get()
+stack = np.empty((64, 256, 256), dtype=np.float32)
+locations = [vio.ImageLocation("stack.mrcs", i) for i in range(64)]
+vio.read_batch_async(vio.loader(), stack, locations).get()
 
-vitrio.write_stack(stack, "copy.mrcs")
+vio.write_stack(stack, "copy.mrcs")
 ```
 
 An array is given as whatever hands out host memory through DLPack or the
@@ -65,6 +65,10 @@ It is read or written where it is. The reads that allocate return a
 
 An asynchronous read or write returns a completion that keeps its array
 alive. Dropping a completion that is not ready waits for it.
+
+[examples/extract_particles.py](examples/extract_particles.py) is a whole
+program: it crops the particles picked on a set of micrographs into stacks,
+reading and writing the STAR files of RELION.
 
 ## Using it from CMake
 

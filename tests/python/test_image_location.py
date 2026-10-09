@@ -5,9 +5,9 @@ import pickle
 
 import pytest
 
-import vitrio
+import vitrio as vio
 
-ImageLocation = vitrio.ImageLocation
+ImageLocation = vio.ImageLocation
 
 def test_default_addresses_nothing():
 	location = ImageLocation()

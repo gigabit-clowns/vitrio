@@ -198,9 +198,9 @@ def query_descriptor(
 	shape a batch destination carries beside its leading extent:
 
 		descriptor = query_descriptor(path)
-		destination = numpy.empty(
+		destination = np.empty(
 			(len(locations), *get_core_extents(descriptor)),
-			dtype=numpy.float32
+			dtype=np.float32
 		)
 
 	Args:

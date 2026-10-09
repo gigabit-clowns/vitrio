@@ -35,6 +35,7 @@ in the same commit that causes it.
 | `python/src/array/`, `concurrency/` | Beside the bindings of those directories, how an array given from Python becomes one of vitrio: the loan of its memory and the completion that holds the loan |
 | `python/vitrio/` | The Python package: what Python expects on top of the binding, such as arguments with defaults |
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
+| `examples/` | Programs that show the Python package at work. Each is run by a test of `tests/python/` |
 | `cmake/modules/` | CMake modules of the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
@@ -78,7 +79,8 @@ PYTHONPATH=build/python python -m pytest tests/python
 
 The `dev` group of `pyproject.toml` pins what CI installs for it
 (`pip install --group dev`). The cases that exchange arrays with PyTorch,
-JAX and rexlib are skipped where those are not installed.
+JAX and rexlib are skipped where those are not installed, and so is the
+test of an example where what the example needs is not.
 
 `pip install .` builds the same package through scikit-build-core, which
 configures this project as it is. The dependencies have to be found, as in
@@ -213,6 +215,10 @@ library needs goes in `dependencies`.
   `python/vitrio/`, and `__init__.py` is the whole public surface. The
   extension is the one target built as C++17, which nanobind needs. Python
   sources are indented with tabs, as the C++ ones are.
+- **`import vitrio as vio`.** That is how the package is imported wherever
+  it is shown in use: the README, the examples and the tests. numpy is
+  `np` and pandas is `pd`, as their own documentation has them. Prose names
+  what it refers to in full, as in `vitrio.Array`.
 - **Arrays across the binding.** A function takes an array as an
   `nb::ndarray`, which nanobind fills from DLPack or the buffer protocol
   without a copy, and `Array` hands its memory out through the object

@@ -2,10 +2,10 @@
 
 import pytest
 
-import vitrio
+import vitrio as vio
 
-ImageDescriptor = vitrio.ImageDescriptor
-NumericalType = vitrio.NumericalType
+ImageDescriptor = vio.ImageDescriptor
+NumericalType = vio.NumericalType
 
 def test_holds_what_it_was_constructed_with():
 	descriptor = ImageDescriptor((6, 3, 4), 2, NumericalType.float32)
@@ -49,12 +49,12 @@ def test_refuses_a_core_rank_its_extents_cannot_hold(core_rank):
 def test_core_extents_leave_out_the_axes_a_file_stacks_along():
 	stack = ImageDescriptor((6, 3, 4), 2, NumericalType.float32)
 	volume = ImageDescriptor((6, 3, 4), 3, NumericalType.float32)
-	assert vitrio.get_core_extents(stack) == (3, 4)
-	assert vitrio.get_core_extents(volume) == (6, 3, 4)
+	assert vio.get_core_extents(stack) == (3, 4)
+	assert vio.get_core_extents(volume) == (6, 3, 4)
 
 def test_core_extents_are_a_tuple():
 	descriptor = ImageDescriptor((6, 3, 4), 2, NumericalType.float32)
-	assert isinstance(vitrio.get_core_extents(descriptor), tuple)
+	assert isinstance(vio.get_core_extents(descriptor), tuple)
 
 def test_equal_descriptors_compare_equal():
 	first = ImageDescriptor((6, 3, 4), 2, NumericalType.float32)

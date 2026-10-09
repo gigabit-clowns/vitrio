@@ -2,6 +2,10 @@
 
 """Reads and writes the image files of electron microscopy.
 
+The package is imported as `vio`:
+
+	import vitrio as vio
+
 Everything below is private. `_binding` mirrors the C++ API, with the same
 names and the same required arguments, and the modules beside it add what
 Python expects on top. This file is the whole public surface.

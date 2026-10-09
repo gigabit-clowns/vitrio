@@ -11,65 +11,65 @@ import sys
 import textwrap
 import weakref
 
-import numpy
+import numpy as np
 import pytest
 
-import vitrio
+import vitrio as vio
 
 BATCH_SIZE = 64
 
 def test_a_completion_keeps_its_destination_alive(__written_files):
-	loader = vitrio.loader()
-	destination = numpy.zeros((BATCH_SIZE, 4, 6), dtype=numpy.float32)
+	loader = vio.loader()
+	destination = np.zeros((BATCH_SIZE, 4, 6), dtype=np.float32)
 	alive = weakref.ref(destination)
-	completion = vitrio.read_batch_async(loader, destination, __written_files)
+	completion = vio.read_batch_async(loader, destination, __written_files)
 	del destination
 	gc.collect()
 	assert alive() is not None
 	completion.get()
-	assert numpy.array_equal(alive()[BATCH_SIZE - 1], __setup_array((4, 6)))
+	assert np.array_equal(alive()[BATCH_SIZE - 1], __setup_array((4, 6)))
 
 def test_a_destination_is_released_with_its_completion(__written_files):
-	loader = vitrio.loader()
-	destination = numpy.zeros((BATCH_SIZE, 4, 6), dtype=numpy.float32)
+	loader = vio.loader()
+	destination = np.zeros((BATCH_SIZE, 4, 6), dtype=np.float32)
 	alive = weakref.ref(destination)
-	completion = vitrio.read_batch_async(loader, destination, __written_files)
+	completion = vio.read_batch_async(loader, destination, __written_files)
 	completion.get()
 	del destination, completion
 	gc.collect()
 	assert alive() is None
 
 def test_dropping_a_completion_waits_for_its_reads(__written_files):
-	loader = vitrio.loader()
-	destination = numpy.zeros((BATCH_SIZE, 4, 6), dtype=numpy.float32)
-	vitrio.read_batch_async(loader, destination, __written_files)
-	assert numpy.array_equal(destination[BATCH_SIZE - 1], __setup_array((4, 6)))
+	loader = vio.loader()
+	destination = np.zeros((BATCH_SIZE, 4, 6), dtype=np.float32)
+	vio.read_batch_async(loader, destination, __written_files)
+	assert np.array_equal(destination[BATCH_SIZE - 1], __setup_array((4, 6)))
 
 def test_a_completion_outlives_the_loader_and_its_executor(__written_files):
-	loader = vitrio.loader()
-	destination = numpy.zeros((BATCH_SIZE, 4, 6), dtype=numpy.float32)
-	completion = vitrio.read_batch_async(loader, destination, __written_files)
+	loader = vio.loader()
+	destination = np.zeros((BATCH_SIZE, 4, 6), dtype=np.float32)
+	completion = vio.read_batch_async(loader, destination, __written_files)
 	del loader
 	gc.collect()
 	completion.get()
-	assert numpy.array_equal(destination[0], __setup_array((4, 6)))
+	assert np.array_equal(destination[0], __setup_array((4, 6)))
 
 def test_a_refused_read_keeps_nothing(__written_files):
-	loader = vitrio.loader()
-	destination = numpy.zeros((BATCH_SIZE + 1, 4, 6), dtype=numpy.float32)
+	loader = vio.loader()
+	destination = np.zeros((BATCH_SIZE + 1, 4, 6), dtype=np.float32)
 	alive = weakref.ref(destination)
 	with pytest.raises(ValueError):
-		vitrio.read_batch_async(loader, destination, __written_files)
+		vio.read_batch_async(loader, destination, __written_files)
 	del destination
 	gc.collect()
 	assert alive() is None
 
 def test_a_failed_read_returns_its_destination(tmp_path):
-	loader = vitrio.loader()
-	destination = numpy.zeros((2, 4, 6), dtype=numpy.float32)
+	loader = vio.loader()
+	destination = np.zeros((2, 4, 6), dtype=np.float32)
 	alive = weakref.ref(destination)
-	locations = [vitrio.ImageLocation(tmp_path / 'missing.mrc')] * 2
-	completion = vitrio.read_batch_async(loader, destination, locations)
+	locations = [vio.ImageLocation(tmp_path / 'missing.mrc')] * 2
+	completion = vio.read_batch_async(loader, destination, locations)
 	with pytest.raises(RuntimeError):
 		completion.get()
 	del destination, completion
@@ -77,31 +77,31 @@ def test_a_failed_read_returns_its_destination(tmp_path):
 	assert alive() is None
 
 def test_a_read_into_an_array_keeps_nothing_once_it_returns(__written_files):
-	destination = numpy.zeros((4, 6), dtype=numpy.float32)
+	destination = np.zeros((4, 6), dtype=np.float32)
 	references = sys.getrefcount(destination)
-	vitrio.read(__written_files[0], out=destination)
+	vio.read(__written_files[0], out=destination)
 	assert sys.getrefcount(destination) == references
 
 def test_a_write_keeps_nothing_once_it_returns(tmp_path):
 	source = __setup_array((4, 6))
 	references = sys.getrefcount(source)
-	vitrio.write_single(source, tmp_path / 'image.mrc')
+	vio.write_single(source, tmp_path / 'image.mrc')
 	assert sys.getrefcount(source) == references
 
 def test_a_completion_keeps_its_source_alive(tmp_path):
 	path = tmp_path / 'stack.mrcs'
-	writers = vitrio.writer_provider()
+	writers = vio.writer_provider()
 	writers.declare(
 		path,
-		vitrio.ImageDescriptor(
-			(BATCH_SIZE, 4, 6), 2, vitrio.NumericalType.float32
+		vio.ImageDescriptor(
+			(BATCH_SIZE, 4, 6), 2, vio.NumericalType.float32
 		)
 	)
-	saver = vitrio.saver(writers)
+	saver = vio.saver(writers)
 	source = __setup_array((BATCH_SIZE, 4, 6))
 	alive = weakref.ref(source)
-	locations = [vitrio.ImageLocation(path, i) for i in range(BATCH_SIZE)]
-	completion = vitrio.write_batch_async(saver, source, locations)
+	locations = [vio.ImageLocation(path, i) for i in range(BATCH_SIZE)]
+	completion = vio.write_batch_async(saver, source, locations)
 	del source
 	gc.collect()
 	assert alive() is not None
@@ -110,9 +110,9 @@ def test_a_completion_keeps_its_source_alive(tmp_path):
 	gc.collect()
 	assert alive() is None
 	writers.close(path)
-	last = vitrio.read(vitrio.ImageLocation(path, BATCH_SIZE - 1))
-	assert numpy.array_equal(
-		numpy.asarray(last), __setup_array((BATCH_SIZE, 4, 6))[-1]
+	last = vio.read(vio.ImageLocation(path, BATCH_SIZE - 1))
+	assert np.array_equal(
+		np.asarray(last), __setup_array((BATCH_SIZE, 4, 6))[-1]
 	)
 
 # A thread that is still reading when the interpreter shuts down must not
@@ -127,15 +127,15 @@ def test_a_completion_keeps_its_source_alive(tmp_path):
 )
 def test_the_interpreter_shuts_down_cleanly(ending, __written_files):
 	script = textwrap.dedent(f'''
-		import numpy
-		import vitrio
+		import numpy as np
+		import vitrio as vio
 
-		loader = vitrio.loader()
+		loader = vio.loader()
 		locations = [
-			vitrio.ImageLocation({str(__written_files[0].key)!r})
+			vio.ImageLocation({str(__written_files[0].key)!r})
 		] * {BATCH_SIZE}
-		destination = numpy.zeros(({BATCH_SIZE}, 4, 6), dtype=numpy.float32)
-		completion = vitrio.read_batch_async(loader, destination, locations)
+		destination = np.zeros(({BATCH_SIZE}, 4, 6), dtype=np.float32)
+		completion = vio.read_batch_async(loader, destination, locations)
 		{ending}
 	''')
 	for _ in range(10):
@@ -147,13 +147,13 @@ def test_the_interpreter_shuts_down_cleanly(ending, __written_files):
 		assert result.stderr == ''
 
 def __setup_array(shape):
-	count = int(numpy.prod(shape))
-	return numpy.arange(count, dtype=numpy.float32).reshape(shape)
+	count = int(np.prod(shape))
+	return np.arange(count, dtype=np.float32).reshape(shape)
 
 # The same file many times over, so that a batch is long enough to still be
 # in flight when the test goes on.
 @pytest.fixture
 def __written_files(tmp_path):
 	path = tmp_path / 'image.mrc'
-	vitrio.write_single(__setup_array((4, 6)), path)
-	return [vitrio.ImageLocation(path)] * BATCH_SIZE
+	vio.write_single(__setup_array((4, 6)), path)
+	return [vio.ImageLocation(path)] * BATCH_SIZE

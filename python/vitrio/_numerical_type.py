@@ -43,8 +43,8 @@ def _find_member(cls, value: object) -> NumericalType | None:
 	# numpy is not required. Without it only the names of the members are
 	# understood.
 	try:
-		import numpy  # noqa: PLC0415
-		name = numpy.dtype(value).name
+		import numpy as np  # noqa: PLC0415
+		name = np.dtype(value).name
 	except (ImportError, TypeError):
 		return None
 
