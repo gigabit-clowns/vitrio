@@ -147,11 +147,12 @@ VCPKG_KEEP_ENV_VARS = "MACOSX_DEPLOYMENT_TARGET"
 
 # On Windows vcpkg builds dynamic libraries unless it is asked for this
 # triplet. delvewheel adds the runtime of the compiler, which Windows does
-# not have until something installs it.
+# not have until something installs it. It is told to leave the library of
+# vitrio where it is in the wheel, and it still follows what that needs.
 [tool.cibuildwheel.windows]
 before-build = "pip install --group repair-windows"
 repair-wheel-command = """\
-    delvewheel repair --analyze-existing -w {dest_dir} {wheel}"""
+    delvewheel repair --ignore-existing -w {dest_dir} {wheel}"""
 
 [tool.cibuildwheel.windows.environment]
 CMAKE_ARGS = "-DVCPKG_TARGET_TRIPLET=x64-windows-static-md"
