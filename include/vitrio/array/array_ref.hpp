@@ -66,6 +66,10 @@ public:
 	VITRIO_API
 	array_ref(array &other) noexcept;
 
+	// A temporary array would be gone before the reference is used. MSVC
+	// binds one to the constructor above unless this one is deleted.
+	array_ref(array &&other) = delete;
+
 	array_ref(const array_ref &other) noexcept = default;
 	~array_ref() = default;
 
