@@ -2,6 +2,7 @@
 
 #include <vitrio/indexed_image_scratch.hpp>
 
+#include "image_scratch_directory.hpp"
 #include "indexed_image_scratch_entry.hpp"
 
 #include <vitrio/array/array.hpp>
@@ -613,6 +614,50 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 		run_length,
 		image_scratch_open_mode::resumed
 	);
+}
+
+std::shared_ptr<image_scratch> create_directory_image_scratch(
+	const image_location_grouping &locations,
+	image_reader_provider &files,
+	const std::string &directory,
+	std::size_t run_length,
+	std::size_t budget
+)
+{
+	check_run_length(run_length);
+
+	image_scratch_directory scratches(directory, budget);
+
+	// Files that can not be removed may leave less room than the layout
+	// was computed for. It is then computed again, for the room there is,
+	// and that is a scratch of another fingerprint.
+	auto max_size = budget;
+	for (;;)
+	{
+		const auto layout = lay_out(locations, files, run_length, max_size);
+		check_not_empty(layout);
+
+		std::size_t room = 0;
+		auto storage = scratches.acquire(
+			layout.get_fingerprint(),
+			layout.get_used(),
+			room
+		);
+
+		if (storage)
+		{
+			return std::make_shared<indexed_image_scratch>(
+				locations,
+				files,
+				std::move(storage),
+				run_length,
+				image_scratch_open_mode::resumed
+			);
+		}
+
+		VITRIO_ASSERT(room < max_size);
+		max_size = room;
+	}
 }
 
 } // namespace vitrio

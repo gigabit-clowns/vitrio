@@ -100,6 +100,7 @@ target_sources(
 		image_region_grouping.cpp
 		image_saver.cpp
 		image_scratch.cpp
+		image_scratch_directory.cpp
 		image_scratch_entry.cpp
 		image_scratch_storage.cpp
 		image_transaction_plan.cpp

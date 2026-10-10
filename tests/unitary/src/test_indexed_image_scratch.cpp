@@ -7,6 +7,7 @@
 #include <vitrio/indexed_image_scratch.hpp>
 
 #include "fixtures/counting_image_file.hpp"
+#include "fixtures/scoped_directory.hpp"
 #include <vitrio/tests/scoped_path.hpp>
 #include "mock/mock_image_reader.hpp"
 #include "mock/mock_image_reader_provider.hpp"
@@ -1047,6 +1048,215 @@ TEST_CASE(
 		),
 		image_file_error
 	);
+}
+
+TEST_CASE(
+	"create_directory_image_scratch stores the images in a file of the "
+	"directory of the size they need",
+	"[indexed_image_scratch]"
+)
+{
+	const scoped_path path("directory_image_scratch.raw");
+	const scoped_directory directory("directory_image_scratch");
+	write_counting_image_file(path.get(), stack_extents);
+	const auto stack = open_counting_image_file(path.get(), stack_extents, 2);
+
+	mock_image_reader_provider files;
+	const std::vector<image_location> locations = {
+		image_location(path.get(), 5),
+		image_location(path.get(), 1),
+		image_location(path.get(), 3)
+	};
+
+	ALLOW_CALL(files, acquire(path.get())).RETURN(stack);
+
+	auto scratch = create_directory_image_scratch(
+		group(locations),
+		files,
+		directory.get(),
+		one_run,
+		1024
+	);
+
+	REQUIRE( scratch != nullptr );
+	const auto scratch_files = directory.list_files(".vitrio-scratch");
+	REQUIRE( scratch_files.size() == 1 );
+
+	SECTION( "the file has room for the three images and no more" )
+	{
+		CHECK( boost::filesystem::file_size(scratch_files.front()) ==
+			storage_bytes({3}) );
+	}
+
+	SECTION( "a later scratch of the same images resumes from it" )
+	{
+		scratch->find(path.get())->store(*stack, images({5, 1, 3}));
+		scratch.reset();
+
+		const auto later = create_directory_image_scratch(
+			group(locations),
+			files,
+			directory.get(),
+			one_run,
+			1024
+		);
+		auto destination =
+			make_host_array<float>({3, 2, 2}, numerical_type::float32, -1.0F);
+		const auto missing = later->find(path.get())->read(
+			array_ref(destination),
+			images({5, 1, 3})
+		);
+
+		CHECK( missing.get_region_count() == 0 );
+		CHECK( get_values<float>(destination) ==
+			values_of_images({5, 1, 3}) );
+		CHECK( directory.list_files(".vitrio-scratch").size() == 1 );
+	}
+}
+
+TEST_CASE(
+	"create_directory_image_scratch holds what fits in its budget",
+	"[indexed_image_scratch]"
+)
+{
+	const scoped_directory directory("directory_image_scratch_cut");
+	const auto reader = std::make_shared<mock_image_reader>();
+	mock_image_reader_provider files;
+	const std::vector<image_location> locations = {
+		image_location("stack.mrcs", 5),
+		image_location("stack.mrcs", 1),
+		image_location("stack.mrcs", 3)
+	};
+
+	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
+	ALLOW_CALL(files, acquire("stack.mrcs")).RETURN(reader);
+
+	const auto scratch = create_directory_image_scratch(
+		group(locations),
+		files,
+		directory.get(),
+		one_run,
+		storage_bytes({2}) + sizeof(float)
+	);
+
+	// Two of the three images fit.
+	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		.LR_WITH( get_file_indices(_2) == index_list({1, 3}) );
+
+	scratch->find("stack.mrcs")->store(*reader, whole_stack());
+}
+
+TEST_CASE(
+	"create_directory_image_scratch removes the file of another scratch to "
+	"make room",
+	"[indexed_image_scratch]"
+)
+{
+	const scoped_directory directory("directory_image_scratch_evict");
+	const auto reader = std::make_shared<mock_image_reader>();
+	mock_image_reader_provider files;
+	const std::vector<image_location> first = {
+		image_location("stack.mrcs", 0),
+		image_location("stack.mrcs", 1)
+	};
+	const std::vector<image_location> second = {
+		image_location("stack.mrcs", 2),
+		image_location("stack.mrcs", 3)
+	};
+	const auto budget = storage_bytes({2}) * 3 / 2;
+
+	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
+	ALLOW_CALL(files, acquire("stack.mrcs")).RETURN(reader);
+
+	create_directory_image_scratch(
+		group(first),
+		files,
+		directory.get(),
+		one_run,
+		budget
+	);
+	REQUIRE( directory.list_files(".vitrio-scratch").size() == 1 );
+
+	// The second scratch holds both of its images rather than what fits
+	// beside the first.
+	const auto scratch = create_directory_image_scratch(
+		group(second),
+		files,
+		directory.get(),
+		one_run,
+		budget
+	);
+
+	CHECK( directory.list_files(".vitrio-scratch").size() == 1 );
+
+	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		.LR_WITH( get_file_indices(_2) == index_list({2, 3}) );
+
+	scratch->find("stack.mrcs")->store(*reader, whole_stack());
+}
+
+TEST_CASE(
+	"create_directory_image_scratch creates no file when it refuses to hold "
+	"nothing",
+	"[indexed_image_scratch]"
+)
+{
+	const scoped_directory directory("directory_image_scratch_none");
+	const auto reader = std::make_shared<mock_image_reader>();
+	mock_image_reader_provider files;
+	const std::vector<image_location> locations = {
+		image_location("stack.mrcs", 0)
+	};
+
+	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
+	ALLOW_CALL(files, acquire("stack.mrcs")).RETURN(reader);
+
+	SECTION( "when no location is given" )
+	{
+		REQUIRE_THROWS_AS(
+			create_directory_image_scratch(
+				group({}),
+				files,
+				directory.get(),
+				one_run,
+				1024
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "when the budget has no room for an image" )
+	{
+		REQUIRE_THROWS_AS(
+			create_directory_image_scratch(
+				group(locations),
+				files,
+				directory.get(),
+				one_run,
+				image_bytes - 1
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "when a run has no index" )
+	{
+		REQUIRE_THROWS_AS(
+			create_directory_image_scratch(
+				group(locations),
+				files,
+				directory.get(),
+				0,
+				1024
+			),
+			std::invalid_argument
+		);
+	}
+
+	if (boost::filesystem::exists(directory.get()))
+	{
+		CHECK( directory.list_files(".vitrio-scratch").empty() );
+	}
 }
 
 TEST_CASE(

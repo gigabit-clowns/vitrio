@@ -194,4 +194,74 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 	std::size_t max_size = std::numeric_limits<std::size_t>::max()
 );
 
+/**
+ * @brief Create a scratch that stores its copies in a file of a directory
+ * that stays within a budget.
+ *
+ * The directory holds the files of scratches, each named after the
+ * fingerprint of its scratch, which @ref indexed_image_scratch describes.
+ * The scratch of the same images, laid out the same way, is given the file
+ * an earlier one left, and resumes from it as
+ * @ref create_mapped_file_image_scratch does. Several programs may use the
+ * directory at the same time, and those that hold the same images share
+ * their file.
+ *
+ * A new file is made room for: the files of other scratches are removed,
+ * the one used least recently first, until it fits in @p budget beside
+ * those that remain. A file is used when a scratch is created over it. A
+ * file that can not be removed, such as one that is mapped on Windows,
+ * keeps its room, and the scratch then holds what fits beside it. One that
+ * is removed while a scratch elsewhere maps it, as POSIX allows, is gone
+ * from the directory, but its space on the disk is freed only once nothing
+ * maps it. The budget may therefore be exceeded on the disk for as long as
+ * such a scratch lives.
+ *
+ * The scratch holds every image of @p locations, unless that needs more
+ * than the budget. It then holds the images that fit in the budget, as
+ * @ref indexed_image_scratch describes, and every other file that can be
+ * removed is removed to make room for them.
+ *
+ * The budget is not weighed against the free space of the disk, which
+ * must have room for it. A file is given its size without the space being
+ * taken on the file systems that allow it, and the space is taken as the
+ * scratch takes images in. If the disk is full by then, the write ends the
+ * program, as a write to any mapped file does.
+ *
+ * Only the files of scratches count against the budget, and only they are
+ * ever removed. Each is named after its fingerprint, in hexadecimal, with
+ * the extension `.vitrio-scratch`. The directory also holds
+ * `vitrio-scratch.lock`, which programs take turns through.
+ *
+ * Each image file is opened at least twice through @p files: once to
+ * compute the size and once to construct the scratch, and once more each
+ * time files that can not be removed leave less room than was computed.
+ *
+ * @param locations The images to hold, grouped by file.
+ * @param files Provider used to open the image files.
+ * @param directory Path of the directory. It is created if it is missing.
+ * @param run_length Number of held indices per run.
+ * @param budget The most bytes that the files of scratches in
+ * @p directory may take together.
+ * @return std::shared_ptr<image_scratch> The scratch. Never null.
+ * @throws std::invalid_argument If @p run_length is zero, or if there is
+ * nothing to hold: @p locations names no image, or the budget has no room
+ * for one beside the files that can not be removed. No file is created
+ * then.
+ * @throws std::out_of_range If a location has a stack index that its
+ * file does not have.
+ * @throws image_file_error If the directory can not be created, locked or
+ * listed, if the scratch file can not be created, sized or mapped, or if
+ * an image file does not exist or can not be read.
+ * @throws unsupported_operation_error If no format can read an image file.
+ * @throws image_file_format_error If an image file is malformed or truncated.
+ */
+VITRIO_API
+std::shared_ptr<image_scratch> create_directory_image_scratch(
+	const image_location_grouping &locations,
+	image_reader_provider &files,
+	const std::string &directory,
+	std::size_t run_length,
+	std::size_t budget
+);
+
 } // namespace vitrio
