@@ -19,15 +19,19 @@ target_sources(
 		image_file_write_format_selector.cpp
 		image_loader.cpp
 		image_location.cpp
+		image_location_grouping.cpp
 		image_read.cpp
 		image_reader_provider.cpp
 		image_saver.cpp
+		image_scratch.cpp
 		image_write.cpp
 		image_writer_provider.cpp
 		index_table.cpp
+		indexed_image_scratch.cpp
 		index_tuple.cpp
 		library_version.cpp
 		main.cpp
+		scratch_image_reader_provider.cpp
 		utf8_string.cpp
 )
 
