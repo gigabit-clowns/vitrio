@@ -20,9 +20,10 @@ in the same commit that causes it.
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `src/formats/` | The image formats and what they are built with. Each format has a directory and a namespace of its own, such as `vitrio::mrc` |
-| `src/formats/strided_transfer/` | Moves regions between a file and an array: resolves where each one starts, works out the order to walk it in, and converts its elements |
+| `src/formats/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements |
 | `src/formats/memory_mapping/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are, and advises the pages a read is about to touch |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
+| `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, the cast between two of them, their byte order |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies |
@@ -135,7 +136,7 @@ library needs goes in `dependencies`.
 | Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
 | half | The library, privately, for half precision numbers. It ships no CMake package, so `cmake/modules/Findhalf.cmake` finds its header |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
-| libtiff 4.5 or newer | The library, privately, for the TIFF format. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, and it is the `tiff` feature of the manifest |
+| libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, and it is the `tiff` feature of the manifest |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
 | Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and not in the manifest: pip provides nanobind |
@@ -208,6 +209,20 @@ library needs goes in `dependencies`.
   - The two providers whose keys are paths, `file_image_reader_provider`
     and `file_image_writer_provider`, are each given a selector and hold no
     formats themselves.
+- **Detector events.** A detector that counts electrons records events, not
+  images. A `detector_event_timeline` holds the events of a stretch of time,
+  in groups of one timestamp each, and `detector_event_position_view` views
+  their positions as a matrix of a row per event. What is fixed for an
+  acquisition, its grid and its time, is a
+  `detector_event_timeline_descriptor`. Their files have the same three
+  roles as those of images, `detector_event_timeline_file_read_format`, its
+  selector and `file_detector_event_timeline_reader_provider`, and nothing
+  of them is about one format: EER is one implementation, under
+  `vitrio::eer`. An acquisition becomes images through
+  `detector_event_image_reader_provider`, which is given the
+  `detector_event_fractionation` and the `detector_event_renderer` to read
+  it with. That is chosen by whoever reads, not by the file, so it is
+  stated where readers are made and never registered as a format of images.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

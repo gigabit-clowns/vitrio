@@ -7,6 +7,7 @@
 
 #include <vitrio/image_file_probe.hpp>
 
+#include <formats/eer/eer_extensions.hpp>
 #include <formats/image_file_format_registration_macros.hpp>
 
 namespace vitrio
@@ -22,7 +23,10 @@ std::string tiff_file_read_format::get_name() const
 image_file_format_suitability
 tiff_file_read_format::get_suitability(const image_file_probe &probe) const
 {
-	return has_signature(probe.get_leading_bytes())
+	// An EER file is a TIFF file whose pages hold events, which are read
+	// as such rather than as samples this format can not decode.
+	return has_signature(probe.get_leading_bytes()) &&
+		!eer::is_extension(probe.get_extension())
 		? image_file_format_suitability::normal
 		: image_file_format_suitability::unsupported;
 }

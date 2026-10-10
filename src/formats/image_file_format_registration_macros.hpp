@@ -4,6 +4,7 @@
 
 #include <vitrio/image_file_format_registration.hpp>
 
+#include <builtin_detector_event_timeline_file_read_format_registry.hpp>
 #include <builtin_image_file_format_registry.hpp>
 
 /**
@@ -38,4 +39,21 @@
 		::vitrio::image_file_write_format_registry \
 	> name##_image_file_write_format_registration( \
 		::vitrio::get_builtin_image_file_write_format_registry() \
+	)
+
+/**
+ * @brief Instantiate and auto-register a file format of detector events.
+ *
+ * @param name Identifier of the registration object.
+ * @param ... The format type.
+ *
+ * @see VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT
+ */
+#define VITRIO_REGISTER_DETECTOR_EVENT_TIMELINE_FILE_READ_FORMAT(name, ...) \
+	static const ::vitrio::image_file_format_registration< \
+		__VA_ARGS__, \
+		::vitrio::detector_event_timeline_file_read_format_registry \
+	> name##_detector_event_timeline_file_read_format_registration( \
+		::vitrio:: \
+			get_builtin_detector_event_timeline_file_read_format_registry() \
 	)
