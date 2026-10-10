@@ -9,12 +9,15 @@ target_sources(
 		test_clipping_image_transfer_sanitizer.cpp
 		test_counting_detector_event_renderer.cpp
 		test_detector_event_fractionation.cpp
+		test_detector_event_image_reader.cpp
+		test_detector_event_image_reader_provider.cpp
 		test_detector_event_timeline.cpp
 		test_detector_event_timeline_descriptor.cpp
 		test_detector_event_timeline_file_read_format_registry.cpp
 		test_detector_event_timeline_file_read_format_selector.cpp
 		test_executor_image_loader.cpp
 		test_executor_image_saver.cpp
+		test_file_detector_event_timeline_reader_provider.cpp
 		test_file_image_reader_provider.cpp
 		test_file_image_writer_provider.cpp
 		test_find_most_suitable_format.cpp
