@@ -4,6 +4,8 @@
 
 #include <vitrio/detector_event_timeline.hpp>
 
+#include <vitrio/detector_event_position_view.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -17,8 +19,9 @@ namespace
 
 using coordinates = std::vector<std::uint32_t>;
 
-coordinates to_vector(span<const std::uint32_t> values)
+coordinates to_vector(detector_event_position_view positions)
 {
+	const auto values = positions.get_coordinates();
 	return coordinates(values.begin(), values.end());
 }
 
@@ -28,7 +31,10 @@ void add(
 	const coordinates &events
 )
 {
-	timeline.add_group(timestamp, make_span(events));
+	timeline.add_group(
+		timestamp,
+		detector_event_position_view(make_span(events), timeline.get_rank())
+	);
 }
 
 } // anonymous namespace
@@ -42,7 +48,7 @@ TEST_CASE(
 	REQUIRE( timeline.get_rank() == 2 );
 	REQUIRE( timeline.get_group_count() == 0 );
 	REQUIRE( timeline.get_event_count() == 0 );
-	REQUIRE( timeline.get_coordinates().size() == 0 );
+	REQUIRE( timeline.get_positions().empty() );
 }
 
 TEST_CASE(
@@ -68,12 +74,12 @@ TEST_CASE(
 	REQUIRE( timeline.get_timestamp(1) == 4 );
 	REQUIRE( timeline.get_timestamp(2) == 9 );
 
-	REQUIRE( to_vector(timeline.get_coordinates(0)) ==
+	REQUIRE( to_vector(timeline.get_positions(0)) ==
 		coordinates{0, 1, 2, 3} );
-	REQUIRE( to_vector(timeline.get_coordinates(1)).empty() );
-	REQUIRE( to_vector(timeline.get_coordinates(2)) == coordinates{5, 6} );
+	REQUIRE( to_vector(timeline.get_positions(1)).empty() );
+	REQUIRE( to_vector(timeline.get_positions(2)) == coordinates{5, 6} );
 
-	REQUIRE( to_vector(timeline.get_coordinates()) ==
+	REQUIRE( to_vector(timeline.get_positions()) ==
 		coordinates{0, 1, 2, 3, 5, 6} );
 }
 
@@ -99,14 +105,36 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a detector_event_timeline refuses coordinates that are not whole events",
+	"a detector_event_timeline refuses positions of another rank",
 	"[detector_event_timeline]" )
 {
 	detector_event_timeline timeline(2);
+	const coordinates events = {1, 2, 3};
 
-	REQUIRE_THROWS_AS( add(timeline, 0, {1, 2, 3}), std::invalid_argument );
+	REQUIRE_THROWS_AS(
+		timeline.add_group(
+			0, detector_event_position_view(make_span(events), 3)),
+		std::invalid_argument
+	);
 	REQUIRE( timeline.get_group_count() == 0 );
 	REQUIRE( timeline.get_event_count() == 0 );
+}
+
+TEST_CASE(
+	"a detector_event_timeline views each group as rows of positions",
+	"[detector_event_timeline]" )
+{
+	detector_event_timeline timeline(2);
+	add(timeline, 0, {9, 9});
+	add(timeline, 1, {0, 1,  2, 3,  4, 5});
+
+	const auto positions = timeline.get_positions(1);
+
+	REQUIRE( positions.get_rank() == 2 );
+	REQUIRE( positions.get_event_count() == 3 );
+	REQUIRE( positions(2, 0) == 4 );
+	REQUIRE( positions(2, 1) == 5 );
+	REQUIRE( timeline.get_positions().get_event_count() == 4 );
 }
 
 TEST_CASE(
@@ -116,7 +144,7 @@ TEST_CASE(
 	detector_event_timeline timeline(2);
 	timeline.reserve(4, 16);
 	add(timeline, 7, {1, 2, 3, 4});
-	const auto *data = timeline.get_coordinates().data();
+	const auto *data = timeline.get_positions().get_coordinates().data();
 
 	timeline.clear();
 
@@ -129,14 +157,14 @@ TEST_CASE(
 		add(timeline, 1, {5, 6});
 
 		REQUIRE( timeline.get_timestamp(0) == 1 );
-		REQUIRE( to_vector(timeline.get_coordinates(0)) == coordinates{5, 6} );
+		REQUIRE( to_vector(timeline.get_positions(0)) == coordinates{5, 6} );
 	}
 
 	SECTION( "what fits the capacity is not allocated again" )
 	{
 		add(timeline, 0, coordinates(32, 1));
 
-		REQUIRE( timeline.get_coordinates().data() == data );
+		REQUIRE( timeline.get_positions().get_coordinates().data() == data );
 	}
 }
 
@@ -149,13 +177,13 @@ TEST_CASE(
 
 	detector_event_timeline copy(original);
 	REQUIRE( copy.get_timestamp(0) == 2 );
-	REQUIRE( to_vector(copy.get_coordinates(0)) == coordinates{8, 9} );
+	REQUIRE( to_vector(copy.get_positions(0)) == coordinates{8, 9} );
 
 	const detector_event_timeline moved(std::move(copy));
 	REQUIRE( moved.get_rank() == 1 );
-	REQUIRE( to_vector(moved.get_coordinates(0)) == coordinates{8, 9} );
+	REQUIRE( to_vector(moved.get_positions(0)) == coordinates{8, 9} );
 
 	detector_event_timeline assigned(1);
 	assigned = original;
-	REQUIRE( to_vector(assigned.get_coordinates()) == coordinates{8, 9} );
+	REQUIRE( to_vector(assigned.get_positions()) == coordinates{8, 9} );
 }

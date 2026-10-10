@@ -11,6 +11,7 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/counting_detector_event_renderer.hpp>
 #include <vitrio/detector_event_fractionation.hpp>
+#include <vitrio/detector_event_position_view.hpp>
 #include <vitrio/detector_event_timeline.hpp>
 #include <vitrio/detector_event_timeline_descriptor.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -55,7 +56,8 @@ void read_frames(
 			static_cast<std::uint32_t>(frame % 2),
 			static_cast<std::uint32_t>(frame % 3)
 		}};
-		destination.add_group(frame, make_span(event));
+		destination.add_group(
+			frame, detector_event_position_view(make_span(event), 2));
 	}
 }
 

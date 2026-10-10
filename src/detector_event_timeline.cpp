@@ -37,7 +37,7 @@ detector_event_timeline& detector_event_timeline::operator=(
 
 void detector_event_timeline::add_group(
 	std::uint64_t timestamp,
-	span<const std::uint32_t> coordinates
+	detector_event_position_view positions
 )
 {
 	if (!m_timestamps.empty() && timestamp <= m_timestamps.back())
@@ -47,14 +47,15 @@ void detector_event_timeline::add_group(
 			"than that of the last group."
 		);
 	}
-	if (coordinates.size() % m_rank != 0)
+	if (positions.get_rank() != m_rank)
 	{
 		throw std::invalid_argument(
-			"detector_event_timeline::add_group: The number of coordinates "
-			"is not a multiple of the rank."
+			"detector_event_timeline::add_group: The positions do not have "
+			"the rank of the timeline."
 		);
 	}
 
+	const auto coordinates = positions.get_coordinates();
 	m_group_offsets.push_back(get_event_count());
 	m_timestamps.push_back(timestamp);
 	m_coordinates.insert(
@@ -100,8 +101,8 @@ detector_event_timeline::get_timestamp(std::size_t group) const noexcept
 	return m_timestamps[group];
 }
 
-span<const std::uint32_t>
-detector_event_timeline::get_coordinates(std::size_t group) const noexcept
+detector_event_position_view
+detector_event_timeline::get_positions(std::size_t group) const noexcept
 {
 	VITRIO_ASSERT(group < m_group_offsets.size());
 	const auto first = m_group_offsets[group];
@@ -109,16 +110,18 @@ detector_event_timeline::get_coordinates(std::size_t group) const noexcept
 		? m_group_offsets[group + 1]
 		: get_event_count();
 
-	return make_span(
-		m_coordinates.data() + (first * m_rank),
-		(end - first) * m_rank
-	);
+	return get_positions().get_events(first, end - first);
 }
 
-span<const std::uint32_t>
-detector_event_timeline::get_coordinates() const noexcept
+detector_event_position_view
+detector_event_timeline::get_positions() const noexcept
 {
-	return make_span(m_coordinates.data(), m_coordinates.size());
+	// It does not throw: the rank was checked when this timeline was made,
+	// and every group adds whole rows of it.
+	return detector_event_position_view(
+		make_span(m_coordinates.data(), m_coordinates.size()),
+		m_rank
+	);
 }
 
 } // namespace vitrio

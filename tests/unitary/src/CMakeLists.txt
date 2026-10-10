@@ -11,6 +11,7 @@ target_sources(
 		test_detector_event_fractionation.cpp
 		test_detector_event_image_reader.cpp
 		test_detector_event_image_reader_provider.cpp
+		test_detector_event_position_view.cpp
 		test_detector_event_timeline.cpp
 		test_detector_event_timeline_descriptor.cpp
 		test_detector_event_timeline_file_read_format_registry.cpp

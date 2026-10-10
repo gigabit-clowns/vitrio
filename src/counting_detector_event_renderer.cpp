@@ -51,14 +51,15 @@ void count_events(
 )
 {
 	const auto rank = image_extents.size();
-	const auto coordinates = events.get_coordinates();
+	const auto positions = events.get_positions();
+	const auto event_count = positions.get_event_count();
 
-	for (std::size_t first = 0; first < coordinates.size(); first += rank)
+	for (std::size_t event = 0; event < event_count; ++event)
 	{
 		std::size_t pixel = 0;
 		for (std::size_t axis = 0; axis < rank; ++axis)
 		{
-			const std::size_t coordinate = coordinates[first + axis];
+			const std::size_t coordinate = positions(event, axis);
 			if (coordinate >= grid_extents[axis])
 			{
 				throw std::out_of_range(

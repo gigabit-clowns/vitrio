@@ -2,8 +2,8 @@
 
 #pragma once
 
+#include <vitrio/detector_event_position_view.hpp>
 #include <vitrio/export.hpp>
-#include <vitrio/span.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -27,11 +27,11 @@ namespace vitrio
  * @ref detector_event_timeline_descriptor states, which the timeline itself
  * does not carry.
  *
- * The coordinates of every event are held one after another in one flat
- * vector, and each group is a range of it, so a timeline of any length costs
- * a bounded number of allocations. @ref clear keeps the capacity: a timeline
- * refilled after clearing allocates nothing until it outgrows what it held
- * before.
+ * The positions of every event are held as one matrix, a row per event
+ * and a column per axis, and each group is a run of its rows, so a timeline
+ * of any length costs a bounded number of allocations. @ref clear keeps the
+ * capacity: a timeline refilled after clearing allocates nothing until it
+ * outgrows what it held before.
  *
  * The rank is stated when a timeline is constructed and never changes.
  */
@@ -65,16 +65,16 @@ public:
 	 *
 	 * @param timestamp Time of the events. Must be later than that of the
 	 * group appended last.
-	 * @param coordinates The coordinates of the events, those of one event
-	 * after another. Their number must be a multiple of @ref get_rank.
+	 * @param positions The positions of the events, which are copied. Must
+	 * have the rank of this timeline.
 	 * @throws std::invalid_argument If @p timestamp is not later than that
-	 * of the last group, or if the number of @p coordinates is not a
-	 * multiple of the rank.
+	 * of the last group, or if @p positions does not have the rank of this
+	 * timeline.
 	 */
 	VITRIO_API
 	void add_group(
 		std::uint64_t timestamp,
-		span<const std::uint32_t> coordinates
+		detector_event_position_view positions
 	);
 
 	/**
@@ -128,28 +128,27 @@ public:
 	std::uint64_t get_timestamp(std::size_t group) const noexcept;
 
 	/**
-	 * @brief Get the coordinates of the events of one group.
+	 * @brief Get the positions of the events of one group.
 	 *
 	 * @param group Position of the group. Must be below
 	 * @ref get_group_count.
-	 * @return span<const std::uint32_t> The coordinates, those of one event
-	 * after another, @ref get_rank of them each. It refers to storage owned
-	 * by this timeline, which adding to, assigning to or destroying it
-	 * invalidates.
+	 * @return detector_event_position_view The positions, one row per event.
+	 * It refers to storage owned by this timeline, which adding to,
+	 * assigning to or destroying it invalidates.
 	 */
 	VITRIO_API
-	span<const std::uint32_t> get_coordinates(std::size_t group) const noexcept;
+	detector_event_position_view
+	get_positions(std::size_t group) const noexcept;
 
 	/**
-	 * @brief Get the coordinates of every event held.
+	 * @brief Get the positions of every event held.
 	 *
-	 * @return span<const std::uint32_t> The coordinates, those of one event
-	 * after another and group after group, @ref get_rank of them each. It
-	 * refers to storage owned by this timeline, which adding to, assigning
-	 * to or destroying it invalidates.
+	 * @return detector_event_position_view The positions, one row per event,
+	 * group after group. It refers to storage owned by this timeline, which
+	 * adding to, assigning to or destroying it invalidates.
 	 */
 	VITRIO_API
-	span<const std::uint32_t> get_coordinates() const noexcept;
+	detector_event_position_view get_positions() const noexcept;
 
 private:
 	std::vector<std::uint64_t> m_timestamps;

@@ -9,6 +9,7 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
+#include <vitrio/detector_event_position_view.hpp>
 #include <vitrio/detector_event_timeline.hpp>
 #include <vitrio/detector_event_timeline_descriptor.hpp>
 #include <vitrio/tests/host_array.hpp>
@@ -53,8 +54,8 @@ detector_event_timeline make_events(
 )
 {
 	detector_event_timeline events(rank);
-	events.add_group(0, make_span(first));
-	events.add_group(1, make_span(second));
+	events.add_group(0, detector_event_position_view(make_span(first), rank));
+	events.add_group(1, detector_event_position_view(make_span(second), rank));
 	return events;
 }
 
