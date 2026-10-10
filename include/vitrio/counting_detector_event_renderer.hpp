@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_renderer.hpp>
 #include <vitrio/export.hpp>
-#include <vitrio/platform.hpp>
-#include <vitrio/span.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -16,12 +15,9 @@ namespace vitrio
 /**
  * @brief A renderer that counts the events landing on each pixel.
  *
- * A pixel of the image gathers a bin of the grid the events are placed on:
- * a block of position quanta, of the same extents everywhere. A bin as large
- * as a pixel of the detector renders at the resolution of the detector, and
- * a smaller one renders finer than that, as far as the detector places its
- * events. The last pixel along an axis gathers what is left of the grid when
- * the bin does not divide it.
+ * A pixel of the image gathers a block of pixels of the detector, as many
+ * as its @ref detector_event_binning says along each axis, and counts every
+ * event that fell on any of them, wherever within the pixel it was placed.
  *
  * Counts are worked out as 32 bit unsigned integers.
  */
@@ -30,32 +26,29 @@ class VITRIO_API counting_detector_event_renderer final
 {
 public:
 	/**
-	 * @brief Construct a renderer gathering bins of given extents.
+	 * @brief Construct a renderer gathering the pixels a binning merges.
 	 *
-	 * @param bin_extents How many position quanta a pixel of the image
-	 * gathers along each axis, slowest first.
-	 * @throws std::invalid_argument If @p bin_extents is empty or holds a
-	 * zero.
+	 * @param binning How many pixels of the detector a pixel of the image
+	 * gathers along each axis.
 	 */
 	explicit counting_detector_event_renderer(
-		span<const std::size_t> bin_extents
-	);
+		detector_event_binning binning
+	) noexcept;
 
 	~counting_detector_event_renderer() override;
 
 	/**
-	 * @brief Get the extents of the bin a pixel gathers.
+	 * @brief Get how many pixels of the detector a pixel gathers.
 	 *
-	 * @return span<const std::size_t> The extents in position quanta,
-	 * slowest axis first. It refers to storage owned by this renderer.
+	 * @return const detector_event_binning& The binning.
 	 */
-	span<const std::size_t> get_bin_extents() const noexcept;
+	const detector_event_binning& get_binning() const noexcept;
 
 	/**
 	 * @copydoc detector_event_renderer::get_image_extents
 	 *
-	 * Each extent is that of the grid divided by that of the bin, rounded
-	 * up.
+	 * Each extent is that of the detector, in pixels, divided by the factor
+	 * of the binning.
 	 */
 	std::vector<std::size_t> get_image_extents(
 		const detector_event_timeline_descriptor &events
@@ -76,8 +69,7 @@ public:
 	) const override;
 
 private:
-	VITRIO_STD_MEMBER_INTERFACE
-	std::vector<std::size_t> m_bin_extents;
+	detector_event_binning m_binning;
 };
 
 } // namespace vitrio

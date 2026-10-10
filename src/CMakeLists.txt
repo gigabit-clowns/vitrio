@@ -64,6 +64,7 @@ target_sources(
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
 		counting_detector_event_renderer.cpp
+		detector_event_binning.cpp
 		detector_event_fractionation.cpp
 		detector_event_image_reader.cpp
 		detector_event_image_reader_provider.cpp

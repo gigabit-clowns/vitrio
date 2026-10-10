@@ -221,7 +221,8 @@ library needs goes in `dependencies`.
   `vitrio::eer`. An acquisition becomes images through
   `detector_event_image_reader_provider`, which is given the
   `detector_event_fractionation` and the `detector_event_renderer` to read
-  it with. That is chosen by whoever reads, not by the file, so it is
+  it with; the counting one bins pixels of the detector by a
+  `detector_event_binning`, stated in pixels rather than in quanta. That is chosen by whoever reads, not by the file, so it is
   stated where readers are made and never registered as a format of images.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an

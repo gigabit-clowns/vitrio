@@ -10,6 +10,7 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/counting_detector_event_renderer.hpp>
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/detector_event_position_view.hpp>
 #include <vitrio/detector_event_timeline.hpp>
@@ -73,7 +74,7 @@ public:
 			make_span(grid), make_span(subdivisions), frame_count, 0.0)
 		, m_events(std::make_shared<mock_detector_event_timeline_reader>())
 		, m_renderer(std::make_shared<counting_detector_event_renderer>(
-			make_span(subdivisions)))
+			detector_event_binning(1)))
 		, m_read_count(0)
 	{
 		m_expectations.push_back(NAMED_ALLOW_CALL(
@@ -257,7 +258,7 @@ TEST_CASE(
 		make_span(grid), make_span(subdivisions), frame_count, 0.0);
 	const auto events = std::make_shared<mock_detector_event_timeline_reader>();
 	const auto renderer = std::make_shared<counting_detector_event_renderer>(
-		make_span(subdivisions));
+		detector_event_binning(1));
 	ALLOW_CALL(*events, get_descriptor()).RETURN(std::ref(descriptor));
 
 	const detector_event_image_reader reader(
@@ -290,7 +291,7 @@ TEST_CASE(
 	const auto events = std::make_shared<mock_detector_event_timeline_reader>();
 	ALLOW_CALL(*events, get_descriptor()).RETURN(std::ref(descriptor));
 	const auto counting = std::make_shared<counting_detector_event_renderer>(
-		make_span(subdivisions));
+		detector_event_binning(1));
 
 	SECTION( "no events" )
 	{

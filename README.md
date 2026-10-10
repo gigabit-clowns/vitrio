@@ -180,10 +180,12 @@ int main()
 
 An EER file holds the events a detector counted rather than images, so it is
 read through a provider of its own. It is given how many fractions to cut the
-movie into, as evenly as the frames allow, and how to render each fraction:
+movie into, as evenly as the frames allow, and how to render each fraction,
+such as how many pixels of the detector to bin into one:
 
 ```cpp
 #include <vitrio/counting_detector_event_renderer.hpp>
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/detector_event_image_reader_provider.hpp>
 #include <vitrio/detector_event_timeline_file_read_format_selector.hpp>
@@ -191,26 +193,22 @@ movie into, as evenly as the frames allow, and how to render each fraction:
 #include <vitrio/image_read.hpp>
 
 #include <memory>
-#include <vector>
 
 int main()
 {
-	// A pixel of the image gathers 4 by 4 subpixels: the resolution of a
-	// detector that places its events on a quarter of a pixel.
-	const std::vector<std::size_t> bin = {4, 4};
-
 	vitrio::detector_event_image_reader_provider readers(
 		std::make_shared<vitrio::file_detector_event_timeline_reader_provider>(
 			vitrio::detector_event_timeline_file_read_format_selector::
 				get_shared()
 		),
 		vitrio::detector_event_fractionation(40),
+		// Blocks of 2 by 2 pixels of the detector make one of the image.
 		std::make_shared<vitrio::counting_detector_event_renderer>(
-			vitrio::make_span(bin)
+			vitrio::detector_event_binning(2)
 		)
 	);
 
-	// 40 fractions of 4096 by 4096 counts.
+	// 40 fractions of 2048 by 2048 counts.
 	vitrio::array movie = vitrio::read("movie.eer", readers);
 }
 ```
