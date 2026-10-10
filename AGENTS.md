@@ -20,7 +20,7 @@ in the same commit that causes it.
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `src/formats/` | The image formats and what they are built with. Each format has a directory and a namespace of its own, such as `vitrio::mrc` |
-| `src/formats/strided_transfer/` | Moves regions between a file and an array: resolves where each one starts, works out the order to walk it in, and converts its elements |
+| `src/formats/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements |
 | `src/formats/memory_mapping/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are, and advises the pages a read is about to touch |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |

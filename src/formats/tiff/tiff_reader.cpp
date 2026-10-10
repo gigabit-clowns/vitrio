@@ -2,9 +2,8 @@
 
 #include "tiff_reader.hpp"
 
-#include "tiff_page_regions.hpp"
-#include "tiff_region_bounds.hpp"
-
+#include <formats/strided_transfer/image_page_regions.hpp>
+#include <formats/strided_transfer/image_region_bounds.hpp>
 #include <formats/strided_transfer/image_region_read_walk.hpp>
 #include <formats/strided_transfer/image_region_transfer.hpp>
 
@@ -90,7 +89,7 @@ void tiff_reader::read(
 		return;
 	}
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 
 	// Taken before the decoder is asked anything: decoding a page sets its
 	// layout again, so even its extents are not read beside another call.

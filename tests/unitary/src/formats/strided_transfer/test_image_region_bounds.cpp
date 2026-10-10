@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/tiff/tiff_region_bounds.hpp>
+#include <formats/strided_transfer/image_region_bounds.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -15,7 +15,6 @@
 #include <vector>
 
 using namespace vitrio;
-using namespace vitrio::tiff;
 
 namespace
 {
@@ -59,7 +58,7 @@ void check(const image_transfer_plan &regions)
 } // anonymous namespace
 
 TEST_CASE( "regions that fit the file and the array pass the bounds check",
-	"[tiff_region_bounds]" )
+	"[image_region_bounds]" )
 {
 	SECTION( "a page into a plane" )
 	{
@@ -89,7 +88,7 @@ TEST_CASE( "regions that fit the file and the array pass the bounds check",
 }
 
 TEST_CASE( "regions that do not fit the file are refused",
-	"[tiff_region_bounds]" )
+	"[image_region_bounds]" )
 {
 	SECTION( "a page the file does not have" )
 	{
@@ -132,7 +131,7 @@ TEST_CASE( "regions that do not fit the file are refused",
 }
 
 TEST_CASE( "regions that do not fit the array are refused",
-	"[tiff_region_bounds]" )
+	"[image_region_bounds]" )
 {
 	SECTION( "a plane the array does not have" )
 	{
@@ -152,7 +151,7 @@ TEST_CASE( "regions that do not fit the array are refused",
 }
 
 TEST_CASE( "regions of another rank than the file or the array are refused",
-	"[tiff_region_bounds]" )
+	"[image_region_bounds]" )
 {
 	SECTION( "stated against a file of another rank" )
 	{

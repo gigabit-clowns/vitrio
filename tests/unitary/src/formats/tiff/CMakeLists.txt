@@ -9,9 +9,7 @@ target_sources(
 		test_tiff_file_write_format.cpp
 		test_tiff_page_decoder.cpp
 		test_tiff_page_layout.cpp
-		test_tiff_page_regions.cpp
 		test_tiff_reader.cpp
-		test_tiff_region_bounds.cpp
 		test_tiff_sample_type.cpp
 		test_tiff_signature.cpp
 		test_tiff_writer.cpp

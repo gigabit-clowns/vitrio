@@ -10,16 +10,15 @@
 
 namespace vitrio
 {
-namespace tiff
-{
 
 /**
  * @brief Check that every region of a plan fits the file and the array it
  * joins.
  *
- * A TIFF file is moved a page at a time, so regions checked only as their
- * page comes up would leave the pages before a bad one already moved. This
- * checks all of them against the whole file beforehand.
+ * A file moved a page at a time, as a TIFF file is, would leave the pages
+ * before a bad region already moved if regions were checked only as their
+ * page comes up. This checks all of them against the whole file
+ * beforehand.
  *
  * @param regions The regions to check.
  * @param file What the file holds.
@@ -40,5 +39,4 @@ void check_region_bounds(
 	std::ptrdiff_t array_offset
 );
 
-} // namespace tiff
 } // namespace vitrio
