@@ -3,6 +3,7 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
+		test_builtin_detector_event_timeline_file_read_format_registry.cpp
 		test_builtin_image_file_format_registry.cpp
 		test_caching_image_reader_provider.cpp
 		test_clipping_image_transfer_sanitizer.cpp
@@ -10,6 +11,8 @@ target_sources(
 		test_detector_event_fractionation.cpp
 		test_detector_event_timeline.cpp
 		test_detector_event_timeline_descriptor.cpp
+		test_detector_event_timeline_file_read_format_registry.cpp
+		test_detector_event_timeline_file_read_format_selector.cpp
 		test_executor_image_loader.cpp
 		test_executor_image_saver.cpp
 		test_file_image_reader_provider.cpp
