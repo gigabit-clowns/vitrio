@@ -17,7 +17,7 @@ written.
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from . import _binding
@@ -35,10 +35,13 @@ from ._binding import (
 	ImageFileWriteFormatSelector,
 	ImageLoader,
 	ImageLocation,
+	ImageLocationGrouping,
 	ImageReaderProvider,
+	ImageScratch,
 	ImageWriterProvider,
 	IndexTable,
 	NumericalType,
+	ScratchImageReaderProvider,
 	ThreadPoolExecutor,
 )
 
@@ -79,6 +82,13 @@ def _resolve_readers(
 		readers = reader_provider()
 	return readers
 
+def _resolve_grouping(
+	locations: ImageLocationGrouping | Iterable[ImageLocation]
+) -> ImageLocationGrouping:
+	if not isinstance(locations, ImageLocationGrouping):
+		locations = ImageLocationGrouping(list(locations))
+	return locations
+
 def _resolve_data_type(data_type: object | None) -> NumericalType | None:
 	if data_type is None:
 		return None
@@ -86,7 +96,8 @@ def _resolve_data_type(data_type: object | None) -> NumericalType | None:
 
 def reader_provider(
 	cache: int | None = None,
-	formats: ImageFileReadFormatSelector | None = None
+	formats: ImageFileReadFormatSelector | None = None,
+	scratch: ImageScratch | None = None
 ) -> ImageReaderProvider:
 	"""
 	Assemble a reader provider that opens files.
@@ -97,6 +108,9 @@ def reader_provider(
 			that do not revisit a file.
 		formats: The formats to recognize files with. Defaults to the
 			bundled ones.
+		scratch: A scratch to serve reads through: what it holds is read
+			from it, and what it does not yet hold is read from the file
+			and taken in. Defaults to reading the files alone.
 
 	Returns:
 		ImageReaderProvider: The assembled provider. Its keys are paths.
@@ -104,13 +118,16 @@ def reader_provider(
 	readers = FileImageReaderProvider(_resolve_read_formats(formats))
 	if cache is not None:
 		readers = CachingImageReaderProvider(readers, cache)
+	if scratch is not None:
+		readers = ScratchImageReaderProvider(readers, scratch)
 	return readers
 
 def loader(
 	workers: int | None = None,
 	cache: int | None = None,
 	formats: ImageFileReadFormatSelector | None = None,
-	executor: Executor | None = None
+	executor: Executor | None = None,
+	scratch: ImageScratch | None = None
 ) -> ExecutorImageLoader:
 	"""
 	Assemble an image loader over a thread pool.
@@ -131,13 +148,157 @@ def loader(
 		formats: The formats to recognize files with. Defaults to the
 			bundled ones.
 		executor: Where reads run. Defaults to a thread pool of its own.
+		scratch: A scratch to serve reads through, as `reader_provider`
+			takes one. Defaults to reading the files alone.
 
 	Returns:
 		ExecutorImageLoader: The assembled loader.
 	"""
 	return ExecutorImageLoader(
-		reader_provider(cache, formats),
+		reader_provider(cache, formats, scratch),
 		_resolve_executor(executor, workers)
+	)
+
+def create_host_image_scratch(
+	locations: ImageLocationGrouping | Iterable[ImageLocation],
+	run_length: int,
+	max_size: int | None = None,
+	files: ImageReaderProvider | None = None
+) -> ImageScratch:
+	"""
+	Create a scratch that keeps its copies in main memory.
+
+	A scratch holds copies of the images a program keeps going back to,
+	such as the particles of a dataset read once per epoch. The memory is
+	as large as the images of `locations` need, and the scratch holds
+	them all unless that is more than `max_size`. It then holds what
+	fits, file by file in ascending order of key, and reads the rest from
+	the files.
+
+	The scratch starts empty. An image is taken in the first time it is
+	read through the scratch, or ahead of that by
+	`prefetch_scratch_async`. The memory is released once nothing holds
+	the scratch, the providers and loaders made with it included.
+
+	Every file is opened, twice, before this returns.
+
+	Args:
+		locations: The images to hold, as an `ImageLocationGrouping` or
+			as any iterable of `ImageLocation`. One without an index in a
+			stack names the whole file.
+		run_length: How many held images of a file are taken in
+			together. Reading any of them reads them all, in one read of
+			the file.
+		max_size: The most bytes to allocate. Defaults to no maximum.
+		files: Where the files become readers. Defaults to a provider
+			that opens the file at the path each key is.
+
+	Returns:
+		ImageScratch: The scratch.
+
+	Raises:
+		ValueError: If `run_length` is zero, or if there is nothing to
+			hold: `locations` names no image, or `max_size` has no room
+			for one.
+		IndexError: If a location has an index its stack does not have.
+	"""
+	return _binding.create_host_image_scratch(
+		_resolve_grouping(locations),
+		_resolve_readers(files),
+		run_length,
+		max_size
+	)
+
+def create_mapped_file_image_scratch(
+	locations: ImageLocationGrouping | Iterable[ImageLocation],
+	path: Key,
+	run_length: int,
+	max_size: int | None = None,
+	files: ImageReaderProvider | None = None
+) -> ImageScratch:
+	"""
+	Create a scratch that keeps its copies in a file mapped into memory.
+
+	Holds what `create_host_image_scratch` would, with the same
+	arguments, but in a file at `path`. The file may be larger than the
+	main memory, and it outlives the scratch: a scratch created later
+	over the same file, for the same images, resumes from what was taken
+	in before, except for the images whose files have been modified
+	since. Programs that hold the same images may use the file at the
+	same time, and share it.
+
+	A file at `path` that holds anything else is overwritten, and the
+	scratch starts empty.
+
+	vitrio never removes the file. Remove it once no program is using it
+	any more. On Windows it can be removed only once nothing holds the
+	scratch, the providers and loaders made with it included.
+
+	Args:
+		locations: The images to hold, as `create_host_image_scratch`
+			takes them.
+		path: The file to keep the copies in. It is created if it is
+			missing.
+		run_length: How many held images of a file are taken in
+			together.
+		max_size: The largest the file may be, in bytes. Defaults to no
+			maximum.
+		files: Where the image files become readers. Defaults to a
+			provider that opens the file at the path each key is.
+
+	Returns:
+		ImageScratch: The scratch.
+
+	Raises:
+		ValueError: If `run_length` is zero, or if there is nothing to
+			hold. No file is created then.
+		IndexError: If a location has an index its stack does not have.
+	"""
+	return _binding.create_mapped_file_image_scratch(
+		_resolve_grouping(locations),
+		_resolve_readers(files),
+		path,
+		run_length,
+		max_size
+	)
+
+def prefetch_scratch_async(
+	scratch: ImageScratch,
+	locations: ImageLocationGrouping | Iterable[ImageLocation],
+	executor: Executor,
+	files: ImageReaderProvider | None = None
+) -> Completion:
+	"""
+	Take images into a scratch ahead of the reads that need them.
+
+	Returns before the images are in. Each file is one task on
+	`executor`, which reads what `locations` names of it in one go. A
+	file the scratch holds nothing of is passed over. The scratch may be
+	read through in the meantime, and a read takes in what it needs
+	itself.
+
+	The executor is not defaulted: one made for the call would be
+	destroyed when the call returns, and that waits for its work.
+
+	Args:
+		scratch: The scratch to fill.
+		locations: The images to take in, as an `ImageLocationGrouping`
+			or as any iterable of `ImageLocation`. Usually those the
+			scratch was created with.
+		executor: Where the files are read.
+		files: Where the files become readers. It has to read the files
+			themselves and not through `scratch`. Defaults to a provider
+			that opens the file at the path each key is.
+
+	Returns:
+		Completion: Ready once every file has been taken in or has
+		failed, and it raises the first failure.
+	"""
+	return _binding.prefetch_scratch_async(
+		scratch,
+		_resolve_readers(files),
+		executor,
+		_resolve_grouping(locations)
 	)
 
 def writer_provider(
