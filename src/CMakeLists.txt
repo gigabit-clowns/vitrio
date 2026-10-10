@@ -62,6 +62,12 @@ target_sources(
 		builtin_image_file_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
+		counting_detector_event_renderer.cpp
+		detector_event_fractionation.cpp
+		detector_event_renderer.cpp
+		detector_event_timeline.cpp
+		detector_event_timeline_descriptor.cpp
+		detector_event_timeline_reader.cpp
 		executor_image_loader.cpp
 		executor_image_saver.cpp
 		file_image_reader_provider.cpp
