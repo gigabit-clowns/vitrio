@@ -117,7 +117,9 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
  * @brief Walk every region with one layout.
  *
  * Each region is the same space reached through a different pair of
- * pointers, so the layout is built once and only the two bases move.
+ * pointers, so the layout is built once and only the two bases move. The
+ * inner loop is chosen once too, before the first region, as the strides of
+ * the innermost axis are the same for all of them.
  *
  * The destination comes first, as it does in the layout.
  */
@@ -135,15 +137,23 @@ void run_regions(
 	SourcePointer source_data
 )
 {
-	for (std::size_t i = 0; i < destination_offsets.size(); ++i)
-	{
-		run_region_loop(
-			kernel,
-			layout,
-			destination_data + destination_offsets[i],
-			source_data + source_offsets[i]
-		);
-	}
+	dispatch_region_inner_strides(
+		layout,
+		[&] (auto destination_stride, auto source_stride)
+		{
+			for (std::size_t i = 0; i < destination_offsets.size(); ++i)
+			{
+				run_region_loop(
+					kernel,
+					layout,
+					destination_stride,
+					source_stride,
+					destination_data + destination_offsets[i],
+					source_data + source_offsets[i]
+				);
+			}
+		}
+	);
 }
 
 template <
