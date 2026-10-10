@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/interned_key_list.hpp>
@@ -36,5 +37,9 @@ TEST_CASE(
 	REQUIRE( read_through_reference(interned_key_list::no_key) == highest );
 	REQUIRE(
 		read_through_reference(image_file_probe::max_leading_bytes) == 4096
+	);
+	REQUIRE(
+		read_through_reference(
+			detector_event_fractionation::max_fraction_count) == 0xFFFFFFFF
 	);
 }

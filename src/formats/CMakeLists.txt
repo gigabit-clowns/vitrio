@@ -5,5 +5,6 @@ add_subdirectory(mrc)
 add_subdirectory(strided_transfer)
 
 if(VITRIO_ENABLE_TIFF)
+	add_subdirectory(eer)
 	add_subdirectory(tiff)
 endif()
