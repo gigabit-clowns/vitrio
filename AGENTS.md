@@ -254,6 +254,13 @@ library needs goes in `dependencies`.
   anything of Python, which a worker thread could not do safely while the
   interpreter shuts down. An asynchronous function hands the loan to the
   `Completion` it returns, and destroying that waits for the work.
+- **Views of the memory of a binding.** What a bound object hands out as a
+  view of its own memory, such as the positions of a
+  `DetectorEventTimeline`, is read-only and keeps the object alive. The
+  object counts the views it has handed out and refuses to change while
+  one is alive, with `BufferError`, as a `bytearray` refuses to resize
+  while a `memoryview` of it is. Nor is it changed while it is used
+  without the GIL.
 - **The GIL.** A bound function that reads, writes or waits releases the
   GIL meanwhile. So does destroying a thread pool, which waits for its
   workers.

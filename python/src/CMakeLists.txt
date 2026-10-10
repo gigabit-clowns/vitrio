@@ -10,10 +10,22 @@ target_sources(
 	vitrio-python
 	PRIVATE
 		caching_image_reader_provider.cpp
+		counting_detector_event_renderer.cpp
+		detector_event_binning.cpp
+		detector_event_fractionation.cpp
+		detector_event_image_reader_provider.cpp
+		detector_event_renderer.cpp
+		detector_event_timeline.cpp
+		detector_event_timeline_descriptor.cpp
+		detector_event_timeline_file_read_format_selector.cpp
+		detector_event_timeline_reader.cpp
+		detector_event_timeline_reader_provider.cpp
 		executor_image_loader.cpp
 		executor_image_saver.cpp
+		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
 		file_image_writer_provider.cpp
+		guarded_detector_event_timeline.cpp
 		image_descriptor.cpp
 		image_file_read_format_selector.cpp
 		image_file_write_format_selector.cpp

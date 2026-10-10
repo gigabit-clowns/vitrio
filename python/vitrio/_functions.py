@@ -25,9 +25,17 @@ from ._binding import (
 	Array,
 	CachingImageReaderProvider,
 	Completion,
+	CountingDetectorEventRenderer,
+	DetectorEventBinning,
+	DetectorEventFractionation,
+	DetectorEventImageReaderProvider,
+	DetectorEventTimeline,
+	DetectorEventTimelineFileReadFormatSelector,
+	DetectorEventTimelineReaderProvider,
 	Executor,
 	ExecutorImageLoader,
 	ExecutorImageSaver,
+	FileDetectorEventTimelineReaderProvider,
 	FileImageReaderProvider,
 	FileImageWriterProvider,
 	ImageDescriptor,
@@ -105,6 +113,108 @@ def reader_provider(
 	if cache is not None:
 		readers = CachingImageReaderProvider(readers, cache)
 	return readers
+
+def event_reader_provider(
+	formats: DetectorEventTimelineFileReadFormatSelector | None = None
+) -> DetectorEventTimelineReaderProvider:
+	"""
+	Assemble a provider of the events of the files of a detector, such as
+	EER files.
+
+	Args:
+		formats: The formats to recognize files with. Defaults to the
+			bundled ones.
+
+	Returns:
+		DetectorEventTimelineReaderProvider: The assembled provider. Its
+			keys are paths.
+	"""
+	if formats is None:
+		formats = DetectorEventTimelineFileReadFormatSelector.get_shared()
+	return FileDetectorEventTimelineReaderProvider(formats)
+
+def detector_event_reader_provider(
+	fractions: int,
+	binning: int = 1,
+	cache: int | None = None,
+	formats: DetectorEventTimelineFileReadFormatSelector | None = None
+) -> ImageReaderProvider:
+	"""
+	Assemble a reader provider that reads the files of a detector that
+	counts events, such as EER files, as movies.
+
+	The time of a file is cut into as many fractions as asked for, as
+	evenly as its frames allow, and the events of each fraction are
+	counted per pixel into one image of the movie. A single fraction reads
+	as one image of every event.
+
+		readers = detector_event_reader_provider(40, binning=2)
+		movie = read('movie.eer', readers, data_type='float32')
+
+	Args:
+		fractions: How many fractions to cut a file into.
+		binning: How many pixels of the detector a pixel of the movie
+			gathers along each axis. Defaults to the resolution of the
+			detector. It must divide the pixels of every file read.
+		cache: How many open readers to keep between reads. Defaults to
+			opening a file every time it is asked for.
+		formats: The formats to recognize files with. Defaults to the
+			bundled ones.
+
+	Returns:
+		ImageReaderProvider: The assembled provider. Its keys are paths.
+	"""
+	readers = DetectorEventImageReaderProvider(
+		event_reader_provider(formats),
+		DetectorEventFractionation(fractions),
+		CountingDetectorEventRenderer(DetectorEventBinning(binning))
+	)
+	if cache is not None:
+		readers = CachingImageReaderProvider(readers, cache)
+	return readers
+
+def read_events(
+	key: Key,
+	begin: int | None = None,
+	end: int | None = None,
+	events: DetectorEventTimelineReaderProvider | None = None
+) -> DetectorEventTimeline:
+	"""
+	Read the events a detector counted over a stretch of time.
+
+	Time is counted in the quanta of the file, which are frames for EER.
+	The events come in groups of one timestamp each:
+
+		timeline = read_events('movie.eer', 0, 10)
+		frames = np.asarray(timeline.timestamps)
+		positions = np.asarray(timeline.get_positions(0))
+
+	Positions are counted on the grid of subpixels the file places them
+	on, slowest axis first. The views share the memory of the timeline,
+	which refuses to change while one of them is alive.
+
+	Args:
+		key: The file to read, as its key in `events`.
+		begin: The first time quantum to read. Defaults to the first.
+		end: One past the last time quantum to read. Defaults to the end
+			of the acquisition.
+		events: Where the file becomes a reader of its events. Defaults to
+			a provider that opens the file at the path `key` is.
+
+	Returns:
+		DetectorEventTimeline: The events of the stretch of time.
+	"""
+	if events is None:
+		events = event_reader_provider()
+	reader = events.acquire(key)
+	descriptor = reader.descriptor
+	timeline = DetectorEventTimeline(descriptor.rank)
+	reader.read(
+		0 if begin is None else begin,
+		descriptor.time_extent if end is None else end,
+		timeline
+	)
+	return timeline
 
 def loader(
 	workers: int | None = None,

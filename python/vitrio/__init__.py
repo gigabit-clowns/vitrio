@@ -24,9 +24,23 @@ from ._binding import (
 	Array as Array,
 	CachingImageReaderProvider as CachingImageReaderProvider,
 	Completion as Completion,
+	CountingDetectorEventRenderer as CountingDetectorEventRenderer,
+	DetectorEventBinning as DetectorEventBinning,
+	DetectorEventFractionation as DetectorEventFractionation,
+	DetectorEventImageReaderProvider as DetectorEventImageReaderProvider,
+	DetectorEventRenderer as DetectorEventRenderer,
+	DetectorEventTimeline as DetectorEventTimeline,
+	DetectorEventTimelineDescriptor as DetectorEventTimelineDescriptor,
+	DetectorEventTimelineFileReadFormatSelector as
+		DetectorEventTimelineFileReadFormatSelector,
+	DetectorEventTimelineReader as DetectorEventTimelineReader,
+	DetectorEventTimelineReaderProvider as
+		DetectorEventTimelineReaderProvider,
 	Executor as Executor,
 	ExecutorImageLoader as ExecutorImageLoader,
 	ExecutorImageSaver as ExecutorImageSaver,
+	FileDetectorEventTimelineReaderProvider as
+		FileDetectorEventTimelineReaderProvider,
 	FileImageReaderProvider as FileImageReaderProvider,
 	FileImageWriterProvider as FileImageWriterProvider,
 	ImageDescriptor as ImageDescriptor,
@@ -52,9 +66,12 @@ from ._binding import (
 from . import _numerical_type as _numerical_type
 
 from ._functions import (
+	detector_event_reader_provider as detector_event_reader_provider,
+	event_reader_provider as event_reader_provider,
 	loader as loader,
 	query_descriptor as query_descriptor,
 	read as read,
+	read_events as read_events,
 	read_patches_async as read_patches_async,
 	reader_provider as reader_provider,
 	saver as saver,

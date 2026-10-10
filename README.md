@@ -47,7 +47,7 @@ change before 1.0.
 |---|---|---|---|---|
 | MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes, from C++ | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
+| EER | yes | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. TIFF and EER go through libtiff and can be left out of a
@@ -139,6 +139,21 @@ is read or written where it is, views included.
 The `_async` functions return right away with a completion. Call `get()` on
 it to wait and to find out whether anything failed. The completion keeps
 its array alive, and dropping one that is not ready waits for it.
+
+A movie of an electron-counting detector, such as an EER file, holds the
+events the detector counted rather than images. It is read through a
+provider that cuts its frames into as many fractions as you ask for, as
+evenly as they allow, and counts the events of each fraction per pixel:
+
+```python
+readers = vio.detector_event_reader_provider(40, binning=2)
+movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
+
+# Or the events themselves, a group per frame, on the grid of subpixels
+events = vio.read_events("movie.eer", 0, 10)
+frames = np.asarray(events.timestamps)
+positions = np.asarray(events.get_positions(0))    # (events, 2): y, x
+```
 
 [examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
 is a complete program. It crops the particles picked on a set of micrographs
