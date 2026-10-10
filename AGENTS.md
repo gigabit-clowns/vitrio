@@ -32,11 +32,13 @@ in the same commit that causes it.
 | `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
+| `tests/install/` | Installs the library into the build tree, then builds and runs `consumer/`, a project of its own, against what was installed |
 | `python/src/` | The extension of the Python package, `vitrio._binding`, written with nanobind. Each public header it binds has a source of the same name here, with one function that adds it to the module |
 | `python/src/array/`, `concurrency/` | Beside the bindings of those directories, how an array given from Python becomes one of vitrio: the loan of its memory and the completion that holds the loan |
 | `python/vitrio/` | The Python package: what Python expects on top of the binding, such as arguments with defaults |
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/` | Programs that show the Python package at work. Each is run by a test of `tests/python/` |
+| `docs/` | Builds the documentation of the API with Doxygen, out of the public headers and the README |
 | `cmake/modules/` | CMake modules of the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
@@ -96,6 +98,12 @@ macOS vcpkg builds static libraries and on Windows it is asked to, so a
 wheel holds everything it needs. A wheel is built against the stable ABI
 of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
 each.
+
+`-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
+Doxygen and writes the documentation of the API under `docs/html` of the
+build tree. A warning of Doxygen fails it, so a comment that names a
+parameter that is not there does not go unnoticed. The Python package has
+no reference of its own yet.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented
@@ -246,10 +254,18 @@ with CMake 3.18. The jobs that are not under a sanitizer build the Python
 package too and run its suite, one of them with the oldest Python the
 package supports.
 
+One more job builds the last release beside the tree and has libabigail
+say what changed in the ABI between the two. A change does not fail it:
+before 1.0 a release may break the ABI, and the report tells which kind of
+release the next one has to be.
+
+`.github/workflows/documentation.yml` builds the documentation of the API
+and publishes it to GitHub Pages when a version is tagged.
+
 `.github/workflows/release.yml` builds the source distribution and, from it,
 the wheels of each platform, and tests each wheel. A tag `v*` publishes
 them to PyPI, which trusts the workflow, so no token is kept. It runs too
 when what decides how they are built changes, and by hand.
 
-Both use public actions and the ones under `.github/actions/`, and none of
-the organisation's.
+All of them use public actions and the ones under `.github/actions/`, and
+none of the organisation's.

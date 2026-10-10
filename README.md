@@ -61,8 +61,8 @@ pip install vitrio
 There are wheels for Linux (x86_64 and aarch64), macOS (Apple silicon and
 Intel) and Windows (x86_64), for Python 3.10 and newer. They carry everything
 they need. On any other platform pip builds the package from source, and
-then the dependencies listed under [Building from source](#building-from-source)
-have to be installed first.
+then the dependencies listed under "Building from source" below have to be
+installed first.
 
 The C++ library is built from source for now.
 
@@ -208,10 +208,11 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF out, and libtiff with it |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
+| `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen |
 
-With the last one the package ends up under `python/` in the build tree, so
-putting that directory on `PYTHONPATH` is enough to import it. `pip install .`
-builds and installs it in one go.
+With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
+tree, so putting that directory on `PYTHONPATH` is enough to import it.
+`pip install .` builds and installs it in one go.
 
 ## Licence
 

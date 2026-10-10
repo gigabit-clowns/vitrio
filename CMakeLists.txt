@@ -37,6 +37,11 @@ that one build serves Python 3.12 and newer. Needs CMake 3.26"
 )
 option(VITRIO_BUILD_TESTING "Build vitrio's tests" ${BUILD_TESTING})
 option(
+	VITRIO_BUILD_DOCS
+	"Add a target that builds the documentation of the API, which needs Doxygen"
+	OFF
+)
+option(
 	VITRIO_REGISTER_TESTS_PER_BINARY
 	"Register one test per test executable instead of one per Catch2 case"
 	OFF
@@ -109,4 +114,8 @@ endif()
 
 if(VITRIO_CHECK_HEADERS)
 	add_subdirectory(tests/headers)
+endif()
+
+if(VITRIO_BUILD_DOCS)
+	add_subdirectory(docs)
 endif()

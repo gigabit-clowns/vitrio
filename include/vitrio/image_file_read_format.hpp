@@ -47,9 +47,9 @@ public:
 	 * Decide from @p probe alone, without opening the file: the probe
 	 * carries its path, its lower case extension and its leading bytes.
 	 *
-	 * Return @ref image_file_format_suitability::unsupported for a file this
+	 * Return @c image_file_format_suitability::unsupported for a file this
 	 * format does not recognize, and something higher than
-	 * @ref image_file_format_suitability::normal only to displace another
+	 * @c image_file_format_suitability::normal only to displace another
 	 * format that recognizes the same file.
 	 *
 	 * @param probe The file under consideration.
@@ -62,7 +62,7 @@ public:
 	 * @brief Open a file for reading.
 	 *
 	 * @pre @ref get_suitability does not report @p probe as
-	 * @ref image_file_format_suitability::unsupported.
+	 * @c image_file_format_suitability::unsupported.
 	 *
 	 * @param probe The file to open.
 	 * @return std::shared_ptr<image_reader> The opened reader, never null.

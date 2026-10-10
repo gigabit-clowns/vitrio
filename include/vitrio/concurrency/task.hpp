@@ -11,8 +11,8 @@ namespace vitrio
  * @brief One unit of work an @ref executor can run.
  *
  * @ref run is expected not to let an exception escape when submitted
- * alongside a @ref completion_notifier: whichever @ref executor runs it
- * catches what it throws and reports it through that notifier instead.
+ * alongside a @ref completion_notifier, since whichever @ref executor runs
+ * it catches what it throws and reports it through that notifier instead.
  */
 class VITRIO_API task
 {

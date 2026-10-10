@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+name: Documentation
+
+# Builds the documentation of the API, so that what breaks it is seen when
+# it is pushed. A tag publishes it to GitHub Pages.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths-ignore:
+      - LICENSE
+      - .clang-tidy
+      - .editorconfig
+      - .gitignore
+      - renovate.json
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      CXX: g++
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          key: ubuntu-latest-g++
+
+      - name: Install Doxygen, and Graphviz for its diagrams
+        run: sudo apt-get update && sudo apt-get install --yes doxygen graphviz
+
+      # Nothing is compiled, but the project is configured as a whole, and
+      # that looks for what the library is built with.
+      - name: Configure
+        run: >-
+          cmake --preset debug
+          -DVITRIO_BUILD_DOCS=ON
+          -DVITRIO_BUILD_TESTING=OFF
+          -DVITRIO_CHECK_HEADERS=OFF
+
+      - name: Build the documentation
+        run: cmake --build --preset debug --target vitrio-docs
+
+      - name: Set up Pages
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Keep the documentation for Pages
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/debug/docs/html
+
+  publish:
+    name: Publish to GitHub Pages
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

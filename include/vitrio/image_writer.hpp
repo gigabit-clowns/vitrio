@@ -15,8 +15,9 @@ class image_descriptor;
 /**
  * @brief Abstract writable view of one image file.
  *
- * The mirror of @ref image_reader: the same regions, described by the same
- * @ref image_transfer_plan, the same conversion rule, the opposite direction.
+ * The mirror of @ref image_reader, with the same regions, described by the
+ * same @ref image_transfer_plan, the same conversion rule and the opposite
+ * direction.
  * A writer is opened over complete extents, so the shape of the file is
  * settled before anything is written; the file can be laid out once up
  * front and a region can be written wherever it belongs, in any order.

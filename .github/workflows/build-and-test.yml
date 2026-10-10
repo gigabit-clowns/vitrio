@@ -119,6 +119,73 @@ jobs:
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
 
+  # Says what changed in the ABI since the last release, by building that
+  # release beside this tree and comparing the two libraries. A change does
+  # not fail it: before 1.0 a release may break the ABI, and this tells
+  # which kind of release the next one has to be.
+  abi:
+    name: ABI since the last release
+    runs-on: ubuntu-latest
+    env:
+      CXX: g++
+    steps:
+      - name: Check out the repository, with its tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          key: ubuntu-latest-g++
+
+      - name: Install libabigail
+        run: sudo apt-get update && sudo apt-get install --yes abigail-tools
+
+      - name: Check out the last release beside this tree
+        run: |
+          tag=$(git describe --tags --abbrev=0 --match 'v*')
+          git worktree add "$RUNNER_TEMP/release" "$tag"
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Build both
+        run: |
+          for tree in . "$RUNNER_TEMP/release"; do
+            cmake -S "$tree" --preset debug \
+              -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF
+            cmake --build "$tree/build/debug" --parallel 4
+          done
+
+      # The first two bits of what abidiff returns say that it could not
+      # compare, and those do fail the job. The next two say whether the ABI
+      # changed, and whether it did so in a way that breaks what was built
+      # against the release.
+      - name: Compare
+        run: |
+          status=0
+          abidiff \
+            --headers-dir1 "$RUNNER_TEMP/release/include" \
+            --headers-dir2 include \
+            "$RUNNER_TEMP/release/build/debug/src/libvitrio.so" \
+            build/debug/src/libvitrio.so > abi.txt || status=$?
+          if [ $((status & 3)) -ne 0 ]; then
+            verdict="The ABI could not be compared with that of $RELEASE_TAG."
+          elif [ $((status & 8)) -ne 0 ]; then
+            verdict="The ABI changed, and what was built against $RELEASE_TAG breaks."
+          elif [ $((status & 4)) -ne 0 ]; then
+            verdict="The ABI changed, and what was built against $RELEASE_TAG still works."
+          else
+            verdict="The ABI is that of $RELEASE_TAG."
+          fi
+          {
+            echo "## $verdict"
+            echo
+            echo '```'
+            cat abi.txt
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $((status & 3))
+
   # The presets need CMake 3.21, so this is the one job that does without
   # them, and the one that holds cmake_minimum_required to its word.
   minimum-cmake:

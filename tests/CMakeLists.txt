@@ -31,3 +31,7 @@ add_subdirectory(integration)
 if(VITRIO_BUILD_PYTHON)
 	add_subdirectory(python)
 endif()
+
+if(VITRIO_INSTALL)
+	add_subdirectory(install)
+endif()
