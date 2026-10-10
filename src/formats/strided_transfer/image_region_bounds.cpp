@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "tiff_region_bounds.hpp"
+#include "image_region_bounds.hpp"
 
-#include <formats/strided_transfer/image_region_offsets.hpp>
+#include "image_region_offsets.hpp"
 
 #include <vector>
 
 namespace vitrio
-{
-namespace tiff
 {
 
 void check_region_bounds(
@@ -41,5 +39,4 @@ void check_region_bounds(
 	);
 }
 
-} // namespace tiff
 } // namespace vitrio

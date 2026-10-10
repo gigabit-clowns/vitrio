@@ -14,7 +14,9 @@ namespace tiff
  *
  * A file is claimed on the signature it begins with, whatever it is named:
  * every TIFF file carries it, classic or BigTIFF and in either byte order,
- * so its extension adds nothing.
+ * so its extension adds nothing. The exception is an EER file, a TIFF file
+ * whose pages hold the events of a detector rather than samples, which is
+ * told by its extension and left to be read as events.
  *
  * A file of one page opens as an image and a file of several as a stack of
  * them.

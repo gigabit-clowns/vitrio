@@ -9,24 +9,23 @@
 
 namespace vitrio
 {
-namespace tiff
-{
 
 /**
  * @brief The regions of a plan, resolved into those of each page they
  * reach.
  *
- * A TIFF file holds its pages one by one, so regions stated against the
- * whole of it are moved a page at a time. Each page a plan reaches gets the
- * regions that lie on it, stated against that page alone: as offsets into
- * its rows and columns, with the page axis gone. A region that spans
- * several pages becomes one region on each of them, placed one position
- * further along the axis of the array its pages run along.
+ * A file that holds its pages one by one, as a TIFF file does, has the
+ * regions stated against the whole of it moved a page at a time. Each page a
+ * plan reaches gets the regions that lie on it, stated against that page
+ * alone: as offsets into its rows and columns, with the page axis gone. A
+ * region that spans several pages becomes one region on each of them,
+ * placed one position further along the axis of the array its pages run
+ * along.
  *
  * The pages are held in ascending order, and each carries the rows its
  * regions reach, which are all of it that needs decoding.
  */
-class tiff_page_regions
+class image_page_regions
 {
 public:
 	/**
@@ -38,15 +37,15 @@ public:
 	 * @throws std::invalid_argument If the file rank of @p regions is
 	 * neither two nor three.
 	 */
-	explicit tiff_page_regions(const image_transfer_plan &regions);
+	explicit image_page_regions(const image_transfer_plan &regions);
 
-	tiff_page_regions(const tiff_page_regions &other) = default;
-	tiff_page_regions(tiff_page_regions &&other) noexcept = default;
-	~tiff_page_regions() = default;
+	image_page_regions(const image_page_regions &other) = default;
+	image_page_regions(image_page_regions &&other) noexcept = default;
+	~image_page_regions() = default;
 
-	tiff_page_regions& operator=(const tiff_page_regions &other) = default;
-	tiff_page_regions&
-	operator=(tiff_page_regions &&other) noexcept = default;
+	image_page_regions& operator=(const image_page_regions &other) = default;
+	image_page_regions&
+	operator=(image_page_regions &&other) noexcept = default;
 
 	/**
 	 * @brief Get how many pages the regions reach.
@@ -103,5 +102,4 @@ private:
 	std::vector<std::size_t> m_end_rows;
 };
 
-} // namespace tiff
 } // namespace vitrio

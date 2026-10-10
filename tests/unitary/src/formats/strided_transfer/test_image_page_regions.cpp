@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/tiff/tiff_page_regions.hpp>
+#include <formats/strided_transfer/image_page_regions.hpp>
 
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -13,7 +13,6 @@
 #include <vector>
 
 using namespace vitrio;
-using namespace vitrio::tiff;
 
 namespace
 {
@@ -50,13 +49,13 @@ offset extents_of(const image_transfer_plan &regions)
 } // anonymous namespace
 
 TEST_CASE( "regions of a single page stay on it",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	image_transfer_plan regions(image_transfer_shape({4, 5}, 2, 3));
 	add(regions, {10, 20}, {0, 0, 0});
 	add(regions, {2, 30}, {1, 0, 0});
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 
 	SECTION( "the one page is reached" )
 	{
@@ -86,14 +85,14 @@ TEST_CASE( "regions of a single page stay on it",
 }
 
 TEST_CASE( "regions of a stack are gathered by the page they lie on",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	image_transfer_plan regions(image_transfer_shape({4, 5}, 3, 3));
 	add(regions, {7, 10, 20}, {0, 0, 0});
 	add(regions, {2, 0, 0}, {1, 0, 0});
 	add(regions, {7, 1, 3}, {2, 0, 0});
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 
 	SECTION( "the pages reached ascend, each one once" )
 	{
@@ -135,14 +134,14 @@ TEST_CASE( "regions of a stack are gathered by the page they lie on",
 }
 
 TEST_CASE( "a region spanning pages becomes one region on each",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	// Three pages from the second one on, landing from the fifth position
 	// of the axis of the array that runs along them, which is its second.
 	image_transfer_plan regions(image_transfer_shape({3, 4, 5}, 3, 4));
 	add(regions, {1, 6, 7}, {9, 4, 0, 2});
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 
 	SECTION( "every page it spans is reached" )
 	{
@@ -178,7 +177,7 @@ TEST_CASE( "a region spanning pages becomes one region on each",
 	{
 		add(regions, {3, 0, 0}, {0, 0, 0, 0});
 
-		const tiff_page_regions overlapping(regions);
+		const image_page_regions overlapping(regions);
 
 		REQUIRE( overlapping.get_page_count() == 5 );
 		REQUIRE( overlapping.get_page(4) == 5 );
@@ -192,14 +191,14 @@ TEST_CASE( "a region spanning pages becomes one region on each",
 }
 
 TEST_CASE( "regions of lower rank than a page reach a single row",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	SECTION( "a run of one row" )
 	{
 		image_transfer_plan regions(image_transfer_shape({5}, 3, 1));
 		add(regions, {4, 8, 2}, {0});
 
-		const tiff_page_regions pages(regions);
+		const image_page_regions pages(regions);
 
 		REQUIRE( pages.get_page_count() == 1 );
 		REQUIRE( pages.get_page(0) == 4 );
@@ -215,7 +214,7 @@ TEST_CASE( "regions of lower rank than a page reach a single row",
 		image_transfer_plan regions(image_transfer_shape({}, 2, 0));
 		add(regions, {3, 9}, {});
 
-		const tiff_page_regions pages(regions);
+		const image_page_regions pages(regions);
 
 		REQUIRE( pages.get_page_count() == 1 );
 		REQUIRE( pages.get_first_row(0) == 3 );
@@ -224,23 +223,23 @@ TEST_CASE( "regions of lower rank than a page reach a single row",
 }
 
 TEST_CASE( "a plan of no region reaches no page",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	const image_transfer_plan regions(image_transfer_shape({4, 5}, 3, 2));
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 
 	REQUIRE( pages.get_page_count() == 0 );
 }
 
 TEST_CASE( "regions against anything but a page or a stack are refused",
-	"[tiff_page_regions]" )
+	"[image_page_regions]" )
 {
 	SECTION( "a file of one axis" )
 	{
 		const image_transfer_plan regions(image_transfer_shape({5}, 1, 1));
 
-		REQUIRE_THROWS_AS( tiff_page_regions(regions), std::invalid_argument );
+		REQUIRE_THROWS_AS( image_page_regions(regions), std::invalid_argument );
 	}
 
 	SECTION( "a file of four axes" )
@@ -248,6 +247,6 @@ TEST_CASE( "regions against anything but a page or a stack are refused",
 		const image_transfer_plan regions(
 			image_transfer_shape({4, 5}, 4, 2));
 
-		REQUIRE_THROWS_AS( tiff_page_regions(regions), std::invalid_argument );
+		REQUIRE_THROWS_AS( image_page_regions(regions), std::invalid_argument );
 	}
 }

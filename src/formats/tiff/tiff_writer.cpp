@@ -2,10 +2,10 @@
 
 #include "tiff_writer.hpp"
 
-#include "tiff_page_regions.hpp"
-#include "tiff_region_bounds.hpp"
 #include "tiff_sample_type.hpp"
 
+#include <formats/strided_transfer/image_page_regions.hpp>
+#include <formats/strided_transfer/image_region_bounds.hpp>
 #include <formats/strided_transfer/image_region_transfer.hpp>
 #include <formats/strided_transfer/image_region_write_walk.hpp>
 
@@ -208,7 +208,7 @@ void tiff_writer::write(
 		);
 	}
 
-	const tiff_page_regions pages(regions);
+	const image_page_regions pages(regions);
 	const auto page_count = pages.get_page_count();
 	const auto page_layout = make_page_layout(m_descriptor);
 	const auto compression = get_compression(m_descriptor.get_data_type());

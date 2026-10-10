@@ -82,6 +82,17 @@ TEST_CASE( "the TIFF format claims the files it can read",
 		std::remove(other.c_str());
 	}
 
+	SECTION( "an EER file is left to be read as events" )
+	{
+		const std::string movie = path.get() + ".eer";
+		write_image(movie, "w");
+
+		REQUIRE( format.get_suitability(image_file_probe(movie)) ==
+			image_file_format_suitability::unsupported );
+
+		std::remove(movie.c_str());
+	}
+
 	SECTION( "a file of the extension that holds something else is not" )
 	{
 		write_file(path.get(), std::vector<char>(64, 'x'));

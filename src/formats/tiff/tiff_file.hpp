@@ -11,8 +11,11 @@
 
 #include <tiffio.h>
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace vitrio
 {
@@ -98,6 +101,76 @@ public:
 	 * not hold as many samples as @p destination takes.
 	 */
 	void read_block(std::size_t block, span<byte> destination);
+
+	/**
+	 * @brief Get the extents of the selected page, however it is encoded.
+	 *
+	 * Unlike @ref get_page_layout, nothing but the size of the page is
+	 * asked of it, so it answers for a page whose samples libtiff can not
+	 * decode.
+	 *
+	 * @return std::array<std::size_t, 2> The rows and the columns.
+	 * @throws image_file_format_error If the page does not state its size.
+	 */
+	std::array<std::size_t, 2> get_page_extents();
+
+	/**
+	 * @brief Get how the samples of the selected page are encoded.
+	 *
+	 * @return std::uint16_t The Compression tag of the page, which states
+	 * none when it is missing.
+	 */
+	std::uint16_t get_compression();
+
+	/**
+	 * @brief Get how many rows every strip of the selected page but the
+	 * last one holds.
+	 *
+	 * @return std::size_t The rows of a strip, which never exceed those of
+	 * the page.
+	 * @throws image_file_format_error If the page is cut into tiles, if it
+	 * does not state its size, or if it states strips of no rows.
+	 */
+	std::size_t get_rows_per_strip();
+
+	/**
+	 * @brief Get how many strips the selected page is cut into.
+	 *
+	 * @return std::size_t The number of strips.
+	 * @throws image_file_format_error If the page is cut into tiles.
+	 */
+	std::size_t get_strip_count();
+
+	/**
+	 * @brief Read one strip of the selected page as it lies in the file,
+	 * without decoding it.
+	 *
+	 * For the pages whose encoding libtiff has no codec for, which are
+	 * decoded by whoever reads them.
+	 *
+	 * @param strip Index of the strip. Must be below @ref get_strip_count.
+	 * @param destination Where the bytes are written. It is resized to
+	 * hold them, and its capacity is kept for the next strip.
+	 * @throws image_file_format_error If the strip can not be read.
+	 */
+	void read_raw_strip(std::size_t strip, std::vector<byte> &destination);
+
+	/**
+	 * @brief Get the value of a tag of the selected page that holds one
+	 * unsigned integer, among those libtiff knows nothing of.
+	 *
+	 * libtiff keeps the tags it does not know without interpreting them.
+	 * This reads one of those, as the private tags of a format built on
+	 * TIFF are.
+	 *
+	 * @param tag The code of the tag.
+	 * @param value Where its value is written. Left untouched when the
+	 * page does not carry the tag.
+	 * @return bool true if the page carries the tag.
+	 * @throws image_file_format_error If the tag does not hold exactly one
+	 * unsigned integer.
+	 */
+	bool find_unsigned_tag(std::uint32_t tag, std::uint64_t &value);
 
 	/**
 	 * @brief Append a page to a file being created.

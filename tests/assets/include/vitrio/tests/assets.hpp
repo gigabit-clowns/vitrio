@@ -72,4 +72,18 @@ inline std::string get_tiff_asset_path(const std::string &name)
 	#endif
 }
 
+/**
+ * @brief Get the path of one of the EER files the tests are given.
+ *
+ * @param name Name of the file, as tests/assets/eer/README.txt lists it.
+ */
+inline std::string get_eer_asset_path(const std::string &name)
+{
+	#if defined(_WIN32)
+		return get_asset_root() + "\\eer\\" + name;
+	#else
+		return get_asset_root() + "/eer/" + name;
+	#endif
+}
+
 } // namespace vitrio

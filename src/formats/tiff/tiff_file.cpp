@@ -10,11 +10,13 @@
 
 #include <logger.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <new>
 #include <stdexcept>
 
@@ -252,6 +254,169 @@ void tiff_file::read_block(std::size_t block, span<byte> destination)
 		throw image_file_format_error(
 			m_path + ": tiff_file: A block of the page does not hold the "
 			"samples its page states."
+		);
+	}
+}
+
+std::array<std::size_t, 2> tiff_file::get_page_extents()
+{
+	std::uint32_t width = 0;
+	std::uint32_t height = 0;
+	if (TIFFGetField(m_handle, TIFFTAG_IMAGEWIDTH, &width) == 0 ||
+		TIFFGetField(m_handle, TIFFTAG_IMAGELENGTH, &height) == 0 ||
+		width == 0 ||
+		height == 0)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: The page does not state its size."
+		);
+	}
+
+	return {{height, width}};
+}
+
+std::uint16_t tiff_file::get_compression()
+{
+	std::uint16_t compression = COMPRESSION_NONE;
+	TIFFGetFieldDefaulted(m_handle, TIFFTAG_COMPRESSION, &compression);
+	return compression;
+}
+
+std::size_t tiff_file::get_rows_per_strip()
+{
+	if (TIFFIsTiled(m_handle) != 0)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: The page is cut into tiles, not strips."
+		);
+	}
+
+	const auto height = get_page_extents()[0];
+	std::uint32_t rows_per_strip = 0;
+	TIFFGetFieldDefaulted(m_handle, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
+	if (rows_per_strip == 0)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: The page states strips of no rows."
+		);
+	}
+
+	return std::min<std::size_t>(rows_per_strip, height);
+}
+
+std::size_t tiff_file::get_strip_count()
+{
+	if (TIFFIsTiled(m_handle) != 0)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: The page is cut into tiles, not strips."
+		);
+	}
+
+	return TIFFNumberOfStrips(m_handle);
+}
+
+void tiff_file::read_raw_strip(
+	std::size_t strip,
+	std::vector<byte> &destination
+)
+{
+	const auto index = static_cast<std::uint32_t>(strip);
+	int error = 0;
+	const auto size = TIFFGetStrileByteCountWithErr(m_handle, index, &error);
+	if (error != 0 ||
+		size > static_cast<std::uint64_t>(
+			std::numeric_limits<tmsize_t>::max()))
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: The size of a strip of the page can not "
+			"be read: " + m_last_error
+		);
+	}
+
+	destination.resize(static_cast<std::size_t>(size));
+	if (size == 0)
+	{
+		return;
+	}
+
+	const auto read = TIFFReadRawStrip(
+		m_handle,
+		index,
+		destination.data(),
+		static_cast<tmsize_t>(size)
+	);
+	if (read != static_cast<tmsize_t>(size))
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: A strip of the page can not be read: " +
+			m_last_error
+		);
+	}
+}
+
+bool tiff_file::find_unsigned_tag(std::uint32_t tag, std::uint64_t &value)
+{
+	const auto *field = TIFFFindField(m_handle, tag, TIFF_ANY);
+	if (field == nullptr)
+	{
+		return false;
+	}
+
+	// The tags libtiff does not know are kept as anonymous fields, whose
+	// values are handed out with their count.
+	const void *data = nullptr;
+	std::uint64_t count = 0;
+	if (TIFFFieldPassCount(field) == 0)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: A tag libtiff knows is not read as one "
+			"it does not."
+		);
+	}
+	if (TIFFFieldReadCount(field) == TIFF_VARIABLE2)
+	{
+		std::uint32_t count32 = 0;
+		if (TIFFGetField(m_handle, tag, &count32, &data) == 0)
+		{
+			return false;
+		}
+		count = count32;
+	}
+	else
+	{
+		std::uint16_t count16 = 0;
+		if (TIFFGetField(m_handle, tag, &count16, &data) == 0)
+		{
+			return false;
+		}
+		count = count16;
+	}
+
+	if (count != 1 || data == nullptr)
+	{
+		throw image_file_format_error(
+			m_path + ": tiff_file: A tag does not hold exactly one value."
+		);
+	}
+
+	switch (TIFFFieldDataType(field))
+	{
+	case TIFF_BYTE:
+		value = *static_cast<const std::uint8_t*>(data);
+		return true;
+	case TIFF_SHORT:
+		value = *static_cast<const std::uint16_t*>(data);
+		return true;
+	case TIFF_LONG:
+		value = *static_cast<const std::uint32_t*>(data);
+		return true;
+	case TIFF_LONG8:
+		value = *static_cast<const std::uint64_t*>(data);
+		return true;
+	default:
+		throw image_file_format_error(
+			m_path + ": tiff_file: A tag does not hold an unsigned integer."
 		);
 	}
 }

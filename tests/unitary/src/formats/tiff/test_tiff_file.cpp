@@ -13,8 +13,10 @@
 #include <vitrio/span.hpp>
 
 #include <vitrio/tests/scoped_path.hpp>
+#include "../eer/fixtures/eer_test_file.hpp"
 #include "fixtures/tiff_test_file.hpp"
 
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
@@ -687,6 +689,114 @@ TEST_CASE( "a TIFF file being created gains the pages written to it",
 				values
 			),
 			unsupported_operation_error
+		);
+	}
+}
+
+TEST_CASE( "a TIFF file reports the strips of a page it can not decode",
+	"[tiff_file]" )
+{
+	const scoped_path path("tiff_file_raw_strips.tif");
+
+	SECTION( "a page cut into strips reports them as they lie" )
+	{
+		write_striped_file<std::uint8_t>(
+			path.get(), "wl", 4, 5, SAMPLEFORMAT_UINT, COMPRESSION_NONE, 2,
+			{counting<std::uint8_t>(20)}
+		);
+
+		tiff_file file(path.get(), tiff_file_mode::read);
+		std::vector<byte> strip;
+		file.read_raw_strip(2, strip);
+
+		REQUIRE( file.get_page_extents() ==
+			std::array<std::size_t, 2>{{5, 4}} );
+		REQUIRE( file.get_compression() == COMPRESSION_NONE );
+		REQUIRE( file.get_rows_per_strip() == 2 );
+		REQUIRE( file.get_strip_count() == 3 );
+		REQUIRE( strip == std::vector<byte>{16, 17, 18, 19} );
+	}
+
+	SECTION( "a single strip holds no more rows than its page" )
+	{
+		write_striped_file<std::uint8_t>(
+			path.get(), "wl", 4, 3, SAMPLEFORMAT_UINT, COMPRESSION_LZW, 64,
+			{counting<std::uint8_t>(12)}
+		);
+
+		tiff_file file(path.get(), tiff_file_mode::read);
+
+		REQUIRE( file.get_compression() == COMPRESSION_LZW );
+		REQUIRE( file.get_rows_per_strip() == 3 );
+		REQUIRE( file.get_strip_count() == 1 );
+	}
+
+	SECTION( "a page compressed with an unknown scheme is read as it lies" )
+	{
+		eer_test_page page;
+		page.compression = 65001;
+		page.strips = {{1, 2, 3, 4}, {5, 6}};
+		write_eer_pages(path.get(), {page});
+
+		tiff_file file(path.get(), tiff_file_mode::read);
+		std::vector<byte> strip(64, 0);
+		file.read_raw_strip(1, strip);
+
+		REQUIRE( file.get_compression() == 65001 );
+		REQUIRE( file.get_page_extents() ==
+			std::array<std::size_t, 2>{{6, 8}} );
+		REQUIRE( strip == std::vector<byte>{5, 6} );
+	}
+
+	SECTION( "a page cut into tiles has no strips" )
+	{
+		write_tiled_file<std::uint8_t>(
+			path.get(), 32, 32, SAMPLEFORMAT_UINT, COMPRESSION_NONE, 16, 16,
+			counting<std::uint8_t>(32 * 32)
+		);
+
+		tiff_file file(path.get(), tiff_file_mode::read);
+
+		REQUIRE_THROWS_AS( file.get_strip_count(), image_file_format_error );
+		REQUIRE_THROWS_AS(
+			file.get_rows_per_strip(),
+			image_file_format_error
+		);
+	}
+}
+
+TEST_CASE( "a TIFF file reads the tags libtiff knows nothing of",
+	"[tiff_file]" )
+{
+	const scoped_path path("tiff_file_private_tags.tif");
+	eer_test_page page;
+	page.compression = 65002;
+	page.stated_widths = {6, 1, 3};
+	page.strips = {{0}, {0}};
+	write_eer_pages(path.get(), {page});
+
+	tiff_file file(path.get(), tiff_file_mode::read);
+	std::uint64_t value = 99;
+
+	SECTION( "a tag of one unsigned integer is read" )
+	{
+		REQUIRE( file.find_unsigned_tag(65007, value) );
+		REQUIRE( value == 6 );
+		REQUIRE( file.find_unsigned_tag(65009, value) );
+		REQUIRE( value == 3 );
+	}
+
+	SECTION( "a tag the page does not carry is not" )
+	{
+		REQUIRE_FALSE( file.find_unsigned_tag(65010, value) );
+		REQUIRE( value == 99 );
+	}
+
+	SECTION( "a tag libtiff knows is refused" )
+	{
+		REQUIRE_THROWS_AS(
+			file.find_unsigned_tag(TIFFTAG_IMAGEWIDTH, value),
+			image_file_format_error
 		);
 	}
 }

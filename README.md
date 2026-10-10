@@ -47,9 +47,10 @@ change before 1.0.
 |---|---|---|---|---|
 | MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
+| EER | yes, from C++ | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
 
 A file is recognized by its contents where the format allows it, and by its
-extension otherwise. TIFF goes through libtiff and can be left out of a
+extension otherwise. TIFF and EER go through libtiff and can be left out of a
 build. More formats will follow.
 
 ## Installing
@@ -177,6 +178,43 @@ int main()
 }
 ```
 
+An EER file holds the events a detector counted rather than images, so it is
+read through a provider of its own. It is given how many fractions to cut the
+movie into, as evenly as the frames allow, and how to render each fraction:
+
+```cpp
+#include <vitrio/counting_detector_event_renderer.hpp>
+#include <vitrio/detector_event_fractionation.hpp>
+#include <vitrio/detector_event_image_reader_provider.hpp>
+#include <vitrio/detector_event_timeline_file_read_format_selector.hpp>
+#include <vitrio/file_detector_event_timeline_reader_provider.hpp>
+#include <vitrio/image_read.hpp>
+
+#include <memory>
+#include <vector>
+
+int main()
+{
+	// A pixel of the image gathers 4 by 4 subpixels: the resolution of a
+	// detector that places its events on a quarter of a pixel.
+	const std::vector<std::size_t> bin = {4, 4};
+
+	vitrio::detector_event_image_reader_provider readers(
+		std::make_shared<vitrio::file_detector_event_timeline_reader_provider>(
+			vitrio::detector_event_timeline_file_read_format_selector::
+				get_shared()
+		),
+		vitrio::detector_event_fractionation(40),
+		std::make_shared<vitrio::counting_detector_event_renderer>(
+			vitrio::make_span(bin)
+		)
+	);
+
+	// 40 fractions of 4096 by 4096 counts.
+	vitrio::array movie = vitrio::read("movie.eer", readers);
+}
+```
+
 The headers under `include/vitrio/` are the whole API, and each one documents
 what it declares.
 
@@ -188,7 +226,7 @@ CMake looks for with `find_package`:
 - Boost 1.70 or newer (Filesystem, Interprocess and ContainerHash)
 - half
 - spdlog
-- libtiff 4.5 or newer, unless TIFF is turned off
+- libtiff 4.5 or newer, unless TIFF is turned off, which leaves EER out too
 - Catch2 3 and trompeloeil, for the tests
 
 ```
@@ -206,7 +244,7 @@ A few options change what gets built:
 | Option | Effect |
 |---|---|
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
-| `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF out, and libtiff with it |
+| `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen |
 

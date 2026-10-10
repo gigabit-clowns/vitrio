@@ -17,6 +17,7 @@ if(VITRIO_ENABLE_TIFF)
 	target_sources(
 		vitrio-integration-tests
 		PRIVATE
+			test_eer_real_files.cpp
 			test_tiff_real_files.cpp
 			test_tiff_round_trip.cpp
 	)

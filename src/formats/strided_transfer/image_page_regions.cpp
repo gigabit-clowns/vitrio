@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "tiff_page_regions.hpp"
+#include "image_page_regions.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -8,8 +8,6 @@
 #include <stdexcept>
 
 namespace vitrio
-{
-namespace tiff
 {
 
 namespace
@@ -32,14 +30,14 @@ image_transfer_shape make_page_shape(const image_transfer_shape &shape)
 
 } // anonymous namespace
 
-tiff_page_regions::tiff_page_regions(const image_transfer_plan &regions)
+image_page_regions::image_page_regions(const image_transfer_plan &regions)
 {
 	const auto &shape = regions.get_shape();
 	const auto file_rank = shape.get_file_rank();
 	if (file_rank != page_rank && file_rank != stack_rank)
 	{
 		throw std::invalid_argument(
-			"tiff_page_regions: The regions are stated against neither a "
+			"image_page_regions: The regions are stated against neither a "
 			"page nor a stack of them."
 		);
 	}
@@ -102,33 +100,32 @@ tiff_page_regions::tiff_page_regions(const image_transfer_plan &regions)
 	}
 }
 
-std::size_t tiff_page_regions::get_page_count() const noexcept
+std::size_t image_page_regions::get_page_count() const noexcept
 {
 	return m_pages.size();
 }
 
-std::size_t tiff_page_regions::get_page(std::size_t position) const noexcept
+std::size_t image_page_regions::get_page(std::size_t position) const noexcept
 {
 	return m_pages[position];
 }
 
 const image_transfer_plan&
-tiff_page_regions::get_regions(std::size_t position) const noexcept
+image_page_regions::get_regions(std::size_t position) const noexcept
 {
 	return m_regions[position];
 }
 
 std::size_t
-tiff_page_regions::get_first_row(std::size_t position) const noexcept
+image_page_regions::get_first_row(std::size_t position) const noexcept
 {
 	return m_first_rows[position];
 }
 
 std::size_t
-tiff_page_regions::get_row_count(std::size_t position) const noexcept
+image_page_regions::get_row_count(std::size_t position) const noexcept
 {
 	return m_end_rows[position] - m_first_rows[position];
 }
 
-} // namespace tiff
 } // namespace vitrio

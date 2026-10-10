@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include <vitrio/detector_event_timeline_file_read_format_selector.hpp>
 #include <vitrio/image_file_format_suitability.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 
+#include "../mock/mock_detector_event_timeline_file_read_format.hpp"
 #include "../mock/mock_image_file_read_format.hpp"
 #include "../mock/mock_image_file_write_format.hpp"
 
@@ -75,5 +77,11 @@ using write_format_selector_fixture = format_selector_fixture<
 	image_file_write_format_selector,
 	mock_image_file_write_format
 >;
+
+using detector_event_timeline_file_read_format_selector_fixture =
+	format_selector_fixture<
+		detector_event_timeline_file_read_format_selector,
+		mock_detector_event_timeline_file_read_format
+	>;
 
 } // namespace vitrio

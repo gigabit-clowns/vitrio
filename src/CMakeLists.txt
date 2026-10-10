@@ -59,11 +59,25 @@ target_link_libraries(
 target_sources(
 	vitrio-obj
 	PRIVATE
+		builtin_detector_event_timeline_file_read_format_registry.cpp
 		builtin_image_file_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
+		counting_detector_event_renderer.cpp
+		detector_event_fractionation.cpp
+		detector_event_image_reader.cpp
+		detector_event_image_reader_provider.cpp
+		detector_event_renderer.cpp
+		detector_event_timeline.cpp
+		detector_event_timeline_descriptor.cpp
+		detector_event_timeline_file_read_format.cpp
+		detector_event_timeline_file_read_format_registry.cpp
+		detector_event_timeline_file_read_format_selector.cpp
+		detector_event_timeline_reader.cpp
+		detector_event_timeline_reader_provider.cpp
 		executor_image_loader.cpp
 		executor_image_saver.cpp
+		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
 		file_image_writer_provider.cpp
 		host_image_scratch_storage.cpp
