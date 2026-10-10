@@ -35,9 +35,8 @@ change before 1.0.
   land in a `float32` array.
 - Shares memory with anything that speaks DLPack or the buffer protocol.
   Nothing is copied on the way in or on the way out.
-- From C++, keeps a copy of what has been read in RAM or in a memory-mapped
-  file, so that going back to the same images does not hit the original
-  files again.
+- Keeps a copy of what has been read in RAM or in a memory-mapped file, so
+  that going back to the same images does not hit the original files again.
 - Takes new formats without changes to the library: a format is a class
   that registers itself.
 
@@ -139,6 +138,34 @@ is read or written where it is, views included.
 The `_async` functions return right away with a completion. Call `get()` on
 it to wait and to find out whether anything failed. The completion keeps
 its array alive, and dropping one that is not ready waits for it.
+
+Images a program goes back to, epoch after epoch, are read faster from a
+scratch: a copy of them in RAM. A loader made with one reads what the scratch
+holds from it and takes in what it does not hold yet, and a prefetch fills it
+ahead of the reads:
+
+```python
+scratch = vio.create_host_image_scratch(locations, run_length=64)
+loader = vio.loader(cache=len(STACKS), scratch=scratch)
+
+prefetcher = vio.ThreadPoolExecutor(2)    # keep it while it works
+filling = vio.prefetch_scratch_async(scratch, locations, prefetcher)
+```
+
+`run_length` is how many images of a file are taken in together, in one read
+of it. When the images do not fit in RAM, or the next run should not read
+them again, the copy goes in a file mapped into memory instead:
+
+```python
+scratch = vio.create_mapped_file_image_scratch(
+    locations, "/local/disk/particles.scratch", run_length=64
+)
+```
+
+A later scratch of the same images over the same file resumes from what is
+already in it, except for the images whose files have been modified since,
+and programs that hold the same images can share the file. vitrio never
+removes it, so remove it yourself once nothing uses it.
 
 A movie of an electron-counting detector, such as an EER file, holds the
 events the detector counted rather than images. It is read through a

@@ -13,10 +13,13 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/concurrency/completion.hpp>
+#include <vitrio/concurrency/executor.hpp>
 #include <vitrio/image_loader.hpp>
 #include <vitrio/image_location.hpp>
+#include <vitrio/image_location_grouping.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/image_reader_provider.hpp>
+#include <vitrio/image_scratch.hpp>
 #include <vitrio/index_table.hpp>
 #include <vitrio/span.hpp>
 
@@ -130,6 +133,24 @@ std::shared_ptr<completion> py_read_patches_async(
 	);
 }
 
+// Each file is opened and read on the executor, but a synchronous one runs
+// the work before the call returns.
+std::shared_ptr<completion> py_prefetch_scratch_async(
+	image_scratch &scratch,
+	std::shared_ptr<image_reader_provider> files,
+	vitrio::executor &executor,
+	const image_location_grouping &locations
+)
+{
+	const nb::gil_scoped_release release;
+	return prefetch_scratch_async(
+		scratch,
+		std::move(files),
+		executor,
+		locations
+	);
+}
+
 } // anonymous namespace
 
 void bind_image_read(nb::module_ &m)
@@ -158,6 +179,11 @@ void bind_image_read(nb::module_ &m)
 		"read_patches_async", &py_read_patches_async,
 		nb::arg("loader"), nb::arg("destination").noconvert(),
 		nb::arg("location"), nb::arg("centres")
+	);
+	m.def(
+		"prefetch_scratch_async", &py_prefetch_scratch_async,
+		nb::arg("scratch"), nb::arg("files"), nb::arg("executor"),
+		nb::arg("locations")
 	);
 }
 

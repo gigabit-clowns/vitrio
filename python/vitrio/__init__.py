@@ -48,11 +48,14 @@ from ._binding import (
 	ImageFileWriteFormatSelector as ImageFileWriteFormatSelector,
 	ImageLoader as ImageLoader,
 	ImageLocation as ImageLocation,
+	ImageLocationGrouping as ImageLocationGrouping,
 	ImageReaderProvider as ImageReaderProvider,
 	ImageSaver as ImageSaver,
+	ImageScratch as ImageScratch,
 	ImageWriterProvider as ImageWriterProvider,
 	IndexTable as IndexTable,
 	NumericalType as NumericalType,
+	ScratchImageReaderProvider as ScratchImageReaderProvider,
 	SynchronousExecutor as SynchronousExecutor,
 	ThreadPoolExecutor as ThreadPoolExecutor,
 	get_core_extents as get_core_extents,
@@ -66,9 +69,12 @@ from ._binding import (
 from . import _numerical_type as _numerical_type
 
 from ._functions import (
+	create_host_image_scratch as create_host_image_scratch,
+	create_mapped_file_image_scratch as create_mapped_file_image_scratch,
 	detector_event_reader_provider as detector_event_reader_provider,
 	event_reader_provider as event_reader_provider,
 	loader as loader,
+	prefetch_scratch_async as prefetch_scratch_async,
 	query_descriptor as query_descriptor,
 	read as read,
 	read_events as read_events,
