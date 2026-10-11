@@ -6,7 +6,7 @@
 
 #include <formats/tiff/tiff_file_write_format.hpp>
 
-#include <formats/tiff/tiff_reader.hpp>
+#include <formats/tiff/tiff_image_reader.hpp>
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/const_array_ref.hpp>
@@ -108,7 +108,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 			writer->write(const_array_ref(source), whole_of(extents));
 		}
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
 		reader.read(array_ref(destination), whole_of(extents));
@@ -131,7 +131,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 			writer->write(const_array_ref(source), whole_of(extents));
 		}
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( reader.get_descriptor() == descriptor );
 	}
@@ -151,7 +151,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 			writer->write(const_array_ref(source), whole_of(extents));
 		}
 
-		REQUIRE( tiff_reader(path.get()).get_descriptor() == descriptor );
+		REQUIRE( tiff_image_reader(path.get()).get_descriptor() == descriptor );
 	}
 }
 

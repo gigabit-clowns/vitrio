@@ -7,10 +7,10 @@ target_sources(
 		tiff_file.cpp
 		tiff_file_read_format.cpp
 		tiff_file_write_format.cpp
+		tiff_image_reader.cpp
+		tiff_image_writer.cpp
 		tiff_page_decoder.cpp
 		tiff_page_layout.cpp
-		tiff_reader.cpp
 		tiff_sample_type.cpp
 		tiff_signature.cpp
-		tiff_writer.cpp
 )

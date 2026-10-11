@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "tiff_writer.hpp"
+#include "tiff_image_writer.hpp"
 
 #include "tiff_sample_type.hpp"
 
@@ -52,21 +52,22 @@ const image_descriptor& checked(const image_descriptor &descriptor)
 	)
 	{
 		throw std::invalid_argument(
-			"tiff_writer: A TIFF file holds an image or a stack of images."
+			"tiff_image_writer: A TIFF file holds an image or a stack of "
+			"images."
 		);
 	}
 
 	if (std::find(extents.begin(), extents.end(), 0) != extents.end())
 	{
 		throw std::invalid_argument(
-			"tiff_writer: A TIFF file has no extent of zero."
+			"tiff_image_writer: A TIFF file has no extent of zero."
 		);
 	}
 
 	if (!is_supported(descriptor.get_data_type()))
 	{
 		throw unsupported_operation_error(
-			"tiff_writer: The TIFF format has no sample this format "
+			"tiff_image_writer: The TIFF format has no sample this format "
 			"transfers for this data type."
 		);
 	}
@@ -144,7 +145,7 @@ bool covers_whole_pages(
 
 } // anonymous namespace
 
-tiff_writer::tiff_writer(
+tiff_image_writer::tiff_image_writer(
 	const std::string &path,
 	image_descriptor descriptor
 )
@@ -157,7 +158,7 @@ tiff_writer::tiff_writer(
 {
 }
 
-tiff_writer::~tiff_writer()
+tiff_image_writer::~tiff_image_writer()
 {
 	if (m_next_page < m_page_count)
 	{
@@ -169,12 +170,12 @@ tiff_writer::~tiff_writer()
 	}
 }
 
-const image_descriptor& tiff_writer::get_descriptor() const noexcept
+const image_descriptor& tiff_image_writer::get_descriptor() const noexcept
 {
 	return m_descriptor;
 }
 
-void tiff_writer::write(
+void tiff_image_writer::write(
 	const_array_ref source,
 	const image_transfer_plan &regions
 )
@@ -203,7 +204,7 @@ void tiff_writer::write(
 	if (!covers_whole_pages(regions.get_shape(), page_extents))
 	{
 		throw unsupported_operation_error(
-			"tiff_writer: A TIFF file is written whole pages at a time, "
+			"tiff_image_writer: A TIFF file is written whole pages at a time, "
 			"and a region covers part of one."
 		);
 	}
@@ -226,7 +227,7 @@ void tiff_writer::write(
 		)
 		{
 			throw unsupported_operation_error(
-				"tiff_writer: The pages of a TIFF file are written in "
+				"tiff_image_writer: The pages of a TIFF file are written in "
 				"order and once, and the regions do not cover a run of "
 				"consecutive pages beginning at page " +
 				std::to_string(m_next_page) + ", the first one not yet "
@@ -264,7 +265,7 @@ void tiff_writer::write(
 	}
 }
 
-void tiff_writer::flush()
+void tiff_image_writer::flush()
 {
 	// A page reaches the operating system in the call that writes it, so
 	// nothing is pending here.
