@@ -16,9 +16,15 @@ both ways. No memory is copied in either direction.
 
 An asynchronous read or write returns a `Completion`, which keeps the array
 it works on alive. Destroying a completion that is not ready waits for it.
+
+`vitrio.data` feeds images and their metadata to a model in batches. It
+needs numpy, so it is imported the first time `vio.data` is asked for, or
+by `import vitrio.data`.
 """
 
 from __future__ import annotations
+
+import importlib as _importlib
 
 from ._binding import (
 	Array as Array,
@@ -91,3 +97,8 @@ from ._functions import (
 )
 
 __version__ = '.'.join(str(part) for part in _get_library_version())
+
+def __getattr__(name: str) -> object:
+	if name == 'data':
+		return _importlib.import_module('.data', __name__)
+	raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

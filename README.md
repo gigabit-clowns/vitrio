@@ -35,6 +35,8 @@ change before 1.0.
   land in a `float32` array.
 - Shares memory with anything that speaks DLPack or the buffer protocol.
   Nothing is copied on the way in or on the way out.
+- Feeds images and their metadata to PyTorch or JAX in shuffled batches,
+  with the next batches read in the background and no worker processes.
 - Keeps a copy of what has been read in RAM or in a memory-mapped file, so
   that going back to the same images does not hit the original files again.
 - Takes new formats without changes to the library: a format is a class
@@ -196,6 +198,79 @@ events = vio.read_events("movie.eer", 0, 10)
 frames = np.asarray(events.timestamps)
 positions = np.asarray(events.get_positions(0))    # (events, 2): y, x
 ```
+
+## Feeding a model
+
+`vitrio.data` reads a dataset for training in batches. A `Dataset` is rows
+of named fields: images read from files, and whatever metadata goes with
+them, such as the CTF, the pose or the class of each particle. vitrio
+parses no metadata file itself. It takes what you parsed it into, here with
+[starfile](https://github.com/teamtomo/starfile):
+
+```python
+import numpy as np
+import starfile
+import vitrio as vio
+
+particles = starfile.read("run_data.star", always_dict=True)["particles"]
+dataset = vio.data.Dataset({
+    "image": vio.data.ImageSource(
+        vio.data.parse_locations(particles["rlnImageName"]),
+        data_type=np.float32,
+    ),
+    "ctf": particles[["rlnDefocusU", "rlnDefocusV", "rlnDefocusAngle"]]
+        .to_numpy(np.float32),
+    "label": particles["rlnClassNumber"].to_numpy() - 1,
+})
+
+loader = vio.data.DataLoader(
+    dataset, batch_size=128, shuffle=True, output="torch", device="cuda"
+)
+for epoch in range(10):
+    for batch in loader:
+        batch["image"], batch["ctf"], batch["label"], batch["index"]
+```
+
+A batch is a dict of arrays, one for each field, plus the index of each
+row. The loader keeps a few batches in flight on a thread pool and reads
+them straight into pinned memory when the batch is going to a GPU. Use
+`output="numpy"` for plain arrays.
+
+A dataset only describes its rows. What reads them is an image loader,
+with its threads, its open files and maybe a scratch, and it is given to
+the reads: `DataLoader(dataset, ..., loader=vio.loader(workers=8))`. Reads
+given none go through a loader shared by the whole process.
+
+The pieces fit other layouts too:
+
+- A cryoSPARC `.cs` file is a structured array that `np.load` reads.
+  `vio.data.make_locations(cs["blob/path"], cs["blob/idx"])` gives its
+  locations, and `vio.data.as_columns(cs)` its columns.
+- A row may have several images, all of one shape: give `ImageSource` a row
+  of locations for each row, such as the tilts of a particle or the halves
+  of a movie.
+- `PatchSource` crops a patch around a centre out of a larger image for
+  each row, such as particles out of micrographs or subtomograms out of a
+  tomogram.
+- `dataset.subset(rows)` splits off a validation set, and
+  `dataset.preload()` reads everything into memory once. To keep a copy
+  that fills as the first epoch goes and may live in a file, read through
+  a loader with a scratch instead:
+  `DataLoader(dataset, ..., loader=vio.loader(scratch=scratch))`.
+- With JAX, `output="jax"` puts each batch on a device, or across several
+  with `sharding=`. JAX compiles again for every new shape, so pass
+  `drop_last=True`, or `pad_last=True`, which adds a `valid` field marking
+  the padded rows. Across several processes, give each one
+  `vio.data.BatchSampler(..., shard=(jax.process_index(),
+  jax.process_count()))` and the same seed.
+- PyTorch's own DataLoader takes a `Dataset` as it is. Give it a
+  `BatchSampler` as its `sampler` with `batch_size=None`, so that it reads
+  a batch per call.
+
+[examples/classify_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/classify_particles.py)
+trains a small network of PyTorch on the 2D classes of a RELION job.
+
+## Examples
 
 [examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
 is a complete program. It crops the particles picked on a set of micrographs
