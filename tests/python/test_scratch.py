@@ -218,6 +218,103 @@ def test_a_mapped_scratch_with_nothing_to_hold_creates_no_file(tmp_path):
 		vio.create_mapped_file_image_scratch([], path, 1)
 	assert not path.exists()
 
+def test_a_directory_scratch_reads_what_the_file_holds(
+	__written_stack,
+	tmp_path
+):
+	locations = __locations(__written_stack, range(5))
+	directory = tmp_path / 'scratches'
+	scratch = vio.create_directory_image_scratch(
+		locations,
+		directory,
+		2,
+		1 << 20
+	)
+	loader = vio.loader(scratch=scratch)
+	destination = np.zeros((5, 4, 6), dtype=np.float32)
+	vio.read_batch_async(loader, destination, locations).get()
+	assert np.array_equal(destination, __setup_array())
+	assert len(list(directory.glob('*.vitrio-scratch'))) == 1
+
+def test_a_directory_scratch_resumes_from_the_file_of_the_same_images(
+	__written_stack,
+	tmp_path
+):
+	locations = __locations(__written_stack, [1, 2])
+	directory = tmp_path / 'scratches'
+	scratch = vio.create_directory_image_scratch(
+		locations,
+		directory,
+		2,
+		1 << 20
+	)
+	executor = vio.SynchronousExecutor()
+	vio.prefetch_scratch_async(scratch, locations, executor).get()
+	del scratch
+
+	# As for a mapped scratch, the values change behind the back of the
+	# time the file was modified at.
+	status = os.stat(__written_stack)
+	__overwrite(__written_stack)
+	os.utime(__written_stack, ns=(status.st_atime_ns, status.st_mtime_ns))
+
+	scratch = vio.create_directory_image_scratch(
+		locations,
+		directory,
+		2,
+		1 << 20
+	)
+	readers = vio.reader_provider(scratch=scratch)
+	assert np.array_equal(vio.read(locations[1], readers), __setup_array()[2])
+	assert len(list(directory.glob('*.vitrio-scratch'))) == 1
+
+def test_a_directory_scratch_removes_another_to_stay_within_its_budget(
+	__written_stack,
+	tmp_path
+):
+	# One scratch of two images takes 208 bytes: its fingerprint, a flag
+	# and two images of 96 bytes. The budget has room for one.
+	directory = tmp_path / 'scratches'
+	earlier = vio.create_directory_image_scratch(
+		__locations(__written_stack, [0, 1]),
+		directory,
+		2,
+		300
+	)
+	del earlier
+
+	vio.create_directory_image_scratch(
+		__locations(__written_stack, [2, 3]),
+		directory,
+		2,
+		300
+	)
+	files = list(directory.glob('*.vitrio-scratch'))
+	assert len(files) == 1
+	assert files[0].stat().st_size == 208
+
+def test_a_directory_scratch_leaves_other_files_alone(
+	__written_stack,
+	tmp_path
+):
+	directory = tmp_path / 'scratches'
+	directory.mkdir()
+	notes = directory / 'notes.txt'
+	notes.write_bytes(b'x' * 1000)
+	vio.create_directory_image_scratch(
+		__locations(__written_stack, [0]),
+		directory,
+		1,
+		200
+	)
+	assert notes.stat().st_size == 1000
+
+def test_a_directory_scratch_with_nothing_to_hold_creates_no_file(tmp_path):
+	directory = tmp_path / 'scratches'
+	with pytest.raises(ValueError):
+		vio.create_directory_image_scratch([], directory, 1, 1 << 20)
+	assert not list(directory.glob('*.vitrio-scratch'))
+
 def __setup_array():
 	return np.arange(5 * 4 * 6, dtype=np.float32).reshape((5, 4, 6))
 
