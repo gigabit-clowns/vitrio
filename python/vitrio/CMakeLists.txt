@@ -18,3 +18,5 @@ foreach(
 		EXCLUDE_FROM_ALL
 	)
 endforeach()
+
+add_subdirectory(data)
