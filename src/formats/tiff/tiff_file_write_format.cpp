@@ -3,8 +3,8 @@
 #include "tiff_file_write_format.hpp"
 
 #include "tiff_extensions.hpp"
+#include "tiff_image_writer.hpp"
 #include "tiff_sample_type.hpp"
-#include "tiff_writer.hpp"
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -84,7 +84,7 @@ std::shared_ptr<image_writer> tiff_file_write_format::open(
 		);
 	}
 
-	return std::make_shared<tiff_writer>(probe.get_path(), descriptor);
+	return std::make_shared<tiff_image_writer>(probe.get_path(), descriptor);
 }
 
 VITRIO_REGISTER_IMAGE_FILE_WRITE_FORMAT(

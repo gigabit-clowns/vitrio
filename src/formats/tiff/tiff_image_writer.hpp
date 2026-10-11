@@ -47,7 +47,7 @@ namespace tiff
  * absent from the file, which then holds fewer pages than it was created
  * for; a writer destroyed in that state logs it.
  */
-class tiff_writer final
+class tiff_image_writer final
 	: public image_writer
 {
 public:
@@ -64,9 +64,9 @@ public:
 	 * of @p descriptor.
 	 * @throws image_file_error If the file could not be created.
 	 */
-	tiff_writer(const std::string &path, image_descriptor descriptor);
+	tiff_image_writer(const std::string &path, image_descriptor descriptor);
 
-	~tiff_writer() override;
+	~tiff_image_writer() override;
 
 	const image_descriptor& get_descriptor() const noexcept override;
 

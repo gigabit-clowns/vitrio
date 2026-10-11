@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "caching_image_reader_provider.hpp"
+#include "counting_detector_event_renderer.hpp"
+#include "detector_event_binning.hpp"
+#include "detector_event_fractionation.hpp"
+#include "detector_event_image_reader_provider.hpp"
+#include "detector_event_renderer.hpp"
+#include "detector_event_timeline.hpp"
+#include "detector_event_timeline_descriptor.hpp"
+#include "detector_event_timeline_file_read_format_selector.hpp"
+#include "detector_event_timeline_reader.hpp"
+#include "detector_event_timeline_reader_provider.hpp"
 #include "executor_image_loader.hpp"
 #include "executor_image_saver.hpp"
+#include "file_detector_event_timeline_reader_provider.hpp"
 #include "file_image_reader_provider.hpp"
 #include "file_image_writer_provider.hpp"
 #include "image_descriptor.hpp"
@@ -68,4 +79,18 @@ NB_MODULE(_binding, m)
 
 	vitrio::bind_image_read(m);
 	vitrio::bind_image_write(m);
+
+	vitrio::bind_detector_event_timeline_descriptor(m);
+	vitrio::bind_detector_event_timeline(m);
+	vitrio::bind_detector_event_fractionation(m);
+	vitrio::bind_detector_event_binning(m);
+
+	vitrio::bind_detector_event_timeline_file_read_format_selector(m);
+	vitrio::bind_detector_event_timeline_reader(m);
+	vitrio::bind_detector_event_timeline_reader_provider(m);
+	vitrio::bind_file_detector_event_timeline_reader_provider(m);
+
+	vitrio::bind_detector_event_renderer(m);
+	vitrio::bind_counting_detector_event_renderer(m);
+	vitrio::bind_detector_event_image_reader_provider(m);
 }

@@ -49,10 +49,10 @@ public:
 	acquire(const std::string &key) override;
 
 private:
+	using format_selector = detector_event_timeline_file_read_format_selector;
+
 	VITRIO_STD_MEMBER_INTERFACE
-	std::shared_ptr<
-		const detector_event_timeline_file_read_format_selector
-	> m_formats;
+	std::shared_ptr<const format_selector> m_formats;
 };
 
 } // namespace vitrio

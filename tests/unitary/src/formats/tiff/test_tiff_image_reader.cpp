@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/tiff/tiff_reader.hpp>
+#include <formats/tiff/tiff_image_reader.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -58,7 +58,7 @@ std::vector<std::uint16_t> write_stack(
 
 template <typename T>
 std::vector<T> read_all(
-	const tiff_reader &reader,
+	const tiff_image_reader &reader,
 	const std::vector<std::size_t> &extents,
 	numerical_type data_type
 )
@@ -72,9 +72,9 @@ std::vector<T> read_all(
 } // anonymous namespace
 
 TEST_CASE( "a TIFF reader describes its file by its pages",
-	"[tiff_reader]" )
+	"[tiff_image_reader]" )
 {
-	const scoped_path path("tiff_reader_described.tif");
+	const scoped_path path("tiff_image_reader_described.tif");
 
 	SECTION( "a file of one page is an image" )
 	{
@@ -83,7 +83,7 @@ TEST_CASE( "a TIFF reader describes its file by its pages",
 			{counting<std::uint8_t>(70)}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> extents = {10, 7};
 
@@ -95,7 +95,7 @@ TEST_CASE( "a TIFF reader describes its file by its pages",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( reader.get_descriptor() == image_descriptor(
 			make_span(stack_extents), 2, numerical_type::uint16) );
@@ -103,9 +103,9 @@ TEST_CASE( "a TIFF reader describes its file by its pages",
 }
 
 TEST_CASE( "a TIFF reader reads the regions asked of it",
-	"[tiff_reader]" )
+	"[tiff_image_reader]" )
 {
-	const scoped_path path("tiff_reader_regions.tif");
+	const scoped_path path("tiff_image_reader_regions.tif");
 
 	SECTION( "the whole of an image" )
 	{
@@ -115,7 +115,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 			COMPRESSION_ADOBE_DEFLATE, 4, {values}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( read_all<float>(reader, {10, 7}, numerical_type::float32) ==
 			values );
@@ -125,7 +125,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 	{
 		const auto values = write_stack(path.get(), COMPRESSION_LZW);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( read_all<std::uint16_t>(
 			reader, stack_extents, numerical_type::uint16) == values );
@@ -135,7 +135,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 	{
 		const auto values = write_stack(path.get(), COMPRESSION_LZW);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> region = {4, 5};
 		auto destination =
@@ -157,7 +157,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 	{
 		const auto values = write_stack(path.get(), COMPRESSION_LZW);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		auto destination = make_host_array<std::uint16_t>(
 			stack_extents, numerical_type::uint16);
@@ -198,7 +198,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 			{values}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> extents = {2, 2, 3};
 		auto destination =
@@ -230,7 +230,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 			values
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		// Two rows from the thirty second, where two rows of tiles meet,
 		// and three columns from the fifteenth, where two columns do.
@@ -256,7 +256,7 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> region = {4, 5};
 		auto destination =
@@ -268,9 +268,9 @@ TEST_CASE( "a TIFF reader reads the regions asked of it",
 }
 
 TEST_CASE( "a TIFF reader hands the values over as the array takes them",
-	"[tiff_reader]" )
+	"[tiff_image_reader]" )
 {
-	const scoped_path path("tiff_reader_converted.tif");
+	const scoped_path path("tiff_image_reader_converted.tif");
 
 	SECTION( "converted to the data type of the array" )
 	{
@@ -282,7 +282,7 @@ TEST_CASE( "a TIFF reader hands the values over as the array takes them",
 			{stored}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( read_all<float>(reader, {3, 4}, numerical_type::float32) ==
 			std::vector<float>(stored.cbegin(), stored.cend()) );
@@ -296,7 +296,7 @@ TEST_CASE( "a TIFF reader hands the values over as the array takes them",
 			{values}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE( read_all<std::uint16_t>(
 			reader, {3, 4}, numerical_type::uint16) == values );
@@ -310,7 +310,7 @@ TEST_CASE( "a TIFF reader hands the values over as the array takes them",
 			{values}
 		);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		// Three rows of four columns held column after column, so that the
 		// storage reads as the transpose of the image.
@@ -335,13 +335,13 @@ TEST_CASE( "a TIFF reader hands the values over as the array takes them",
 }
 
 TEST_CASE( "a TIFF reader refuses what it can not read",
-	"[tiff_reader]" )
+	"[tiff_image_reader]" )
 {
-	const scoped_path path("tiff_reader_refused.tif");
+	const scoped_path path("tiff_image_reader_refused.tif");
 
 	SECTION( "a file that is not there" )
 	{
-		REQUIRE_THROWS_AS( tiff_reader(path.get()), image_file_error );
+		REQUIRE_THROWS_AS( tiff_image_reader(path.get()), image_file_error );
 	}
 
 	SECTION( "a file whose pages differ" )
@@ -355,14 +355,17 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 			counting<std::uint8_t>(10)
 		);
 
-		REQUIRE_THROWS_AS( tiff_reader(path.get()), image_file_format_error );
+		REQUIRE_THROWS_AS(
+			tiff_image_reader(path.get()),
+			image_file_format_error
+		);
 	}
 
 	SECTION( "an uninitialized destination" )
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		REQUIRE_THROWS_AS(
 			reader.read(array_ref(), whole_of(stack_extents)),
@@ -374,7 +377,7 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> region = {4, 5};
 		auto destination =
@@ -390,7 +393,7 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> extents = {2, 4, 5};
 		auto destination =
@@ -417,7 +420,7 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> region = {4, 5};
 		auto destination =
@@ -438,7 +441,7 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 	{
 		write_stack(path.get(), COMPRESSION_NONE);
 
-		const tiff_reader reader(path.get());
+		const tiff_image_reader reader(path.get());
 
 		const std::vector<std::size_t> extents = {4, 4};
 		auto destination =
@@ -457,12 +460,12 @@ TEST_CASE( "a TIFF reader refuses what it can not read",
 }
 
 TEST_CASE( "a TIFF reader is read by several threads at once",
-	"[tiff_reader]" )
+	"[tiff_image_reader]" )
 {
-	const scoped_path path("tiff_reader_concurrent.tif");
+	const scoped_path path("tiff_image_reader_concurrent.tif");
 	const auto values = write_stack(path.get(), COMPRESSION_LZW);
 
-	const tiff_reader reader(path.get());
+	const tiff_image_reader reader(path.get());
 
 	// Every thread reads its own page over and over into its own array, so
 	// that the pages decoded keep displacing one another.

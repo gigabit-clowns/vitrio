@@ -156,6 +156,11 @@ library needs goes in `dependencies`.
 - **One class per file.** A class is declared in a `.hpp` and defined in a
   `.cpp`, or in an `.inl` included at the end of the header when it has to be
   inline.
+- **Implementations of an interface.** A class that implements an
+  interface is named after it, with what sets it apart in front:
+  `file_image_reader_provider` and `caching_image_reader_provider` are
+  `image_reader_provider`s, `tiff_image_reader` is an `image_reader` and
+  `mock_executor` is the mock of `executor`. Its files are named as it is.
 - **Formatting.** Tabs, 80 columns. The code is formatted by hand and there is
   no `.clang-format`: none reproduces the style, so one would rewrite the code
   it was run on.
@@ -221,7 +226,8 @@ library needs goes in `dependencies`.
   `vitrio::eer`. An acquisition becomes images through
   `detector_event_image_reader_provider`, which is given the
   `detector_event_fractionation` and the `detector_event_renderer` to read
-  it with. That is chosen by whoever reads, not by the file, so it is
+  it with; the counting one bins pixels of the detector by a
+  `detector_event_binning`, stated in pixels rather than in quanta. That is chosen by whoever reads, not by the file, so it is
   stated where readers are made and never registered as a format of images.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
@@ -253,6 +259,13 @@ library needs goes in `dependencies`.
   anything of Python, which a worker thread could not do safely while the
   interpreter shuts down. An asynchronous function hands the loan to the
   `Completion` it returns, and destroying that waits for the work.
+- **Views of the memory of a binding.** What a bound object hands out as a
+  view of its own memory, such as the positions of a
+  `DetectorEventTimeline`, is read-only and keeps the object alive. The
+  object counts the views it has handed out and refuses to change while
+  one is alive, with `BufferError`, as a `bytearray` refuses to resize
+  while a `memoryview` of it is. Nor is it changed while it is used
+  without the GIL.
 - **The GIL.** A bound function that reads, writes or waits releases the
   GIL meanwhile. So does destroying a thread pool, which waits for its
   workers.

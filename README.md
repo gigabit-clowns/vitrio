@@ -46,7 +46,7 @@ change before 1.0.
 |---|---|---|---|---|
 | MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes, from C++ | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
+| EER | yes | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. TIFF and EER go through libtiff and can be left out of a
@@ -182,6 +182,21 @@ Only the files vitrio puts there count against the budget and are ever
 removed. The disk needs room for the whole budget, since the files take
 their space as images are taken in.
 
+A movie of an electron-counting detector, such as an EER file, holds the
+events the detector counted rather than images. It is read through a
+provider that cuts its frames into as many fractions as you ask for, as
+evenly as they allow, and counts the events of each fraction per pixel:
+
+```python
+readers = vio.detector_event_image_reader_provider(40, binning=2)
+movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
+
+# Or the events themselves, a group per frame, on the grid of subpixels
+events = vio.read_events("movie.eer", 0, 10)
+frames = np.asarray(events.timestamps)
+positions = np.asarray(events.get_positions(0))    # (events, 2): y, x
+```
+
 [examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
 is a complete program. It crops the particles picked on a set of micrographs
 into stacks, reading and writing the STAR files of RELION, with several
@@ -222,10 +237,12 @@ int main()
 
 An EER file holds the events a detector counted rather than images, so it is
 read through a provider of its own. It is given how many fractions to cut the
-movie into, as evenly as the frames allow, and how to render each fraction:
+movie into, as evenly as the frames allow, and how to render each fraction,
+such as how many pixels of the detector to bin into one:
 
 ```cpp
 #include <vitrio/counting_detector_event_renderer.hpp>
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/detector_event_image_reader_provider.hpp>
 #include <vitrio/detector_event_timeline_file_read_format_selector.hpp>
@@ -233,26 +250,22 @@ movie into, as evenly as the frames allow, and how to render each fraction:
 #include <vitrio/image_read.hpp>
 
 #include <memory>
-#include <vector>
 
 int main()
 {
-	// A pixel of the image gathers 4 by 4 subpixels: the resolution of a
-	// detector that places its events on a quarter of a pixel.
-	const std::vector<std::size_t> bin = {4, 4};
-
 	vitrio::detector_event_image_reader_provider readers(
 		std::make_shared<vitrio::file_detector_event_timeline_reader_provider>(
 			vitrio::detector_event_timeline_file_read_format_selector::
 				get_shared()
 		),
 		vitrio::detector_event_fractionation(40),
+		// Blocks of 2 by 2 pixels of the detector make one of the image.
 		std::make_shared<vitrio::counting_detector_event_renderer>(
-			vitrio::make_span(bin)
+			vitrio::detector_event_binning(2)
 		)
 	);
 
-	// 40 fractions of 4096 by 4096 counts.
+	// 40 fractions of 2048 by 2048 counts.
 	vitrio::array movie = vitrio::read("movie.eer", readers);
 }
 ```

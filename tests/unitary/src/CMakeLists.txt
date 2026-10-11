@@ -8,6 +8,7 @@ target_sources(
 		test_caching_image_reader_provider.cpp
 		test_clipping_image_transfer_sanitizer.cpp
 		test_counting_detector_event_renderer.cpp
+		test_detector_event_binning.cpp
 		test_detector_event_fractionation.cpp
 		test_detector_event_image_reader.cpp
 		test_detector_event_image_reader_provider.cpp
