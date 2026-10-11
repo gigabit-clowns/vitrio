@@ -4,9 +4,9 @@
 #include <catch2/matchers/catch_matchers_exception.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
-#include <formats/tiff/tiff_writer.hpp>
+#include <formats/tiff/tiff_image_writer.hpp>
 
-#include <formats/tiff/tiff_reader.hpp>
+#include <formats/tiff/tiff_image_reader.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -59,7 +59,7 @@ std::vector<T> read_back(
 	numerical_type data_type
 )
 {
-	const tiff_reader reader(path);
+	const tiff_image_reader reader(path);
 	auto destination = make_host_array<T>(extents, data_type);
 	reader.read(array_ref(destination), whole_of(extents));
 
@@ -68,7 +68,7 @@ std::vector<T> read_back(
 
 std::vector<std::size_t> extents_of(const std::string &path)
 {
-	const tiff_reader reader(path);
+	const tiff_image_reader reader(path);
 	const auto extents = reader.get_descriptor().get_extents();
 
 	return std::vector<std::size_t>(extents.begin(), extents.end());
@@ -107,20 +107,20 @@ image_transfer_plan pages_from(
 } // anonymous namespace
 
 TEST_CASE( "a TIFF writer reports the descriptor it was created over",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_descriptor.tif");
+	const scoped_path path("tiff_image_writer_descriptor.tif");
 	const auto descriptor = describe(stack_extents, numerical_type::int16);
 
-	const tiff_writer writer(path.get(), descriptor);
+	const tiff_image_writer writer(path.get(), descriptor);
 
 	REQUIRE( writer.get_descriptor() == descriptor );
 }
 
 TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_written.tif");
+	const scoped_path path("tiff_image_writer_written.tif");
 
 	SECTION( "an image" )
 	{
@@ -129,7 +129,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			page_extents, numerical_type::uint8, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::uint8));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -146,7 +146,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			stack_extents, numerical_type::int16, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::int16));
 			writer.write(const_array_ref(source), whole_of(stack_extents));
 		}
@@ -163,7 +163,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			stack_extents, numerical_type::uint16, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			for (std::size_t page = 0; page < 3; ++page)
 			{
@@ -183,7 +183,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			stack_extents, numerical_type::uint16, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 
 			image_transfer_plan first(
@@ -209,7 +209,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			stack_extents, numerical_type::uint16, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			writer.write(
 				const_array_ref(source),
@@ -237,7 +237,7 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 			extents, numerical_type::uint16, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(extents, numerical_type::uint16));
 			writer.write(const_array_ref(source), whole_of(extents));
 		}
@@ -248,9 +248,9 @@ TEST_CASE( "a TIFF writer writes a file that reads back as it was written",
 }
 
 TEST_CASE( "a TIFF writer takes the values as the array holds them",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_converted.tif");
+	const scoped_path path("tiff_image_writer_converted.tif");
 
 	SECTION( "converted to the data type of the file" )
 	{
@@ -263,7 +263,7 @@ TEST_CASE( "a TIFF writer takes the values as the array holds them",
 			page_extents, numerical_type::float32, held);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::int16));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -291,7 +291,7 @@ TEST_CASE( "a TIFF writer takes the values as the array holds them",
 		);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::uint8));
 			writer.write(source, whole_of(page_extents));
 		}
@@ -308,9 +308,9 @@ TEST_CASE( "a TIFF writer takes the values as the array holds them",
 }
 
 TEST_CASE( "a TIFF writer encodes a file by what it holds",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_encoded.tif");
+	const scoped_path path("tiff_image_writer_encoded.tif");
 
 	SECTION( "integer samples are compressed" )
 	{
@@ -318,7 +318,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 			page_extents, numerical_type::uint8);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::uint8));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -341,7 +341,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 		{
 			const auto source = make_host_array<std::uint64_t>(
 				page_extents, numerical_type::uint64, integers);
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::uint64));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -353,7 +353,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 		{
 			const auto source = make_host_array<double>(
 				page_extents, numerical_type::float64, reals);
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::float64));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -365,7 +365,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 		{
 			const auto source = make_host_array<std::complex<double>>(
 				page_extents, numerical_type::complex_float64, complexes);
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(),
 				describe(page_extents, numerical_type::complex_float64)
 			);
@@ -385,7 +385,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 			page_extents, numerical_type::float32, values);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::float32));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -401,7 +401,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 			page_extents, numerical_type::uint8);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(page_extents, numerical_type::uint8));
 			writer.write(const_array_ref(source), whole_of(page_extents));
 		}
@@ -421,7 +421,7 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 			plane, numerical_type::uint8);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(extents, numerical_type::uint8));
 			image_transfer_plan regions(
 				image_transfer_shape({256, 256}, 3, 3));
@@ -439,14 +439,14 @@ TEST_CASE( "a TIFF writer encodes a file by what it holds",
 }
 
 TEST_CASE( "a TIFF writer refuses to write part of a page",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_partial.tif");
+	const scoped_path path("tiff_image_writer_partial.tif");
 	const auto values = counting<std::uint16_t>(60);
 	const auto source = make_host_array<std::uint16_t>(
 		stack_extents, numerical_type::uint16, values);
 
-	tiff_writer writer(
+	tiff_image_writer writer(
 		path.get(), describe(stack_extents, numerical_type::uint16));
 
 	SECTION( "some rows of a page" )
@@ -512,16 +512,16 @@ TEST_CASE( "a TIFF writer refuses to write part of a page",
 }
 
 TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_ordered.tif");
+	const scoped_path path("tiff_image_writer_ordered.tif");
 	const auto values = counting<std::uint16_t>(60);
 	const auto source = make_host_array<std::uint16_t>(
 		stack_extents, numerical_type::uint16, values);
 
 	SECTION( "a call that does not begin at the first page" )
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(stack_extents, numerical_type::uint16));
 
 		REQUIRE_THROWS_MATCHES(
@@ -535,7 +535,7 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 
 	SECTION( "a call that skips the next page" )
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(stack_extents, numerical_type::uint16));
 		writer.write(const_array_ref(source), pages_from({{0, 0}}));
 
@@ -550,7 +550,7 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 
 	SECTION( "a call that leaves a gap between its pages" )
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(stack_extents, numerical_type::uint16));
 
 		REQUIRE_THROWS_AS(
@@ -562,7 +562,7 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 
 	SECTION( "a page that has already been written" )
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(stack_extents, numerical_type::uint16));
 		writer.write(const_array_ref(source), pages_from({{0, 0}}));
 
@@ -574,7 +574,7 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 
 	SECTION( "a page stated twice in one call" )
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(stack_extents, numerical_type::uint16));
 
 		REQUIRE_THROWS_AS(
@@ -587,7 +587,7 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 	SECTION( "a call that is refused writes none of its pages" )
 	{
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			writer.write(const_array_ref(source), pages_from({{0, 0}}));
 
@@ -608,13 +608,13 @@ TEST_CASE( "a TIFF writer refuses pages out of order or written twice",
 }
 
 TEST_CASE( "a TIFF writer refuses what the file or the array can not take",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_refused.tif");
+	const scoped_path path("tiff_image_writer_refused.tif");
 	const auto source = make_host_array<std::uint16_t>(
 		stack_extents, numerical_type::uint16);
 
-	tiff_writer writer(
+	tiff_image_writer writer(
 		path.get(), describe(stack_extents, numerical_type::uint16));
 
 	SECTION( "an uninitialized source" )
@@ -675,16 +675,16 @@ TEST_CASE( "a TIFF writer refuses what the file or the array can not take",
 }
 
 TEST_CASE( "a TIFF writer is not created over what a file can not hold",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_uncreated.tif");
+	const scoped_path path("tiff_image_writer_uncreated.tif");
 
 	SECTION( "a single row" )
 	{
 		const std::vector<std::size_t> extents = {5};
 
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				path.get(),
 				image_descriptor(
 					make_span(extents), 1, numerical_type::uint8)
@@ -696,7 +696,7 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 	SECTION( "a volume" )
 	{
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				path.get(),
 				image_descriptor(
 					make_span(stack_extents), 3, numerical_type::uint8)
@@ -710,7 +710,7 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 		const std::vector<std::size_t> extents = {2, 3, 4, 5};
 
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				path.get(), describe(extents, numerical_type::uint8)),
 			std::invalid_argument
 		);
@@ -721,7 +721,7 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 		const std::vector<std::size_t> extents = {3, 0, 5};
 
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				path.get(), describe(extents, numerical_type::uint8)),
 			std::invalid_argument
 		);
@@ -730,7 +730,7 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 	SECTION( "a data type with no sample" )
 	{
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				path.get(), describe(page_extents, numerical_type::boolean)),
 			unsupported_operation_error
 		);
@@ -739,10 +739,10 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 	SECTION( "a path where there is no directory" )
 	{
 		const auto nowhere =
-			get_scratch_path("tiff_writer_no_such_directory") + "/a.tif";
+			get_scratch_path("tiff_image_writer_no_such_directory") + "/a.tif";
 
 		REQUIRE_THROWS_AS(
-			tiff_writer(
+			tiff_image_writer(
 				nowhere, describe(page_extents, numerical_type::uint8)),
 			image_file_error
 		);
@@ -750,9 +750,9 @@ TEST_CASE( "a TIFF writer is not created over what a file can not hold",
 }
 
 TEST_CASE( "a TIFF writer holds what was written however it is left",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_left.tif");
+	const scoped_path path("tiff_image_writer_left.tif");
 	const auto values = counting<std::uint16_t>(60);
 	const auto source = make_host_array<std::uint16_t>(
 		stack_extents, numerical_type::uint16, values);
@@ -760,7 +760,7 @@ TEST_CASE( "a TIFF writer holds what was written however it is left",
 	SECTION( "flushing between pages changes nothing" )
 	{
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			writer.flush();
 			writer.write(const_array_ref(source), pages_from({{0, 0}}));
@@ -777,7 +777,7 @@ TEST_CASE( "a TIFF writer holds what was written however it is left",
 	SECTION( "a file left short of pages holds the ones written" )
 	{
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			writer.write(
 				const_array_ref(source), pages_from({{0, 0}, {1, 1}}));
@@ -800,7 +800,7 @@ TEST_CASE( "a TIFF writer holds what was written however it is left",
 		);
 
 		{
-			tiff_writer writer(
+			tiff_image_writer writer(
 				path.get(), describe(stack_extents, numerical_type::uint16));
 			writer.write(const_array_ref(source), whole_of(stack_extents));
 		}
@@ -810,16 +810,16 @@ TEST_CASE( "a TIFF writer holds what was written however it is left",
 }
 
 TEST_CASE( "a TIFF writer written by several threads keeps its pages in order",
-	"[tiff_writer]" )
+	"[tiff_image_writer]" )
 {
-	const scoped_path path("tiff_writer_concurrent.tif");
+	const scoped_path path("tiff_image_writer_concurrent.tif");
 	const std::vector<std::size_t> extents = {8, 4, 5};
 	const auto values = counting<std::uint16_t>(160);
 	const auto source = make_host_array<std::uint16_t>(
 		extents, numerical_type::uint16, values);
 
 	{
-		tiff_writer writer(
+		tiff_image_writer writer(
 			path.get(), describe(extents, numerical_type::uint16));
 
 		// Every thread has one page to write and keeps offering it until
