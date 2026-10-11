@@ -9,4 +9,5 @@ target_sources(
 		image_prefetch_schedule.cpp
 		mapped_image_reader.cpp
 		mapped_image_writer.cpp
+		unaligned_mapped_image_reader.cpp
 )
