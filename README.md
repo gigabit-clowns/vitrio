@@ -48,7 +48,7 @@ change before 1.0.
 |---|---|---|---|---|
 | MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as you ask for. Compression 65000, 65001 and 65002. |
+| EER | yes | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as asked for. Compression 65000, 65001 and 65002. |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. TIFF and EER go through libtiff and can be left out of a
