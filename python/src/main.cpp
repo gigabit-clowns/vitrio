@@ -10,13 +10,17 @@
 #include "image_file_write_format_selector.hpp"
 #include "image_loader.hpp"
 #include "image_location.hpp"
+#include "image_location_grouping.hpp"
 #include "image_read.hpp"
 #include "image_reader_provider.hpp"
 #include "image_saver.hpp"
+#include "image_scratch.hpp"
 #include "image_write.hpp"
 #include "image_writer_provider.hpp"
 #include "index_table.hpp"
+#include "indexed_image_scratch.hpp"
 #include "library_version.hpp"
+#include "scratch_image_reader_provider.hpp"
 
 #include <array/array.hpp>
 #include <array/numerical_type.hpp>
@@ -43,6 +47,7 @@ NB_MODULE(_binding, m)
 	vitrio::bind_index_table(m);
 	vitrio::bind_image_descriptor(m);
 	vitrio::bind_image_location(m);
+	vitrio::bind_image_location_grouping(m);
 
 	vitrio::bind_image_file_read_format_selector(m);
 	vitrio::bind_image_file_write_format_selector(m);
@@ -50,6 +55,9 @@ NB_MODULE(_binding, m)
 	vitrio::bind_image_reader_provider(m);
 	vitrio::bind_file_image_reader_provider(m);
 	vitrio::bind_caching_image_reader_provider(m);
+	vitrio::bind_image_scratch(m);
+	vitrio::bind_indexed_image_scratch(m);
+	vitrio::bind_scratch_image_reader_provider(m);
 	vitrio::bind_image_loader(m);
 	vitrio::bind_executor_image_loader(m);
 
