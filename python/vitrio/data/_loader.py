@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 
+from .._binding import ImageLoader
 from . import _frameworks
 from ._dataset import Allocator, Dataset, PendingBatch
 from ._samplers import BatchSampler
@@ -23,8 +24,12 @@ class DataLoader:
 
 	Its arguments are those of PyTorch's DataLoader where they mean the
 	same, but it starts no worker process: the images are read on the
-	thread pool of the dataset, `prefetch` batches at once, straight into
+	thread pool of its loader, `prefetch` batches at once, straight into
 	the arrays they are handed out in. Each iteration is an epoch.
+
+	The loader is what reads: its thread pool, its open readers and, when
+	it was made with one, a scratch that serves the epochs after the first.
+	Loaders that are given one loader share its thread pool.
 
 	A batch is a dict with an array for each field of the dataset, the
 	first axis of each running along the rows of the batch. It is handed
@@ -48,6 +53,7 @@ class DataLoader:
 		shuffle: bool = False,
 		*,
 		batch_sampler: Iterable[Sequence[int]] | None = None,
+		loader: ImageLoader | None = None,
 		drop_last: bool = False,
 		pad_last: bool = False,
 		seed: int | None = None,
@@ -70,6 +76,9 @@ class DataLoader:
 				`BatchSampler` made of `batch_size`, `shuffle`, `drop_last`
 				and `seed`. Any iterable of sequences of rows, such as a
 				BatchSampler of PyTorch over its DistributedSampler.
+			loader: Where reads of files are dispatched, such as
+				`vio.loader(workers=8, scratch=scratch)`. Defaults to the
+				loader shared by the process.
 			drop_last: Whether to leave out the last batch when it has
 				fewer rows.
 			pad_last: Whether to fill the last batch up to `batch_size`
@@ -139,6 +148,7 @@ class DataLoader:
 
 		self.dataset = dataset
 		self.batch_sampler = batch_sampler
+		self.loader = loader
 		self.batch_size = getattr(batch_sampler, 'batch_size', batch_size)
 		self.pad_last = pad_last
 		self.prefetch = prefetch
@@ -166,12 +176,12 @@ class DataLoader:
 	) -> tuple[PendingBatch, np.ndarray | None]:
 		rows = np.asarray(rows, dtype=np.intp)
 		if not self.pad_last:
-			return self.dataset.read_async(rows, allocator), None
+			return self.dataset.read_async(rows, allocator, self.loader), None
 
 		valid = np.arange(max(self.batch_size, len(rows))) < len(rows)
 		if 0 < len(rows) < self.batch_size:
 			rows = np.resize(rows, self.batch_size)
-		return self.dataset.read_async(rows, allocator), valid
+		return self.dataset.read_async(rows, allocator, self.loader), valid
 
 	def _hand_out(self, batch: dict[str, np.ndarray], pinned: bool) -> Any:
 		if callable(self.output):

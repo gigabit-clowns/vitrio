@@ -54,11 +54,15 @@ def test_parses_locations_given_as_bytes():
 	assert locations == [vio.ImageLocation('stack.mrcs', 0)]
 
 def test_parsed_locations_are_relative_to_the_root(tmp_path):
+	# Absolute wherever the tests run, a drive included on Windows.
+	absolute = str(tmp_path / 'elsewhere' / 'stack.mrcs')
 	locations = vio.data.parse_locations(
-		['1@Extract/stack.mrcs', '1@/absolute/stack.mrcs'], root=tmp_path
+		['1@Extract/stack.mrcs', f'1@{absolute}'], root=tmp_path / 'root'
 	)
-	assert locations[0].key == os.path.join(tmp_path, 'Extract/stack.mrcs')
-	assert locations[1].key == '/absolute/stack.mrcs'
+	assert locations[0].key == os.path.join(
+		tmp_path / 'root', 'Extract/stack.mrcs'
+	)
+	assert locations[1].key == absolute
 
 def test_a_text_that_is_not_a_location_is_refused():
 	with pytest.raises(ValueError):

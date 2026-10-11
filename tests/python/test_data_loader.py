@@ -74,6 +74,18 @@ def test_transforms_each_batch_once_handed_out(__dataset):
 	)
 	assert list(loader) == [pytest.approx(__setup_array((5, 4, 6)).mean())]
 
+def test_reads_on_the_loader_it_is_given(tmp_path):
+	path = tmp_path / 'stack.mrcs'
+	vio.write_stack(__setup_array((5, 4, 6)), path)
+	locations = [vio.ImageLocation(path, index) for index in range(5)]
+	dataset = vio.data.Dataset({'image': vio.data.ImageSource(locations)})
+	loader = vio.loader(scratch=vio.create_host_image_scratch(locations, 5))
+	batches = vio.data.DataLoader(dataset, 5, loader=loader)
+	list(batches)
+	vio.write_stack(np.zeros((5, 4, 6), dtype=np.float32), path)
+	batch = next(iter(batches))
+	assert np.array_equal(batch['image'], __setup_array((5, 4, 6)))
+
 def test_reads_into_what_the_allocator_makes(__dataset):
 	shapes = []
 	def allocate(shape, dtype):

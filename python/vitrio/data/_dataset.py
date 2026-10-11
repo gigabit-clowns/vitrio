@@ -11,15 +11,11 @@ from typing import Any
 import numpy as np
 
 from .._binding import ImageLoader
-from .._functions import loader as _make_loader
+from ._default_loader import resolve_loader
 from ._sources import ArraySource, Pending, Source, preload, wait_all
 from ._tables import check_lengths
 
 Allocator = Callable[[tuple[int, ...], np.dtype], np.ndarray]
-
-# How many open readers a dataset keeps by default. The rows of a batch are
-# spread over many files, and opening one costs more than reading an image.
-DEFAULT_CACHE = 64
 
 def _is_source(value: object) -> bool:
 	return hasattr(value, 'read_async') and hasattr(value, 'subset')
@@ -111,31 +107,23 @@ class Dataset:
 			batch_size=None
 		)
 
-	The images are read on a thread pool of the dataset's own, which a
-	worker process of PyTorch makes again for itself. `DataLoader` of
-	`vitrio.data` needs no worker process.
+	A dataset only describes its rows, and holds nothing that reads them.
+	Each read is given the loader it goes through, a thread pool with its
+	open readers and maybe a scratch, and a read given none goes through a
+	loader shared by the process. Indexing always does. `DataLoader` of
+	`vitrio.data` takes a loader of its own, and needs no worker process.
 	"""
 
 	def __init__(
 		self,
 		fields: Mapping[str, Any],
-		index: str | None = 'index',
-		loader: ImageLoader | None = None,
-		workers: int | None = None,
-		cache: int | None = DEFAULT_CACHE
+		index: str | None = 'index'
 	) -> None:
 		"""
 		Args:
 			fields: The fields by name, each a source or a column.
 			index: The name the indices of the rows of a batch go under.
 				None leaves them out.
-			loader: Where reads of files are dispatched. Defaults to a
-				loader of the dataset's own, on a thread pool, made when it
-				is first needed.
-			workers: How many threads that loader reads on. Defaults to
-				what the machine reports. Ignored when `loader` is given.
-			cache: How many open readers that loader keeps. Ignored when
-				`loader` is given.
 
 		Raises:
 			ValueError: If there are no fields, they are not all as long,
@@ -161,25 +149,9 @@ class Dataset:
 				)
 		self._length = check_lengths(self._fields)
 		self._index = index
-		self._loader = loader
-		self._workers = workers
-		self._cache = cache
 
 	def _derive(self, fields: dict[str, Any]) -> Dataset:
-		derived = object.__new__(Dataset)
-		derived.__dict__.update(self.__dict__)
-		derived._fields = fields
-		derived._length = check_lengths(fields)
-		return derived
-
-	@property
-	def loader(self) -> ImageLoader:
-		"""Where reads of files are dispatched."""
-		if self._loader is None:
-			self._loader = _make_loader(
-				workers=self._workers, cache=self._cache
-			)
-		return self._loader
+		return Dataset(fields, self._index)
 
 	@property
 	def fields(self) -> Mapping[str, Source | np.ndarray]:
@@ -197,7 +169,8 @@ class Dataset:
 	def read_async(
 		self,
 		rows: Any,
-		allocator: Allocator | None = None
+		allocator: Allocator | None = None,
+		loader: ImageLoader | None = None
 	) -> PendingBatch:
 		"""
 		Start reading a batch of rows.
@@ -210,18 +183,21 @@ class Dataset:
 				and its numpy type. Defaults to `numpy.empty`. An allocator
 				of pinned memory lets PyTorch copy the batch to a GPU
 				without staging it.
+			loader: Where reads of files are dispatched. Defaults to the
+				loader shared by the process.
 
 		Returns:
 			PendingBatch: The batch, once it is complete.
 		"""
 		rows = normalize_rows(rows, self._length)
+		loader = resolve_loader(loader)
 		allocate = np.empty if allocator is None else allocator
 		values: dict[str, np.ndarray] = {}
 		pending: list[Pending] = []
 		for name, field in self._fields.items():
 			if _is_source(field):
 				out = allocate((len(rows), *field.shape), field.dtype)
-				pending.extend(field.read_async(self.loader, rows, out))
+				pending.extend(field.read_async(loader, rows, out))
 			else:
 				out = allocate((len(rows), *field.shape[1:]), field.dtype)
 				np.take(field, rows, axis=0, out=out)
@@ -261,7 +237,7 @@ class Dataset:
 		"""
 		Get a dataset of only some of the rows, in the order asked for.
 
-		It shares the loader of this one. Its indices count its own rows.
+		It shares the sources of this one. Its indices count its own rows.
 
 		Args:
 			rows: The rows, named as `read_async` takes them.
@@ -272,17 +248,23 @@ class Dataset:
 			for name, field in self._fields.items()
 		})
 
-	def preload(self, names: Any = None) -> Dataset:
+	def preload(
+		self,
+		names: Any = None,
+		loader: ImageLoader | None = None
+	) -> Dataset:
 		"""
 		Get a dataset whose sources have all been read into memory.
 
-		Going through it afterwards reads no file. It shares the loader of
-		this one.
+		Going through it afterwards reads no file.
 
 		Args:
 			names: The fields to read. Defaults to every source not already
 				in memory.
+			loader: Where reads of files are dispatched. Defaults to the
+				loader shared by the process.
 		"""
+		loader = resolve_loader(loader)
 		if names is None:
 			names = [
 				name for name, field in self._fields.items()
@@ -292,12 +274,5 @@ class Dataset:
 		for name in names:
 			if not _is_source(fields[name]):
 				raise ValueError(f"The field {name!r} is not a source.")
-			fields[name] = preload(fields[name], self.loader)
+			fields[name] = preload(fields[name], loader)
 		return self._derive(fields)
-
-	def __getstate__(self) -> dict[str, Any]:
-		# A loader holds threads, which are not pickled: a worker process
-		# makes one of its own.
-		state = dict(self.__dict__)
-		state['_loader'] = None
-		return state

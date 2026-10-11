@@ -236,6 +236,11 @@ row. The loader keeps a few batches in flight on a thread pool and reads
 them straight into pinned memory when the batch is going to a GPU. Use
 `output="numpy"` for plain arrays.
 
+A dataset only describes its rows. What reads them is an image loader,
+with its threads, its open files and maybe a scratch, and it is given to
+the reads: `DataLoader(dataset, ..., loader=vio.loader(workers=8))`. Reads
+given none go through a loader shared by the whole process.
+
 The pieces fit other layouts too:
 
 - A cryoSPARC `.cs` file is a structured array that `np.load` reads.
@@ -249,9 +254,9 @@ The pieces fit other layouts too:
   tomogram.
 - `dataset.subset(rows)` splits off a validation set, and
   `dataset.preload()` reads everything into memory once. To keep a copy
-  that fills as the first epoch goes and may live in a file, give the
-  dataset a loader with a scratch instead:
-  `vio.data.Dataset(fields, loader=vio.loader(scratch=scratch))`.
+  that fills as the first epoch goes and may live in a file, read through
+  a loader with a scratch instead:
+  `DataLoader(dataset, ..., loader=vio.loader(scratch=scratch))`.
 - With JAX, `output="jax"` puts each batch on a device, or across several
   with `sharding=`. JAX compiles again for every new shape, so pass
   `drop_last=True`, or `pad_last=True`, which adds a `valid` field marking

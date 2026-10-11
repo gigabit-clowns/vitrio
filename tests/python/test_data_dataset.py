@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import os
 import pickle
 
 import numpy as np
@@ -138,14 +139,28 @@ def test_survives_pickling_and_reads_afterwards(__dataset):
 	copy = pickle.loads(pickle.dumps(__dataset))
 	assert np.array_equal(copy[[1]]['image'], __dataset[[1]]['image'])
 
+# A loader with a scratch is told apart by reading what the scratch took in
+# after the file has changed. It keeps no reader open, which Windows would
+# not let the file be written under.
 def test_reads_on_the_loader_it_is_given(__written_stack):
-	loader = vio.loader(executor=vio.SynchronousExecutor())
-	dataset = vio.data.Dataset(
-		{'image': vio.data.ImageSource(__locations(__written_stack))},
-		loader=loader
+	locations = __locations(__written_stack)
+	dataset = vio.data.Dataset({'image': vio.data.ImageSource(locations)})
+	loader = vio.loader(scratch=vio.create_host_image_scratch(locations, 3))
+	dataset.read_async([0, 1, 2], loader=loader).get()
+	__overwrite(__written_stack)
+	batch = dataset.read_async([1], loader=loader).get()
+	assert np.array_equal(batch['image'][0], __setup_array((3, 4, 6))[1])
+
+def test_preloads_on_the_loader_it_is_given(__written_stack):
+	locations = __locations(__written_stack)
+	dataset = vio.data.Dataset({'image': vio.data.ImageSource(locations)})
+	loader = vio.loader(scratch=vio.create_host_image_scratch(locations, 3))
+	dataset.read_async([0, 1, 2], loader=loader).get()
+	__overwrite(__written_stack)
+	preloaded = dataset.preload(loader=loader)
+	assert np.array_equal(
+		preloaded.fields['image'].array, __setup_array((3, 4, 6))
 	)
-	assert dataset.loader is loader
-	assert np.array_equal(dataset[[0]]['image'][0], __setup_array((3, 4, 6))[0])
 
 def test_works_with_the_data_loader_of_torch(__dataset):
 	torch = pytest.importorskip('torch')
@@ -189,6 +204,33 @@ def test_works_with_worker_processes_of_torch(__written_stack):
 	)
 	indices = torch.cat([batch['index'] for batch in loader])
 	assert torch.equal(indices, torch.tensor([0, 1, 2]))
+
+# Python warns of any fork of a process that runs threads, which this one
+# does on purpose.
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason="Needs fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_works_with_forked_worker_processes_of_torch(__written_stack):
+	torch = pytest.importorskip('torch')
+	dataset = vio.data.Dataset({
+		'image': vio.data.ImageSource(__locations(__written_stack)),
+	})
+	# The loader shared by the process is made before the fork, and a worker
+	# makes one of its own.
+	dataset[[0]]
+	loader = torch.utils.data.DataLoader(
+		dataset,
+		sampler=torch.utils.data.BatchSampler(
+			torch.utils.data.SequentialSampler(dataset), 2, False
+		),
+		batch_size=None,
+		num_workers=2,
+		multiprocessing_context='fork'
+	)
+	images = torch.cat([batch['image'] for batch in loader])
+	assert torch.equal(images, torch.from_numpy(__setup_array((3, 4, 6))))
+
+def __overwrite(path):
+	vio.write_stack(np.zeros((3, 4, 6), dtype=np.float32), path)
 
 def __locations(path):
 	return [vio.ImageLocation(path, index) for index in range(3)]

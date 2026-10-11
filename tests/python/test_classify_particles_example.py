@@ -4,6 +4,7 @@
 # classes as easy to tell apart as can be, laid out as RELION lays a project
 # out, and checks that it trains a network that tells them apart.
 
+import importlib.util
 import os
 import re
 import subprocess
@@ -15,10 +16,12 @@ import pytest
 
 import vitrio as vio
 
-# What the example needs, besides what this file uses of it.
+# What the example needs, besides what this file uses of it. PyTorch is only
+# looked for: the example imports it, and this process has no use for it.
 starfile = pytest.importorskip('starfile')
 pd = pytest.importorskip('pandas')
-pytest.importorskip('torch')
+if importlib.util.find_spec('torch') is None:
+	pytest.skip("could not find 'torch'", allow_module_level=True)
 
 EXAMPLE = Path(__file__).parents[2] / 'examples' / 'classify_particles.py'
 BOX_SIZE = 16
@@ -40,6 +43,11 @@ def test_trains_alike_on_particles_read_into_memory(__project):
 	read = __run_example(__project, '-e', '2')
 	preloaded = __run_example(__project, '-e', '2', '--preload')
 	assert preloaded == read
+
+def test_trains_alike_through_a_scratch(__project):
+	read = __run_example(__project, '-e', '2')
+	through_scratch = __run_example(__project, '-e', '2', '--scratch')
+	assert through_scratch == read
 
 def test_a_number_of_epochs_that_is_not_positive_is_refused(__project):
 	result = subprocess.run(

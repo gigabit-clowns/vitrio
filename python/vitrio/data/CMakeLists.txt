@@ -6,6 +6,7 @@ foreach(
 	SOURCE
 	__init__.py
 	_dataset.py
+	_default_loader.py
 	_frameworks.py
 	_loader.py
 	_samplers.py

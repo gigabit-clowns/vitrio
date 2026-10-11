@@ -14,6 +14,8 @@ it was not trained on.
 It shows `vitrio.data` at work: the images are zipped with a column of the
 STAR file, read in shuffled batches on a thread pool and handed to PyTorch
 as tensors, on a GPU when there is one, while the next batches are read.
+With `--scratch`, the first epoch keeps a copy of the particles in memory,
+which the next epochs read instead of the files.
 
 Paths are used as the STAR file spells them, so a relative one is relative
 to the working directory, which is where RELION runs.
@@ -35,6 +37,10 @@ import vitrio as vio
 
 IMAGE_NAME = 'rlnImageName'
 CLASS_NUMBER = 'rlnClassNumber'
+
+# The particles of a batch are spread over many stacks, and opening one costs
+# more than reading a particle.
+STACKS_KEPT_OPEN = 64
 
 def positive_int(text: str) -> int:
 	value = int(text)
@@ -65,9 +71,14 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 		help="share of the particles kept apart to validate the network "
 		"on (default: %(default)s)"
 	)
-	parser.add_argument(
+	memory = parser.add_mutually_exclusive_group()
+	memory.add_argument(
 		'--preload', action='store_true',
 		help="read every particle into memory before training"
+	)
+	memory.add_argument(
+		'--scratch', action='store_true',
+		help="keep a copy of each particle in memory once it has been read"
 	)
 	parser.add_argument(
 		'--device', default='cuda' if torch.cuda.is_available() else 'cpu',
@@ -84,26 +95,34 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 	)
 	return parser.parse_args(argv)
 
-def make_dataset(
-	particles_file: Path,
-	threads: int
-) -> tuple[vio.data.Dataset, int]:
+def make_dataset(particles_file: Path) -> tuple[vio.data.Dataset, int]:
 	"""Zip each particle with its class, counting the classes from zero."""
 	particles = starfile.read(particles_file, always_dict=True)['particles']
 	classes, labels = np.unique(
 		particles[CLASS_NUMBER].to_numpy(), return_inverse=True
 	)
-	dataset = vio.data.Dataset(
-		{
-			'image': vio.data.ImageSource(
-				vio.data.parse_locations(particles[IMAGE_NAME]),
-				data_type=np.float32
-			),
-			'label': labels.astype(np.int64),
-		},
-		workers=threads
-	)
+	dataset = vio.data.Dataset({
+		'image': vio.data.ImageSource(
+			vio.data.parse_locations(particles[IMAGE_NAME]),
+			data_type=np.float32
+		),
+		'label': labels.astype(np.int64),
+	})
 	return dataset, len(classes)
+
+def make_loader(
+	dataset: vio.data.Dataset,
+	threads: int,
+	scratch: bool
+) -> vio.ImageLoader:
+	"""Assemble what reads the particles, with a scratch when asked for."""
+	if not scratch:
+		return vio.loader(workers=threads, cache=STACKS_KEPT_OPEN)
+	locations = dataset.fields['image'].locations
+	return vio.loader(
+		workers=threads, cache=STACKS_KEPT_OPEN,
+		scratch=vio.create_host_image_scratch(locations, run_length=64)
+	)
 
 def split(
 	dataset: vio.data.Dataset,
@@ -138,22 +157,27 @@ def normalize(batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
 def train(arguments: argparse.Namespace) -> float:
 	"""Train the network, and return its accuracy on the validation set."""
 	torch.manual_seed(arguments.seed)
-	dataset, classes = make_dataset(arguments.particles, arguments.threads)
+	dataset, classes = make_dataset(arguments.particles)
+	# One loader reads both sets of batches, on one thread pool.
+	loader = make_loader(dataset, arguments.threads, arguments.scratch)
 	if arguments.preload:
-		dataset = dataset.preload()
+		dataset = dataset.preload(loader=loader)
 	training, validation = split(
 		dataset, arguments.validation, arguments.seed
 	)
 
-	def loader(dataset: vio.data.Dataset, shuffle: bool) -> vio.data.DataLoader:
+	def batches(
+		dataset: vio.data.Dataset,
+		shuffle: bool
+	) -> vio.data.DataLoader:
 		return vio.data.DataLoader(
 			dataset, arguments.batch_size, shuffle=shuffle,
-			seed=arguments.seed, output='torch', device=arguments.device,
-			transform=normalize
+			loader=loader, seed=arguments.seed, output='torch',
+			device=arguments.device, transform=normalize
 		)
 
-	training_batches = loader(training, shuffle=True)
-	validation_batches = loader(validation, shuffle=False)
+	training_batches = batches(training, shuffle=True)
+	validation_batches = batches(validation, shuffle=False)
 	network = make_network(classes).to(arguments.device)
 	optimizer = torch.optim.Adam(network.parameters(), lr=1e-3)
 	loss_of = torch.nn.CrossEntropyLoss()

@@ -37,7 +37,7 @@ in the same commit that causes it.
 | `python/src/` | The extension of the Python package, `vitrio._binding`, written with nanobind. Each public header it binds has a source of the same name here, with one function that adds it to the module |
 | `python/src/array/`, `concurrency/` | Beside the bindings of those directories, how an array given from Python becomes one of vitrio: the loan of its memory and the completion that holds the loan |
 | `python/vitrio/` | The Python package: what Python expects on top of the binding, such as arguments with defaults |
-| `python/vitrio/data/` | `vitrio.data`, which feeds images and their metadata to a model in batches: tables as columns, the sources a field reads from, the dataset, the sampler, the loader, and what hands a batch to PyTorch or JAX |
+| `python/vitrio/data/` | `vitrio.data`, which feeds images and their metadata to a model in batches: tables as columns, the sources a field reads from, the dataset, the sampler, the loader, the image loader reads go through when given none, and what hands a batch to PyTorch or JAX |
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/` | Programs that show the Python package at work. Each is run by a test of `tests/python/` |
 | `docs/` | Builds the documentation of the API with Doxygen, out of the public headers and the README |
@@ -254,7 +254,10 @@ library needs goes in `dependencies`.
   `vio.data` is first asked for. It parses no file of metadata: it takes the
   DataFrames, mappings and structured arrays the metadata was parsed into.
   A batch is a dict of numpy arrays read into memory of its own, and only
-  `_frameworks.py` knows of PyTorch and JAX.
+  `_frameworks.py` knows of PyTorch and JAX. A dataset and its sources
+  describe rows and hold nothing that reads them: each read is given the
+  image loader it goes through, a scratch included, and a read given none
+  goes through the one `_default_loader.py` shares across the process.
 - **`import vitrio as vio`.** That is how the package is imported wherever
   it is shown in use: the README, the examples and the tests. numpy is
   `np` and pandas is `pd`, as their own documentation has them. Prose names
