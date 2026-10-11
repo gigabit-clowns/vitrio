@@ -173,7 +173,7 @@ provider that cuts its frames into as many fractions as you ask for, as
 evenly as they allow, and counts the events of each fraction per pixel:
 
 ```python
-readers = vio.detector_event_reader_provider(40, binning=2)
+readers = vio.detector_event_image_reader_provider(40, binning=2)
 movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
 
 # Or the events themselves, a group per frame, on the grid of subpixels

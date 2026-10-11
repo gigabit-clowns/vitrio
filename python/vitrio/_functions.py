@@ -130,7 +130,7 @@ def reader_provider(
 		readers = ScratchImageReaderProvider(readers, scratch)
 	return readers
 
-def event_reader_provider(
+def detector_event_timeline_reader_provider(
 	formats: DetectorEventTimelineFileReadFormatSelector | None = None
 ) -> DetectorEventTimelineReaderProvider:
 	"""
@@ -149,7 +149,7 @@ def event_reader_provider(
 		formats = DetectorEventTimelineFileReadFormatSelector.get_shared()
 	return FileDetectorEventTimelineReaderProvider(formats)
 
-def detector_event_reader_provider(
+def detector_event_image_reader_provider(
 	fractions: int,
 	binning: int = 1,
 	cache: int | None = None,
@@ -164,7 +164,7 @@ def detector_event_reader_provider(
 	counted per pixel into one image of the movie. A single fraction reads
 	as one image of every event.
 
-		readers = detector_event_reader_provider(40, binning=2)
+		readers = detector_event_image_reader_provider(40, binning=2)
 		movie = read('movie.eer', readers, data_type='float32')
 
 	Args:
@@ -181,7 +181,7 @@ def detector_event_reader_provider(
 		ImageReaderProvider: The assembled provider. Its keys are paths.
 	"""
 	readers = DetectorEventImageReaderProvider(
-		event_reader_provider(formats),
+		detector_event_timeline_reader_provider(formats),
 		DetectorEventFractionation(fractions),
 		CountingDetectorEventRenderer(DetectorEventBinning(binning))
 	)
@@ -221,7 +221,7 @@ def read_events(
 		DetectorEventTimeline: The events of the stretch of time.
 	"""
 	if events is None:
-		events = event_reader_provider()
+		events = detector_event_timeline_reader_provider()
 	reader = events.acquire(key)
 	descriptor = reader.descriptor
 	timeline = DetectorEventTimeline(descriptor.rank)

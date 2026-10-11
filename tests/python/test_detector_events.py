@@ -18,7 +18,7 @@ RLE6 = ('movie_rle6.eer', 3, 16, 8, 1, 2, (1,))
 @pytest.fixture(scope='module')
 def eer():
 	try:
-		vio.event_reader_provider().acquire(ASSETS / RLE7[0])
+		vio.detector_event_timeline_reader_provider().acquire(ASSETS / RLE7[0])
 	except Exception:
 		pytest.skip('this build reads no EER files')
 
@@ -144,7 +144,8 @@ def test_events_land_where_the_formula_places_them(eer):
 		assert np.array_equal(placed, __subpixel_frames(asset))
 
 def test_a_timeline_being_viewed_is_not_read_into(eer):
-	reader = vio.event_reader_provider().acquire(ASSETS / RLE7[0])
+	events = vio.detector_event_timeline_reader_provider()
+	reader = events.acquire(ASSETS / RLE7[0])
 	timeline = vio.DetectorEventTimeline(2)
 	reader.read(0, 1, timeline)
 	view = np.asarray(timeline.get_positions())
@@ -155,7 +156,7 @@ def test_a_timeline_being_viewed_is_not_read_into(eer):
 def test_an_eer_file_reads_as_a_movie(eer):
 	expected = __binned(RLE7, __subpixel_frames(RLE7), 1)
 	movie = np.asarray(vio.read(
-		ASSETS / RLE7[0], vio.detector_event_reader_provider(4)))
+		ASSETS / RLE7[0], vio.detector_event_image_reader_provider(4)))
 	assert movie.shape == (4, 6, 8)
 	assert movie.dtype == np.uint32
 	assert np.array_equal(movie, expected)
@@ -163,7 +164,7 @@ def test_an_eer_file_reads_as_a_movie(eer):
 def test_fractions_gather_frames_as_evenly_as_they_can(eer):
 	frames = __subpixel_frames(RLE7)
 	movie = np.asarray(vio.read(
-		ASSETS / RLE7[0], vio.detector_event_reader_provider(3)))
+		ASSETS / RLE7[0], vio.detector_event_image_reader_provider(3)))
 	# Three fractions of four frames begin at frames 0, 1 and 2.
 	expected = np.stack([
 		__binned(RLE7, frames[0:1].sum(0, keepdims=True), 1)[0],
@@ -176,7 +177,7 @@ def test_a_movie_is_binned_and_converted_on_the_way(eer):
 	frames = __subpixel_frames(RLE6)
 	image = np.asarray(vio.read(
 		ASSETS / RLE6[0],
-		vio.detector_event_reader_provider(1, binning=2),
+		vio.detector_event_image_reader_provider(1, binning=2),
 		data_type='float32'
 	))
 	assert image.shape == (4, 8)
@@ -188,17 +189,18 @@ def test_a_binning_that_does_not_divide_the_frames_is_refused(eer):
 	with pytest.raises(ValueError):
 		vio.read(
 			ASSETS / RLE7[0],
-			vio.detector_event_reader_provider(1, binning=4)
+			vio.detector_event_image_reader_provider(1, binning=4)
 		)
 
 def test_a_movie_provider_caches_its_readers(eer):
-	readers = vio.detector_event_reader_provider(2, cache=1)
+	readers = vio.detector_event_image_reader_provider(2, cache=1)
 	assert isinstance(readers, vio.CachingImageReaderProvider)
 	assert vio.query_descriptor(ASSETS / RLE7[0], readers).extents == \
 		(2, 6, 8)
 
 def test_events_are_rendered_into_any_array(eer):
-	reader = vio.event_reader_provider().acquire(ASSETS / RLE7[0])
+	events = vio.detector_event_timeline_reader_provider()
+	reader = events.acquire(ASSETS / RLE7[0])
 	timeline = vio.DetectorEventTimeline(2)
 	reader.read(0, 4, timeline)
 	renderer = vio.CountingDetectorEventRenderer(vio.DetectorEventBinning(2))
