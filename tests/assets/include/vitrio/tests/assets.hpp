@@ -86,4 +86,19 @@ inline std::string get_eer_asset_path(const std::string &name)
 	#endif
 }
 
+/**
+ * @brief Get the path of one of the DigitalMicrograph files the tests are
+ * given.
+ *
+ * @param name Name of the file, as tests/assets/dm/README.txt lists it.
+ */
+inline std::string get_dm_asset_path(const std::string &name)
+{
+	#if defined(_WIN32)
+		return get_asset_root() + "\\dm\\" + name;
+	#else
+		return get_asset_root() + "/dm/" + name;
+	#endif
+}
+
 } // namespace vitrio

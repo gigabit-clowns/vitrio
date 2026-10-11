@@ -41,6 +41,18 @@ TEST_CASE(
 		REQUIRE( chosen->get_name() == "MRC" );
 	}
 
+	SECTION( "draining the read registry lets a selector read a DM file" )
+	{
+		image_file_read_format_selector selector;
+		get_builtin_image_file_read_format_registry().register_all(selector);
+
+		const auto *chosen = selector.get_most_suitable_format(
+			image_file_probe(get_dm_asset_path("image_float32.dm3")));
+
+		REQUIRE( chosen != nullptr );
+		REQUIRE( chosen->get_name() == "DM" );
+	}
+
 	SECTION( "draining the write registry lets a selector create an MRC file" )
 	{
 		image_file_write_format_selector selector;
