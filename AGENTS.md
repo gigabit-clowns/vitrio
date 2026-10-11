@@ -156,6 +156,11 @@ library needs goes in `dependencies`.
 - **One class per file.** A class is declared in a `.hpp` and defined in a
   `.cpp`, or in an `.inl` included at the end of the header when it has to be
   inline.
+- **Implementations of an interface.** A class that implements an
+  interface is named after it, with what sets it apart in front:
+  `file_image_reader_provider` and `caching_image_reader_provider` are
+  `image_reader_provider`s, `tiff_image_reader` is an `image_reader` and
+  `mock_executor` is the mock of `executor`. Its files are named as it is.
 - **Formatting.** Tabs, 80 columns. The code is formatted by hand and there is
   no `.clang-format`: none reproduces the style, so one would rewrite the code
   it was run on.

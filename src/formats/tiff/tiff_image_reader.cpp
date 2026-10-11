@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "tiff_reader.hpp"
+#include "tiff_image_reader.hpp"
 
 #include <formats/strided_transfer/image_page_regions.hpp>
 #include <formats/strided_transfer/image_region_bounds.hpp>
@@ -48,7 +48,7 @@ image_descriptor make_descriptor(const tiff_page_decoder &decoder)
 
 } // anonymous namespace
 
-tiff_reader::tiff_reader(const std::string &path)
+tiff_image_reader::tiff_image_reader(const std::string &path)
 	: m_mutex()
 	, m_decoder(path)
 	, m_descriptor(make_descriptor(m_decoder))
@@ -56,17 +56,17 @@ tiff_reader::tiff_reader(const std::string &path)
 {
 }
 
-const image_descriptor& tiff_reader::get_descriptor() const noexcept
+const image_descriptor& tiff_image_reader::get_descriptor() const noexcept
 {
 	return m_descriptor;
 }
 
-const image_metadata& tiff_reader::get_metadata() const noexcept
+const image_metadata& tiff_image_reader::get_metadata() const noexcept
 {
 	return m_metadata;
 }
 
-void tiff_reader::read(
+void tiff_image_reader::read(
 	array_ref destination,
 	const image_transfer_plan &regions
 ) const

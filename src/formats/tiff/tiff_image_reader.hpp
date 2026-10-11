@@ -31,7 +31,7 @@ namespace tiff
  * Decoding goes through one handle on the file, so concurrent calls to
  * @ref read are serialised.
  */
-class tiff_reader final
+class tiff_image_reader final
 	: public image_reader
 {
 public:
@@ -44,9 +44,9 @@ public:
 	 * is one this format can not transfer, or if its pages differ in size
 	 * or data type.
 	 */
-	explicit tiff_reader(const std::string &path);
+	explicit tiff_image_reader(const std::string &path);
 
-	~tiff_reader() override = default;
+	~tiff_image_reader() override = default;
 
 	const image_descriptor& get_descriptor() const noexcept override;
 

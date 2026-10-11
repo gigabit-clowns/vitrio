@@ -7,10 +7,10 @@ target_sources(
 		test_tiff_file.cpp
 		test_tiff_file_read_format.cpp
 		test_tiff_file_write_format.cpp
+		test_tiff_image_reader.cpp
+		test_tiff_image_writer.cpp
 		test_tiff_page_decoder.cpp
 		test_tiff_page_layout.cpp
-		test_tiff_reader.cpp
 		test_tiff_sample_type.cpp
 		test_tiff_signature.cpp
-		test_tiff_writer.cpp
 )
