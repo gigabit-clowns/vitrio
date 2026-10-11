@@ -4,8 +4,9 @@
 
 #include <vitrio/tests/assets.hpp>
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
+// The whole of Boost.Filesystem, for directory_iterator: its own header is
+// only there from Boost 1.72, and operations.hpp has stopped including it.
+#include <boost/filesystem.hpp>
 
 #include <ctime>
 #include <string>

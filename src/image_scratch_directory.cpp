@@ -6,8 +6,9 @@
 #include <vitrio/image_scratch_storage.hpp>
 #include <vitrio/mapped_file_image_scratch_storage.hpp>
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
+// The whole of Boost.Filesystem, for directory_iterator: its own header is
+// only there from Boost 1.72, and operations.hpp has stopped including it.
+#include <boost/filesystem.hpp>
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
