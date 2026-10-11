@@ -5,6 +5,7 @@
 #include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_renderer.hpp>
 #include <vitrio/export.hpp>
+#include <vitrio/platform.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -69,6 +70,7 @@ public:
 	) const override;
 
 private:
+	VITRIO_STD_MEMBER_INTERFACE
 	detector_event_binning m_binning;
 };
 
