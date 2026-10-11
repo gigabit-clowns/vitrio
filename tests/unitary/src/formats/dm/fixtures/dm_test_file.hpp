@@ -31,7 +31,11 @@ template <typename T>
 std::vector<char> payload_of(const std::vector<T> &values, bool little_endian)
 {
 	std::vector<char> bytes(values.size() * sizeof(T));
-	std::memcpy(bytes.data(), values.data(), bytes.size());
+	if (!values.empty())
+	{
+		std::memcpy(bytes.data(), values.data(), bytes.size());
+	}
+
 	if (!little_endian)
 	{
 		for (std::size_t i = 0; i < values.size(); ++i)
