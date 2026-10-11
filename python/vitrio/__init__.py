@@ -55,6 +55,7 @@ from ._binding import (
 from . import _numerical_type as _numerical_type
 
 from ._functions import (
+	create_directory_image_scratch as create_directory_image_scratch,
 	create_host_image_scratch as create_host_image_scratch,
 	create_mapped_file_image_scratch as create_mapped_file_image_scratch,
 	loader as loader,

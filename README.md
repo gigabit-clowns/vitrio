@@ -167,6 +167,21 @@ already in it, except for the images whose files have been modified since,
 and programs that hold the same images can share the file. vitrio never
 removes it, so remove it yourself once nothing uses it.
 
+To leave the files to vitrio instead, keep them in a directory with a
+budget. Each scratch gets a file of its own there, found again by the next
+scratch of the same images, and the files used least recently are removed
+to make room for new ones:
+
+```python
+scratch = vio.create_directory_image_scratch(
+    locations, "/local/disk/vitrio", run_length=64, budget=100 * 2**30
+)
+```
+
+Only the files vitrio puts there count against the budget and are ever
+removed. The disk needs room for the whole budget, since the files take
+their space as images are taken in.
+
 [examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
 is a complete program. It crops the particles picked on a set of micrographs
 into stacks, reading and writing the STAR files of RELION, with several

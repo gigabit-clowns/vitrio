@@ -262,6 +262,68 @@ def create_mapped_file_image_scratch(
 		max_size
 	)
 
+def create_directory_image_scratch(
+	locations: ImageLocationGrouping | Iterable[ImageLocation],
+	directory: Key,
+	run_length: int,
+	budget: int,
+	files: ImageReaderProvider | None = None
+) -> ImageScratch:
+	"""
+	Create a scratch that keeps its copies in a file of a directory kept
+	within a budget.
+
+	Holds what `create_mapped_file_image_scratch` would, in a file of
+	`directory` named after the images and how they are laid out. A later
+	scratch of the same images, with the same `run_length`, finds that
+	file and resumes from it, and programs that hold the same images may
+	share it. So the directory can serve every program of a machine.
+
+	A new file is made room for by removing the files of other scratches,
+	the one used least recently first. A file is used when a scratch is
+	created over it. If the images do not fit in `budget`, the scratch
+	holds those that do, as `create_host_image_scratch` describes, and
+	every other file that can be removed is.
+
+	Only the files vitrio names count against the budget and are
+	removed: those ending in `.vitrio-scratch`. Anything else in the
+	directory is left alone.
+
+	A file that is in use elsewhere can not be removed on Windows, and
+	keeps its room. On Linux and macOS it is removed, but its space on
+	the disk is freed only once nothing uses it. The disk must have room
+	for the budget: the space is taken as images are taken in, and a
+	program that finds the disk full then is ended.
+
+	Args:
+		locations: The images to hold, as `create_host_image_scratch`
+			takes them.
+		directory: Where the files of scratches are kept. It is created
+			if it is missing.
+		run_length: How many held images of a file are taken in
+			together.
+		budget: The most bytes the files of scratches in `directory` may
+			take together.
+		files: Where the image files become readers. Defaults to a
+			provider that opens the file at the path each key is.
+
+	Returns:
+		ImageScratch: The scratch.
+
+	Raises:
+		ValueError: If `run_length` is zero, or if there is nothing to
+			hold: `locations` names no image, or the budget has no room
+			for one. No file is created then.
+		IndexError: If a location has an index its stack does not have.
+	"""
+	return _binding.create_directory_image_scratch(
+		_resolve_grouping(locations),
+		_resolve_readers(files),
+		directory,
+		run_length,
+		budget
+	)
+
 def prefetch_scratch_async(
 	scratch: ImageScratch,
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
