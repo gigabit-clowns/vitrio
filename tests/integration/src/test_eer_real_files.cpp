@@ -5,6 +5,7 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/counting_detector_event_renderer.hpp>
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/detector_event_image_reader_provider.hpp>
 #include <vitrio/detector_event_timeline.hpp>
@@ -23,6 +24,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -90,6 +92,53 @@ std::vector<counts> expected_frames(const eer_asset &asset)
 	return frames;
 }
 
+// An image of subpixels gathered into pixels of the detector, a factor of
+// them along each axis.
+counts bin_image(
+	const eer_asset &asset,
+	const counts &image,
+	std::size_t factor
+)
+{
+	const auto columns = asset.width << asset.horizontal_bits;
+	const auto block_rows = factor << asset.vertical_bits;
+	const auto block_columns = factor << asset.horizontal_bits;
+	const auto binned_columns = asset.width / factor;
+
+	counts binned((asset.height / factor) * binned_columns, 0);
+	for (std::size_t i = 0; i < image.size(); ++i)
+	{
+		const auto row = (i / columns) / block_rows;
+		const auto column = (i % columns) / block_columns;
+		binned[row * binned_columns + column] += image[i];
+	}
+	return binned;
+}
+
+// The events of a timeline placed on the grid of subpixels, a frame each.
+std::vector<counts> place_events(
+	const eer_asset &asset,
+	const detector_event_timeline &timeline
+)
+{
+	const auto columns = asset.width << asset.horizontal_bits;
+	const auto rows = asset.height << asset.vertical_bits;
+
+	std::vector<counts> frames(asset.frame_count, counts(rows * columns, 0));
+	for (std::size_t group = 0; group < timeline.get_group_count(); ++group)
+	{
+		const auto positions = timeline.get_positions(group);
+		auto &frame = frames[timeline.get_timestamp(group)];
+		for (std::size_t event = 0;
+			event < positions.get_event_count();
+			++event)
+		{
+			++frame[positions(event, 0) * columns + positions(event, 1)];
+		}
+	}
+	return frames;
+}
+
 // The frames from first up to last added up.
 counts add_frames(
 	const std::vector<counts> &frames,
@@ -117,13 +166,14 @@ std::shared_ptr<detector_event_timeline_reader_provider> make_events()
 array read_movie(
 	const eer_asset &asset,
 	std::size_t fraction_count,
-	const extents &bin
+	std::size_t binning
 )
 {
 	detector_event_image_reader_provider readers(
 		make_events(),
 		detector_event_fractionation(fraction_count),
-		std::make_shared<counting_detector_event_renderer>(make_span(bin))
+		std::make_shared<counting_detector_event_renderer>(
+			detector_event_binning(binning))
 	);
 	return read(get_eer_asset_path(asset.name), readers);
 }
@@ -167,6 +217,7 @@ TEST_CASE(
 
 		REQUIRE( timeline.get_group_count() == 4 );
 		REQUIRE( timeline.get_event_count() == 39 );
+		REQUIRE( place_events(rle7, timeline) == expected_frames(rle7) );
 	}
 
 	SECTION( "an encoding whose widths its tags state" )
@@ -184,6 +235,7 @@ TEST_CASE(
 		REQUIRE( timeline.get_timestamp(0) == 0 );
 		REQUIRE( timeline.get_timestamp(1) == 2 );
 		REQUIRE( timeline.get_event_count() == 52 );
+		REQUIRE( place_events(rle6, timeline) == expected_frames(rle6) );
 	}
 }
 
@@ -191,17 +243,18 @@ TEST_CASE(
 	"EER files are read as movies of the fractions they are cut into",
 	"[eer][detector_event_image_reader_provider]" )
 {
-	SECTION( "a fraction per frame, on every subpixel" )
+	SECTION( "a fraction per frame, at the resolution of the detector" )
 	{
 		const auto frames = expected_frames(rle7);
-		const auto movie = read_movie(rle7, 4, {1, 1});
+		const auto movie = read_movie(rle7, 4, 1);
 
-		REQUIRE( extents_of(movie) == extents{4, 24, 32} );
+		REQUIRE( extents_of(movie) == extents{4, 6, 8} );
 		REQUIRE( movie.get_descriptor().get_data_type() ==
 			numerical_type::uint32 );
 		for (std::size_t frame = 0; frame < 4; ++frame)
 		{
-			REQUIRE( values_of(movie, frame * 768, 768) == frames[frame] );
+			REQUIRE( values_of(movie, frame * 48, 48) ==
+				bin_image(rle7, frames[frame], 1) );
 		}
 	}
 
@@ -209,42 +262,42 @@ TEST_CASE(
 	{
 		// Three fractions of four frames begin at frames 0, 1 and 2.
 		const auto frames = expected_frames(rle7);
-		const auto movie = read_movie(rle7, 3, {1, 1});
+		const auto movie = read_movie(rle7, 3, 1);
 
-		REQUIRE( extents_of(movie) == extents{3, 24, 32} );
-		REQUIRE( values_of(movie, 0, 768) == add_frames(frames, 0, 1) );
-		REQUIRE( values_of(movie, 768, 768) == add_frames(frames, 1, 2) );
-		REQUIRE( values_of(movie, 1536, 768) == add_frames(frames, 2, 4) );
+		REQUIRE( extents_of(movie) == extents{3, 6, 8} );
+		REQUIRE( values_of(movie, 0, 48) ==
+			bin_image(rle7, add_frames(frames, 0, 1), 1) );
+		REQUIRE( values_of(movie, 48, 48) ==
+			bin_image(rle7, add_frames(frames, 1, 2), 1) );
+		REQUIRE( values_of(movie, 96, 48) ==
+			bin_image(rle7, add_frames(frames, 2, 4), 1) );
 	}
 
-	SECTION( "a single fraction at the resolution of the detector" )
+	SECTION( "a single fraction binned by two" )
 	{
-		const auto frames = expected_frames(rle7);
-		const auto sum = add_frames(frames, 0, 4);
-		const auto image = read_movie(rle7, 1, {4, 4});
+		const auto sum = add_frames(expected_frames(rle7), 0, 4);
+		const auto image = read_movie(rle7, 1, 2);
 
-		REQUIRE( extents_of(image) == extents{6, 8} );
-
-		counts binned(48, 0);
-		for (std::size_t row = 0; row < 24; ++row)
-		{
-			for (std::size_t column = 0; column < 32; ++column)
-			{
-				binned[(row / 4) * 8 + column / 4] += sum[row * 32 + column];
-			}
-		}
-		REQUIRE( values_of(image, 0, 48) == binned );
+		REQUIRE( extents_of(image) == extents{3, 4} );
+		REQUIRE( values_of(image, 0, 12) == bin_image(rle7, sum, 2) );
 	}
 
 	SECTION( "an empty frame is an empty fraction" )
 	{
 		const auto frames = expected_frames(rle6);
-		const auto movie = read_movie(rle6, 3, {1, 1});
+		const auto movie = read_movie(rle6, 3, 1);
 
-		REQUIRE( extents_of(movie) == extents{3, 32, 32} );
-		REQUIRE( values_of(movie, 0, 1024) == frames[0] );
-		REQUIRE( values_of(movie, 1024, 1024) == counts(1024, 0) );
-		REQUIRE( values_of(movie, 2048, 1024) == frames[2] );
+		REQUIRE( extents_of(movie) == extents{3, 8, 16} );
+		REQUIRE( values_of(movie, 0, 128) == bin_image(rle6, frames[0], 1) );
+		REQUIRE( values_of(movie, 128, 128) == counts(128, 0) );
+		REQUIRE( values_of(movie, 256, 128) ==
+			bin_image(rle6, frames[2], 1) );
+	}
+
+	SECTION( "a binning that does not divide the frames is refused" )
+	{
+		// The frames are 6 pixels high, which 4 does not divide.
+		REQUIRE_THROWS_AS( read_movie(rle7, 1, 4), std::invalid_argument );
 	}
 }
 

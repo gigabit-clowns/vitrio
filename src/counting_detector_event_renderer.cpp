@@ -11,6 +11,7 @@
 #include <vitrio/detector_event_timeline_descriptor.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
+#include <vitrio/span.hpp>
 
 #include <array/array_data.hpp>
 #include <memory/byte_order.hpp>
@@ -86,54 +87,30 @@ void count_events(
 } // anonymous namespace
 
 counting_detector_event_renderer::counting_detector_event_renderer(
-	span<const std::size_t> bin_extents
-)
-	: m_bin_extents(bin_extents.begin(), bin_extents.end())
+	detector_event_binning binning
+) noexcept
+	: m_binning(binning)
 {
-	if (m_bin_extents.empty())
-	{
-		throw std::invalid_argument(
-			"counting_detector_event_renderer: The bin extents must not be "
-			"empty."
-		);
-	}
-	if (std::find(m_bin_extents.cbegin(), m_bin_extents.cend(), 0) !=
-		m_bin_extents.cend())
-	{
-		throw std::invalid_argument(
-			"counting_detector_event_renderer: A bin extent is zero."
-		);
-	}
 }
 
 counting_detector_event_renderer::~counting_detector_event_renderer() =
 	default;
 
-span<const std::size_t>
-counting_detector_event_renderer::get_bin_extents() const noexcept
+const detector_event_binning&
+counting_detector_event_renderer::get_binning() const noexcept
 {
-	return make_span(m_bin_extents.data(), m_bin_extents.size());
+	return m_binning;
 }
 
 std::vector<std::size_t> counting_detector_event_renderer::get_image_extents(
 	const detector_event_timeline_descriptor &events
 ) const
 {
-	if (events.get_rank() != m_bin_extents.size())
-	{
-		throw std::invalid_argument(
-			"counting_detector_event_renderer: The events do not have the "
-			"rank of the bin."
-		);
-	}
-
+	auto extents = m_binning.resolve(events);
 	const auto grid_extents = events.get_extents();
-	std::vector<std::size_t> extents(grid_extents.size());
 	for (std::size_t axis = 0; axis < extents.size(); ++axis)
 	{
-		const auto grid = grid_extents[axis];
-		const auto bin = m_bin_extents[axis];
-		extents[axis] = grid / bin + (grid % bin != 0 ? 1 : 0);
+		extents[axis] = grid_extents[axis] / extents[axis];
 	}
 
 	return extents;
@@ -189,11 +166,12 @@ void counting_detector_event_renderer::render(
 		pixel_count *= extent;
 	}
 
+	const auto bin_extents = m_binning.resolve(descriptor);
 	std::vector<std::uint32_t> counts(pixel_count, 0);
 	count_events(
 		events,
 		descriptor.get_extents(),
-		get_bin_extents(),
+		make_span(bin_extents),
 		image_extents,
 		counts
 	);

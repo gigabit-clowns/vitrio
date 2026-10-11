@@ -9,6 +9,7 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
+#include <vitrio/detector_event_binning.hpp>
 #include <vitrio/detector_event_position_view.hpp>
 #include <vitrio/detector_event_timeline.hpp>
 #include <vitrio/detector_event_timeline_descriptor.hpp>
@@ -41,10 +42,11 @@ detector_event_timeline_descriptor describe(
 }
 
 std::unique_ptr<counting_detector_event_renderer> make_renderer(
-	const extents &bin
+	std::size_t factor
 )
 {
-	return std::make_unique<counting_detector_event_renderer>(make_span(bin));
+	return std::make_unique<counting_detector_event_renderer>(
+		detector_event_binning(factor));
 }
 
 detector_event_timeline make_events(
@@ -69,50 +71,37 @@ std::vector<T> read_back(const array &image, std::size_t count)
 } // anonymous namespace
 
 TEST_CASE(
-	"a counting_detector_event_renderer holds its bin",
+	"a counting_detector_event_renderer holds its binning",
 	"[counting_detector_event_renderer]" )
 {
-	const auto renderer = make_renderer({2, 4});
+	const auto renderer = make_renderer(2);
 
-	const auto bin = renderer->get_bin_extents();
-	REQUIRE( extents(bin.begin(), bin.end()) == extents{2, 4} );
+	REQUIRE( renderer->get_binning() == detector_event_binning(2) );
 	REQUIRE( renderer->get_data_type() == numerical_type::uint32 );
 }
 
 TEST_CASE(
-	"a counting_detector_event_renderer refuses an empty bin",
+	"a counting_detector_event_renderer bins the pixels of the detector",
 	"[counting_detector_event_renderer]" )
 {
-	REQUIRE_THROWS_AS( make_renderer({}), std::invalid_argument );
-	REQUIRE_THROWS_AS( make_renderer({2, 0}), std::invalid_argument );
-}
-
-TEST_CASE(
-	"a counting_detector_event_renderer divides the grid into its bins",
-	"[counting_detector_event_renderer]" )
-{
-	SECTION( "a bin that divides the grid" )
+	SECTION( "a factor of one renders at the resolution of the detector" )
 	{
-		REQUIRE( make_renderer({4, 4})->get_image_extents(
+		REQUIRE( make_renderer(1)->get_image_extents(
 			describe({16, 32}, {4, 4})) == extents{4, 8} );
 	}
 
-	SECTION( "a bin finer than a pixel of the detector" )
+	SECTION( "a larger factor merges blocks of pixels" )
 	{
-		REQUIRE( make_renderer({1, 1})->get_image_extents(
-			describe({16, 32}, {4, 4})) == extents{16, 32} );
+		REQUIRE( make_renderer(2)->get_image_extents(
+			describe({16, 32}, {4, 4})) == extents{2, 4} );
+		REQUIRE( make_renderer(4)->get_image_extents(
+			describe({8, 8}, {1, 1})) == extents{2, 2} );
 	}
 
-	SECTION( "a bin that does not divide the grid" )
-	{
-		REQUIRE( make_renderer({2, 3})->get_image_extents(
-			describe({5, 7}, {1, 1})) == extents{3, 3} );
-	}
-
-	SECTION( "a grid of another rank" )
+	SECTION( "a factor that does not divide the pixels is refused" )
 	{
 		REQUIRE_THROWS_AS(
-			make_renderer({2})->get_image_extents(describe({4, 4}, {1, 1})),
+			make_renderer(2)->get_image_extents(describe({6, 8}, {2, 2})),
 			std::invalid_argument
 		);
 	}
@@ -122,9 +111,9 @@ TEST_CASE(
 	"a counting_detector_event_renderer counts the events of each pixel",
 	"[counting_detector_event_renderer]" )
 {
-	// A grid of 4 by 6 quanta, binned by 2 into 2 by 3 pixels.
+	// A grid of 4 by 6 quanta, which subdivisions of 2 make 2 by 3 pixels.
 	const auto descriptor = describe({4, 6}, {2, 2});
-	const auto renderer = make_renderer({2, 2});
+	const auto renderer = make_renderer(1);
 	const auto events = make_events(
 		2,
 		{0, 0,  1, 1,  0, 5},
@@ -187,19 +176,19 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a counting_detector_event_renderer gives the last pixel what is left",
+	"a counting_detector_event_renderer counts the events of merged pixels",
 	"[counting_detector_event_renderer]" )
 {
-	const auto descriptor = describe({5}, {1});
-	const auto renderer = make_renderer({2});
-	const auto events = make_events(1, {0, 1, 2}, {3, 4, 4});
+	const auto descriptor = describe({4}, {1});
+	const auto renderer = make_renderer(2);
+	const auto events = make_events(1, {0, 1, 2}, {3, 3});
 	auto image = test::make_host_array<std::uint32_t>(
-		{3}, numerical_type::uint32);
+		{2}, numerical_type::uint32);
 
 	renderer->render(descriptor, events, image);
 
-	REQUIRE( read_back<std::uint32_t>(image, 3) ==
-		std::vector<std::uint32_t>{2, 2, 2} );
+	REQUIRE( read_back<std::uint32_t>(image, 2) ==
+		std::vector<std::uint32_t>{2, 3} );
 }
 
 TEST_CASE(
@@ -207,7 +196,7 @@ TEST_CASE(
 	"[counting_detector_event_renderer]" )
 {
 	const auto descriptor = describe({4, 6}, {2, 2});
-	const auto renderer = make_renderer({2, 2});
+	const auto renderer = make_renderer(1);
 	auto image = test::make_host_array<std::uint32_t>(
 		{2, 3}, numerical_type::uint32);
 

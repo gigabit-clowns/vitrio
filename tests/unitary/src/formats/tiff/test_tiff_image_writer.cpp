@@ -270,7 +270,10 @@ TEST_CASE( "a TIFF writer takes the values as the array holds them",
 
 		REQUIRE( read_back<std::int16_t>(
 			path.get(), page_extents, numerical_type::int16) ==
-			std::vector<std::int16_t>(held.cbegin(), held.cend()) );
+			std::vector<std::int16_t>{
+				-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+				16, 300
+			} );
 	}
 
 	SECTION( "from an array whose axes are not stored in order" )

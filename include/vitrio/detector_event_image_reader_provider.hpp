@@ -66,6 +66,7 @@ public:
 private:
 	VITRIO_STD_MEMBER_INTERFACE
 	std::shared_ptr<detector_event_timeline_reader_provider> m_events;
+	VITRIO_STD_MEMBER_INTERFACE
 	detector_event_fractionation m_fractionation;
 	VITRIO_STD_MEMBER_INTERFACE
 	std::shared_ptr<const detector_event_renderer> m_renderer;
