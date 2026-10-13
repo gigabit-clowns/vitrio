@@ -48,7 +48,7 @@ change before 1.0.
 |---|---|---|---|---|
 | MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes | no | `.eer` | The events of an electron-counting detector, rendered into a movie of as many fractions as asked for. Compression 65000, 65001 and 65002. |
+| EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
 | DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
 
 A file is recognized by its contents where the format allows it, and by its
