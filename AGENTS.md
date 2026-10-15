@@ -110,8 +110,10 @@ target of its own and a test that runs it. They are off by default.
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
 Doxygen and writes the documentation of the API under `docs/html` of the
 build tree. A warning of Doxygen fails it, so a comment that names a
-parameter that is not there does not go unnoticed. The Python package has
-no reference of its own yet.
+parameter that is not there does not go unnoticed. The README is its first
+page, so a link in it to another file of the repository is a full URL: a
+relative one is taken for a reference to a page of the documentation, and
+fails it. The Python package has no reference of its own yet.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented

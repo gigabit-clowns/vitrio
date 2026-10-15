@@ -91,7 +91,7 @@ functions return right away with a completion to wait on, so that the next
 batch is on its way while you work on the current one. Patches are cropped
 out of an image around a list of centres the same way, and a scratch keeps
 the images a program goes back to in RAM or in a file. Each of those is
-shown in a small program under [examples/](examples/README.md).
+shown in a small program under [examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md).
 
 An array can be anything that hands out host memory through DLPack or the
 buffer protocol: a NumPy array, a PyTorch or JAX tensor, a `memoryview`. It
@@ -159,7 +159,7 @@ The pieces fit other layouts too:
 
 ## Examples
 
-[examples/](examples/README.md) holds programs that show vitrio at work,
+[examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md) holds programs that show vitrio at work,
 sorted by language and by how much of it you hold. In Python, `basic/`
 lets vitrio assemble what it needs, and `advanced/` names the thread
 pools, loaders and scratches. Among them, `train_2d_classifier.py` trains a
@@ -204,7 +204,7 @@ The headers under `include/vitrio/` are the whole API, and each one documents
 what it declares. That includes how to read the events of an EER file through
 `detector_event_image_reader_provider`.
 
-[examples/cpp/](examples/cpp/read_and_convert.cpp) has this program as a
+[examples/cpp/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/cpp/read_and_convert.cpp) has this program as a
 target of the build.
 
 ## Building from source
