@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Runs examples/extract_particles.py on a few small micrographs, laid out
-# as RELION lays a project out, and checks the particles against the boxes
-# numpy cuts out of the same micrographs.
+# Runs examples/python/advanced/extract_particles.py on a few small
+# micrographs, laid out as RELION lays a project out, and checks the
+# particles against the boxes numpy cuts out of the same micrographs.
 
 import os
 import subprocess
@@ -19,7 +19,10 @@ starfile = pytest.importorskip('starfile')
 pd = pytest.importorskip('pandas')
 pytest.importorskip('tqdm')
 
-EXAMPLE = Path(__file__).parents[2] / 'examples' / 'extract_particles.py'
+EXAMPLE = (
+	Path(__file__).parents[2] / 'examples' / 'python' / 'advanced'
+	/ 'extract_particles.py'
+)
 BOX_SIZE = 8
 
 # The first is a box that lies inside its micrograph. The second reaches

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Runs examples/classify_particles.py on a few small particles of two
-# classes as easy to tell apart as can be, laid out as RELION lays a project
-# out, and checks that it trains a network that tells them apart.
+# Runs examples/python/basic/train_2d_classifier.py on a few small particles
+# of two classes as easy to tell apart as can be, laid out as RELION lays a
+# project out, and checks that it trains a network that tells them apart.
 
 import importlib.util
 import os
@@ -23,7 +23,10 @@ pd = pytest.importorskip('pandas')
 if importlib.util.find_spec('torch') is None:
 	pytest.skip("could not find 'torch'", allow_module_level=True)
 
-EXAMPLE = Path(__file__).parents[2] / 'examples' / 'classify_particles.py'
+EXAMPLE = (
+	Path(__file__).parents[2] / 'examples' / 'python' / 'basic'
+	/ 'train_2d_classifier.py'
+)
 BOX_SIZE = 16
 PARTICLES = 48
 EPOCH = re.compile(
