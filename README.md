@@ -71,6 +71,10 @@ The C++ library is built from source for now.
 
 ## Using it from Python
 
+The reference of the package is at
+[gigabit-clowns.github.io/vitrio/python](https://gigabit-clowns.github.io/vitrio/python/),
+built from its docstrings, which `help()` and your editor show too.
+
 `read` works the format out from the file and returns an array that NumPy,
 PyTorch and the rest use without a copy.
 
@@ -201,7 +205,8 @@ int main()
 ```
 
 The headers under `include/vitrio/` are the whole API, and each one documents
-what it declares. That includes how to read the events of an EER file through
+what it declares. Their reference is at
+[gigabit-clowns.github.io/vitrio/cpp](https://gigabit-clowns.github.io/vitrio/cpp/). That includes how to read the events of an EER file through
 `detector_event_image_reader_provider`.
 
 [examples/cpp/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/cpp/read_and_convert.cpp) has this program as a
@@ -250,7 +255,7 @@ A few options change what gets built:
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
-| `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen |
+| `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen, and with `VITRIO_BUILD_PYTHON` the target `vitrio-python-docs`, which builds that of the Python package with Sphinx |
 
 With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
 tree, so putting that directory on `PYTHONPATH` is enough to import it.
