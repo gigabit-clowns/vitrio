@@ -27,7 +27,11 @@ include(GenerateExportHeader)
 include(vitrio_enable_warnings)
 
 option(VITRIO_INSTALL "Generate vitrio's install rules" ON)
-option(VITRIO_ENABLE_TIFF "Read and write TIFF files, which needs libtiff" ON)
+option(
+	VITRIO_ENABLE_TIFF 
+	"Read and write TIFF and EER files, which needs libtiff"
+	ON
+)
 option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
 option(
 	VITRIO_PYTHON_STABLE_ABI
