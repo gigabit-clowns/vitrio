@@ -36,9 +36,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             cxx: g++
             python: '3.10'
+          - os: ubuntu-latest
+            cxx: g++
+            python: '3.12'
           - os: ubuntu-latest
             cxx: clang++
             python: '3.14'
