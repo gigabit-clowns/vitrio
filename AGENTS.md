@@ -45,7 +45,6 @@ in the same commit that causes it.
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
-| `.github/actions/` | The actions the workflows share. They belong to this repository |
 | `pyproject.toml` | How pip builds the Python package, the versions of what its builds and tests install, and how cibuildwheel builds the wheels |
 
 Every directory holding sources carries a `CMakeLists.txt` naming them. The
@@ -97,10 +96,9 @@ with it, as in any other build, so a compiler is all it takes. A plain
 `vitrio_python`, which goes into the directory Python looks for packages
 in, with the library beside the extension.
 
-The wheels are built by cibuildwheel, with vcpkg providing the
-dependencies from `vcpkg.json`. On Linux and macOS vcpkg builds static
-libraries and on Windows it is asked to, so a wheel holds everything it
-needs. A wheel is built against the stable ABI
+The wheels are built by cibuildwheel from the source distribution, as pip
+builds it. The dependencies are built static, inside the library of vitrio,
+so a wheel holds everything it needs. A wheel is built against the stable ABI
 of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
 each.
 
@@ -323,5 +321,4 @@ the wheels of each platform, and tests each wheel. A tag `v*` publishes
 them to PyPI, which trusts the workflow, so no token is kept. It runs too
 when what decides how they are built changes, and by hand.
 
-All of them use public actions and the ones under `.github/actions/`, and
-none of the organisation's.
+All of them use public actions, and none of the organisation's.

@@ -31,9 +31,6 @@
 build
 CMakeUserPresets.json
 
-# vcpkg, when it installs into the source tree
-vcpkg_installed
-
 # VS Code
 .vscode
 

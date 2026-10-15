@@ -13,18 +13,18 @@ on:
       - 'v*'
     paths:
       - pyproject.toml
-      - vcpkg.json
+      - CMakeLists.txt
+      - cmake/modules/vitrio_fetch_*.cmake
       - .github/workflows/release.yml
-      - .github/actions/setup-vcpkg/**
 
   pull_request:
     branches:
       - main
     paths:
       - pyproject.toml
-      - vcpkg.json
+      - CMakeLists.txt
+      - cmake/modules/vitrio_fetch_*.cmake
       - .github/workflows/release.yml
-      - .github/actions/setup-vcpkg/**
 
   workflow_dispatch:
 
@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sdist
-          path: dist/*.tar.gz
+          path: dist/vitrio-*.tar.gz
           if-no-files-found: error
 
   # The wheels are built from the source distribution and not from the
@@ -79,14 +79,6 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: wheels-${{ matrix.os }}
-
       - name: Fetch the source distribution
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -95,7 +87,7 @@ jobs:
 
       - name: Find the source distribution
         id: sdist
-        run: echo "path=$(ls dist/*.tar.gz)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(ls dist/vitrio-*.tar.gz)" >> "$GITHUB_OUTPUT"
 
       - name: Build and test the wheels
         uses: pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6 # v4.3.0
