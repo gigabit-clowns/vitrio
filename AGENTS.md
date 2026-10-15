@@ -45,7 +45,7 @@ in the same commit that causes it.
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
-| `pyproject.toml` | How pip builds the Python package, the versions of what its builds and tests install, and how cibuildwheel builds the wheels |
+| `pyproject.toml` | How pip builds the Python package, and the versions of what its builds and tests install |
 
 Every directory holding sources carries a `CMakeLists.txt` naming them. The
 lists are explicit rather than globbed, so a new `.cpp` has to be named there
@@ -319,7 +319,8 @@ Ubuntu, and the release finds the half this tree fetched.
 and publishes it to GitHub Pages when a version is tagged.
 
 `.github/workflows/release.yml` builds the source distribution and, from it,
-the wheels of each platform, and tests each wheel. A tag `v*` publishes
+the wheels of each platform, and tests each wheel. How cibuildwheel builds
+them is stated there, on its step. A tag `v*` publishes
 them to PyPI, which trusts the workflow, so no token is kept. It runs too
 when what decides how they are built changes, and by hand.
 

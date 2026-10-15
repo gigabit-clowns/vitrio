@@ -119,26 +119,3 @@ provider = "scikit_build_core.metadata.regex"
 field = "version"
 input = "VERSION"
 regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
-
-# The wheels are built as pip builds the source distribution: the
-# dependencies are fetched and built static, inside the library of vitrio,
-# so a wheel needs nothing that is not in it.
-[tool.cibuildwheel]
-build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
-skip = ["*-musllinux_*"]
-archs = ["auto64"]
-test-groups = ["test"]
-test-command = "pytest {project}/tests/python"
-
-# The oldest macOS the wheel is for. CMake builds the dependencies for it
-# too, as they are built with the package.
-[tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "11.0"
-
-# delvewheel adds the runtime of the compiler, which Windows does not have
-# until something installs it. It is told to leave the library of vitrio
-# where it is in the wheel, and it still follows what that needs.
-[tool.cibuildwheel.windows]
-before-build = "pip install --group repair-windows"
-repair-wheel-command = """\
-    delvewheel repair --ignore-existing -w {dest_dir} {wheel}"""

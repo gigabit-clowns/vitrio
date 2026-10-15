@@ -89,11 +89,28 @@ jobs:
         id: sdist
         run: echo "path=$(ls dist/vitrio-*.tar.gz)" >> "$GITHUB_OUTPUT"
 
+      # macOS: the oldest version the wheel is for. CMake builds the
+      # dependencies for it too, as they are built with the package.
+      #
+      # Windows: delvewheel adds the runtime of the compiler, which Windows
+      # does not have until something installs it. It is told to leave the
+      # library of vitrio where it is in the wheel, and it still follows what
+      # that needs.
       - name: Build and test the wheels
         uses: pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6 # v4.3.0
         with:
           package-dir: ${{ steps.sdist.outputs.path }}
           output-dir: wheelhouse
+        env:
+          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
+          CIBW_SKIP: '*-musllinux_*'
+          CIBW_ARCHS: auto64
+          CIBW_TEST_GROUPS: test
+          CIBW_TEST_COMMAND: pytest {project}/tests/python
+          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_BEFORE_BUILD_WINDOWS: pip install --group repair-windows
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair --ignore-existing -w {dest_dir} {wheel}
 
       - name: Keep the wheels
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
