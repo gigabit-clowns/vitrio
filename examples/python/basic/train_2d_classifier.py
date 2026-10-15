@@ -9,7 +9,7 @@ convolutional network of PyTorch to predict it from the image. A share of
 the particles is kept apart to tell how well the network does on particles
 it was not trained on.
 
-	classify_particles.py -i Class2D/job010/run_it025_data.star -e 10
+	train_2d_classifier.py -i Class2D/job010/run_it025_data.star -e 10
 
 It shows `vitrio.data` at work: the images are zipped with a column of the
 STAR file, read in shuffled batches on a thread pool and handed to PyTorch
@@ -171,9 +171,14 @@ def train(arguments: argparse.Namespace) -> float:
 		shuffle: bool
 	) -> vio.data.DataLoader:
 		return vio.data.DataLoader(
-			dataset, arguments.batch_size, shuffle=shuffle,
-			loader=loader, seed=arguments.seed, output='torch',
-			device=arguments.device, transform=normalize
+			dataset, 
+   			arguments.batch_size, 
+      		shuffle=shuffle,
+			loader=loader, 
+   			seed=arguments.seed, 
+      		output='torch',
+			device=arguments.device, 
+   			transform=normalize
 		)
 
 	training_batches = batches(training, shuffle=True)

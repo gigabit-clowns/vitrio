@@ -40,7 +40,8 @@ in the same commit that causes it.
 | `python/vitrio/` | The Python package: what Python expects on top of the binding, such as arguments with defaults |
 | `python/vitrio/data/` | `vitrio.data`, which feeds images and their metadata to a model in batches: tables as columns, the sources a field reads from, the dataset, the sampler, the loader, the image loader reads go through when given none, and what hands a batch to PyTorch or JAX |
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
-| `examples/` | Programs that show the Python package at work. Each is run by a test of `tests/python/` |
+| `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
+| `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
 | `docs/` | Builds the documentation of the API with Doxygen, out of the public headers and the README |
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
@@ -87,7 +88,8 @@ PYTHONPATH=build/python python -m pytest tests/python
 The `dev` group of `pyproject.toml` pins what CI installs for it
 (`pip install --group dev`). The cases that exchange arrays with PyTorch,
 JAX and rexlib are skipped where those are not installed, and so is the
-test of an example where what the example needs is not.
+test of an example where what the example needs is not. A new example is listed
+in `examples/README.md` and, if it is C++, in `examples/cpp/CMakeLists.txt`.
 
 `pip install .` builds the same package through scikit-build-core, which
 configures this project as it is. The dependencies are fetched and built
@@ -101,6 +103,9 @@ builds it. The dependencies are built static, inside the library of vitrio,
 so a wheel holds everything it needs. A wheel is built against the stable ABI
 of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
 each.
+
+`-DVITRIO_BUILD_EXAMPLES=ON` builds the C++ examples of `examples/cpp`, each a
+target of its own and a test that runs it. They are off by default.
 
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
 Doxygen and writes the documentation of the API under `docs/html` of the

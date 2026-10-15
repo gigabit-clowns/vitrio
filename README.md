@@ -86,118 +86,24 @@ tensor = torch.from_dlpack(micrograph)    # and again
 vio.write_single(pixels, "copy.tif")
 ```
 
-Reading many images is done in batches. A batch goes into one array, on a
-thread pool, and its images may come from any number of files. The call
-returns before the batch is in, so the next one can be on its way while you
-work on the current one:
-
-```python
-import random
-
-BATCH_SIZE = 64
-STACKS = ["first.mrcs", "second.mrcs", "third.mrcs"]
-
-# Every particle of every stack, in the order they will be read
-locations = [
-    vio.ImageLocation(stack, index)
-    for stack in STACKS
-    for index in range(vio.query_descriptor(stack).extents[0])
-]
-random.shuffle(locations)
-
-size = vio.get_core_extents(vio.query_descriptor(STACKS[0]))
-loader = vio.loader(cache=len(STACKS))    # keeps the stacks open
-
-def start_reading(first):
-    batch = locations[first:first + BATCH_SIZE]
-    particles = np.empty((len(batch), *size), dtype=np.float32)
-    return particles, vio.read_batch_async(loader, particles, batch)
-
-particles, reading = start_reading(0)
-for first in range(BATCH_SIZE, len(locations), BATCH_SIZE):
-    upcoming = start_reading(first)    # runs in the background
-    reading.get()                      # wait for the current batch
-    process(particles)                 # your code
-    particles, reading = upcoming
-reading.get()
-process(particles)
-```
-
-Patches are cropped out of an image the same way, around a list of centres:
-
-```python
-patches = np.zeros((2, 128, 128), dtype=np.float32)
-centres = [(1024, 512), (300, 2100)]    # (y, x)
-location = vio.ImageLocation("micrograph.mrc")
-vio.read_patches_async(loader, patches, location, centres).get()
-
-vio.write_stack(patches, "patches.mrcs", data_type="float16")
-```
+Reading many images is done in batches, on a thread pool, and the `_async`
+functions return right away with a completion to wait on, so that the next
+batch is on its way while you work on the current one. Patches are cropped
+out of an image around a list of centres the same way, and a scratch keeps
+the images a program goes back to in RAM or in a file. Each of those is
+shown in a small program under [examples/](examples/README.md).
 
 An array can be anything that hands out host memory through DLPack or the
 buffer protocol: a NumPy array, a PyTorch or JAX tensor, a `memoryview`. It
 is read or written where it is, views included.
 
-The `_async` functions return right away with a completion. Call `get()` on
-it to wait and to find out whether anything failed. The completion keeps
-its array alive, and dropping one that is not ready waits for it.
-
-Images a program goes back to, epoch after epoch, are read faster from a
-scratch: a copy of them in RAM. A loader made with one reads what the scratch
-holds from it and takes in what it does not hold yet, and a prefetch fills it
-ahead of the reads:
-
-```python
-scratch = vio.create_host_image_scratch(locations, run_length=64)
-loader = vio.loader(cache=len(STACKS), scratch=scratch)
-
-prefetcher = vio.ThreadPoolExecutor(2)    # keep it while it works
-filling = vio.prefetch_scratch_async(scratch, locations, prefetcher)
-```
-
-`run_length` is how many images of a file are taken in together, in one read
-of it. When the images do not fit in RAM, or the next run should not read
-them again, the copy goes in a file mapped into memory instead:
-
-```python
-scratch = vio.create_mapped_file_image_scratch(
-    locations, "/local/disk/particles.scratch", run_length=64
-)
-```
-
-A later scratch of the same images over the same file resumes from what is
-already in it, except for the images whose files have been modified since,
-and programs that hold the same images can share the file. vitrio never
-removes it, so remove it yourself once nothing uses it.
-
-To leave the files to vitrio instead, keep them in a directory with a
-budget. Each scratch gets a file of its own there, found again by the next
-scratch of the same images, and the files used least recently are removed
-to make room for new ones:
-
-```python
-scratch = vio.create_directory_image_scratch(
-    locations, "/local/disk/vitrio", run_length=64, budget=100 * 2**30
-)
-```
-
-Only the files vitrio puts there count against the budget and are ever
-removed. The disk needs room for the whole budget, since the files take
-their space as images are taken in.
-
 A movie of an electron-counting detector, such as an EER file, holds the
 events the detector counted rather than images. It is read through a
-provider that cuts its frames into as many fractions as you ask for, as
-evenly as they allow, and counts the events of each fraction per pixel:
+provider that cuts its frames into as many fractions as you ask for:
 
 ```python
 readers = vio.detector_event_image_reader_provider(40, binning=2)
 movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
-
-# Or the events themselves, a group per frame, on the grid of subpixels
-events = vio.read_events("movie.eer", 0, 10)
-frames = np.asarray(events.timestamps)
-positions = np.asarray(events.get_positions(0))    # (events, 2): y, x
 ```
 
 ## Feeding a model
@@ -205,37 +111,20 @@ positions = np.asarray(events.get_positions(0))    # (events, 2): y, x
 `vitrio.data` reads a dataset for training in batches. A `Dataset` is rows
 of named fields: images read from files, and whatever metadata goes with
 them, such as the CTF, the pose or the class of each particle. vitrio
-parses no metadata file itself. It takes what you parsed it into, here with
-[starfile](https://github.com/teamtomo/starfile):
+parses no metadata file itself. It takes what you parsed it into, such as
+the columns of a DataFrame from [starfile](https://github.com/teamtomo/starfile).
+A `DataLoader` goes through it in shuffled batches, as dicts of NumPy
+arrays, PyTorch tensors or JAX arrays, with a few batches in flight on a
+thread pool. A batch bound for a GPU is read straight into pinned memory.
 
 ```python
-import numpy as np
-import starfile
-import vitrio as vio
-
-particles = starfile.read("run_data.star", always_dict=True)["particles"]
 dataset = vio.data.Dataset({
-    "image": vio.data.ImageSource(
-        vio.data.parse_locations(particles["rlnImageName"]),
-        data_type=np.float32,
-    ),
-    "ctf": particles[["rlnDefocusU", "rlnDefocusV", "rlnDefocusAngle"]]
-        .to_numpy(np.float32),
-    "label": particles["rlnClassNumber"].to_numpy() - 1,
+    "image": vio.data.ImageSource(locations, data_type=np.float32),
+    "label": labels,
 })
-
-loader = vio.data.DataLoader(
-    dataset, batch_size=128, shuffle=True, output="torch", device="cuda"
-)
-for epoch in range(10):
-    for batch in loader:
-        batch["image"], batch["ctf"], batch["label"], batch["index"]
+for batch in vio.data.DataLoader(dataset, batch_size=128, shuffle=True):
+    batch["image"], batch["label"], batch["index"]
 ```
-
-A batch is a dict of arrays, one for each field, plus the index of each
-row. The loader keeps a few batches in flight on a thread pool and reads
-them straight into pinned memory when the batch is going to a GPU. Use
-`output="numpy"` for plain arrays.
 
 A dataset only describes its rows. What reads them is an image loader,
 with its threads, its open files and maybe a scratch, and it is given to
@@ -268,15 +157,15 @@ The pieces fit other layouts too:
   `BatchSampler` as its `sampler` with `batch_size=None`, so that it reads
   a batch per call.
 
-[examples/classify_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/classify_particles.py)
-trains a small network of PyTorch on the 2D classes of a RELION job.
-
 ## Examples
 
-[examples/extract_particles.py](https://github.com/gigabit-clowns/vitrio/blob/main/examples/extract_particles.py)
-is a complete program. It crops the particles picked on a set of micrographs
-into stacks, reading and writing the STAR files of RELION, with several
-batches in flight at once.
+[examples/](examples/README.md) holds programs that show vitrio at work,
+sorted by language and by how much of it you hold. In Python, `basic/`
+lets vitrio assemble what it needs, and `advanced/` names the thread
+pools, loaders and scratches. Among them, `train_2d_classifier.py` trains a
+network of PyTorch on the 2D classes of a RELION job,
+`extract_particles.py` crops the particles picked on a set of micrographs
+into stacks, and `fractionate_eer.py` cuts EER movies into fractions.
 
 ## Using it from C++
 
@@ -311,43 +200,12 @@ int main()
 }
 ```
 
-An EER file holds the events a detector counted rather than images, so it is
-read through a provider of its own. It is given how many fractions to cut the
-movie into, as evenly as the frames allow, and how to render each fraction,
-such as how many pixels of the detector to bin into one:
-
-```cpp
-#include <vitrio/counting_detector_event_renderer.hpp>
-#include <vitrio/detector_event_binning.hpp>
-#include <vitrio/detector_event_fractionation.hpp>
-#include <vitrio/detector_event_image_reader_provider.hpp>
-#include <vitrio/detector_event_timeline_file_read_format_selector.hpp>
-#include <vitrio/file_detector_event_timeline_reader_provider.hpp>
-#include <vitrio/image_read.hpp>
-
-#include <memory>
-
-int main()
-{
-	vitrio::detector_event_image_reader_provider readers(
-		std::make_shared<vitrio::file_detector_event_timeline_reader_provider>(
-			vitrio::detector_event_timeline_file_read_format_selector::
-				get_shared()
-		),
-		vitrio::detector_event_fractionation(40),
-		// Blocks of 2 by 2 pixels of the detector make one of the image.
-		std::make_shared<vitrio::counting_detector_event_renderer>(
-			vitrio::detector_event_binning(2)
-		)
-	);
-
-	// 40 fractions of 2048 by 2048 counts.
-	vitrio::array movie = vitrio::read("movie.eer", readers);
-}
-```
-
 The headers under `include/vitrio/` are the whole API, and each one documents
-what it declares.
+what it declares. That includes how to read the events of an EER file through
+`detector_event_image_reader_provider`.
+
+[examples/cpp/](examples/cpp/read_and_convert.cpp) has this program as a
+target of the build.
 
 ## Building from source
 
@@ -391,6 +249,7 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
+| `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
 | `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen |
 
 With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build

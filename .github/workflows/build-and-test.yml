@@ -75,7 +75,10 @@ jobs:
       - name: Configure
         env:
           CXX: ${{ runner.os != 'Windows' && matrix.cxx || '' }}
-        run: cmake --preset debug -DVITRIO_BUILD_PYTHON=ON
+        run: >-
+          cmake --preset debug
+          -DVITRIO_BUILD_PYTHON=ON
+          -DVITRIO_BUILD_EXAMPLES=ON
 
       - name: Build
         run: cmake --build --preset debug --parallel 4
