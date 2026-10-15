@@ -34,11 +34,29 @@ image_descriptor py_query_descriptor(
 
 void bind_image_reader_provider(nb::module_ &m)
 {
-	nb::class_<image_reader_provider>(m, "ImageReaderProvider");
+	nb::class_<image_reader_provider>(
+		m, "ImageReaderProvider",
+		"Turns a key into an open reader of images.\n"
+		"\n"
+		"What a key means is up to the provider. The providers of files take "
+		"paths, and `CachingImageReaderProvider` and "
+		"`ScratchImageReaderProvider` stand in front of another provider. "
+		"`vitrio.reader_provider` assembles them."
+	);
 
 	m.def(
 		"query_descriptor", &py_query_descriptor,
-		nb::arg("readers"), nb::arg("key")
+		nb::arg("readers"), nb::arg("key"),
+		"Get the descriptor of what a key holds, without reading it.\n"
+		"\n"
+		"Prefer `vitrio.query_descriptor`, which defaults the readers.\n"
+		"\n"
+		"Args:\n"
+		"    readers: Where the key becomes a reader.\n"
+		"    key: The key, a path for the providers of files.\n"
+		"\n"
+		"Returns:\n"
+		"    ImageDescriptor: What the file holds."
 	);
 }
 

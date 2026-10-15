@@ -47,23 +47,65 @@ void bind_file_image_writer_provider(nb::module_ &m)
 {
 	nb::class_<file_image_writer_provider, image_writer_provider>(
 		m,
-		"FileImageWriterProvider"
+		"FileImageWriterProvider",
+		"Writes files, which are declared and closed explicitly.\n"
+		"\n"
+		"Creating a file replaces what was there, so a writer that was "
+		"dropped and reopened would truncate what had been written. Each file "
+		"therefore has one lifecycle: `declare` it, write to it as often as "
+		"needed, and `close` it. A file is created the first time it is "
+		"written to, and closing it flushes it and gives its file descriptor "
+		"back."
 	)
 		.def(
 			nb::init<
 				std::shared_ptr<const image_file_write_format_selector>
 			>(),
-			nb::arg("formats")
+			nb::arg("formats"),
+			"Make a provider with no file declared.\n"
+			"\n"
+			"Args:\n"
+			"    formats: The `ImageFileWriteFormatSelector` that creates the "
+			"files."
 		)
-		.def("declare", &declare, nb::arg("key"), nb::arg("descriptor"))
-		.def("close", &close, nb::arg("key"))
+		.def(
+			"declare", &declare, nb::arg("key"), nb::arg("descriptor"),
+			"Make a file writable.\n"
+			"\n"
+			"Nothing is created until the file is first written to.\n"
+			"\n"
+			"Args:\n"
+			"    key: The path of the file.\n"
+			"    descriptor: The `ImageDescriptor` the file is created with.\n"
+			"\n"
+			"Raises:\n"
+			"    RuntimeError: If the file is still declared. Close it first."
+		)
+		.def(
+			"close", &close, nb::arg("key"),
+			"Finish a file.\n"
+			"\n"
+			"It is flushed and its writer dropped. A closed file can be "
+			"declared again.\n"
+			"\n"
+			"Args:\n"
+			"    key: The path of the file.\n"
+			"\n"
+			"Raises:\n"
+			"    IndexError: If the file is not declared."
+		)
 		.def(
 			"flush", &file_image_writer_provider::flush,
-			nb::call_guard<nb::gil_scoped_release>()
+			nb::call_guard<nb::gil_scoped_release>(),
+			"Make what has been written to the open files reach the storage.\n"
+			"\n"
+			"The files stay declared and writable. The GIL is released "
+			"meanwhile."
 		)
 		.def_prop_ro(
 			"file_count",
-			&file_image_writer_provider::get_file_count
+			&file_image_writer_provider::get_file_count,
+			"How many files are declared."
 		);
 }
 

@@ -50,16 +50,38 @@ void render(
 
 void bind_detector_event_renderer(nb::module_ &m)
 {
-	nb::class_<detector_event_renderer>(m, "DetectorEventRenderer")
-		.def_prop_ro("data_type", &detector_event_renderer::get_data_type)
+	nb::class_<detector_event_renderer>(
+		m, "DetectorEventRenderer",
+		"Turns the events of a stretch of time into an image."
+	)
+		.def_prop_ro(
+			"data_type", &detector_event_renderer::get_data_type,
+			"The `NumericalType` of the images it renders."
+		)
 		.def(
 			"get_image_extents", &get_image_extents,
-			nb::arg("events")
+			nb::arg("events"),
+			"Get the extents of the image it renders.\n"
+			"\n"
+			"Args:\n"
+			"    events: The `DetectorEventTimelineDescriptor` of the "
+			"acquisition.\n"
+			"\n"
+			"Returns:\n"
+			"    tuple: The extents, slowest axis first."
 		)
 		.def(
 			"render", &render,
 			nb::arg("descriptor"), nb::arg("events"),
-			nb::arg("destination").noconvert()
+			nb::arg("destination").noconvert(),
+			"Render events into an image.\n"
+			"\n"
+			"Args:\n"
+			"    descriptor: The `DetectorEventTimelineDescriptor` of the "
+			"acquisition.\n"
+			"    events: The `DetectorEventTimeline` to render.\n"
+			"    destination: Where the image lands, as any host array of the "
+			"extents `get_image_extents` gives."
 		);
 }
 

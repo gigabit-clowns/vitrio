@@ -42,7 +42,10 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `docs/` | Builds the documentation of the API with Doxygen, out of the public headers and the README |
+| `docs/` | Builds the documentation of the API, a directory for each of its parts |
+| `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
+| `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |
+| `docs/sphinx/` | The reference of the Python package, with Sphinx, from its docstrings. It holds the `.rst` pages and `conf.py` |
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
@@ -108,12 +111,21 @@ each.
 target of its own and a test that runs it. They are off by default.
 
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
-Doxygen and writes the documentation of the API under `docs/html` of the
-build tree. A warning of Doxygen fails it, so a comment that names a
+Doxygen and writes the documentation of the C++ API under
+`docs/doxygen/html` of the build tree. A warning of Doxygen fails it, so a comment that names a
 parameter that is not there does not go unnoticed. The README is its first
 page, so a link in it to another file of the repository is a full URL: a
 relative one is taken for a reference to a page of the documentation, and
-fails it. The Python package has no reference of its own yet.
+fails it.
+
+With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
+imports the package from the build tree and has Sphinx write its reference
+under `docs/sphinx/html`. It needs Sphinx, Furo and numpy (`pip install --group
+docs`), and a warning of Sphinx fails it too. The reference is built from
+docstrings and holds none of its own text beyond the introduction and the
+list of what each page documents, so a new name is added to a page of
+`docs/sphinx/`. Both references are published together, under `/cpp/` and
+`/python/` of the site, which has the contents of `docs/site/` at its root.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented
@@ -166,6 +178,7 @@ the one CMake reports when it does not match.
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them |
 | pytest | The tests of the Python package |
+| Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |
 
 ## Conventions
@@ -280,6 +293,17 @@ the one CMake reports when it does not match.
   describe rows and hold nothing that reads them: each read is given the
   image loader it goes through, a scratch included, and a read given none
   goes through the one `_default_loader.py` shares across the process.
+- **Docstrings.** Everything `vitrio.__all__` exports has a docstring, and so
+  has each public method and property of a class, which
+  `tests/python/test_documentation.py` checks. They are written in the style
+  of Google (`Args:`, `Returns:`, `Raises:`) and written for Python: getters
+  are properties, exceptions are Python's, an array is anything that speaks
+  DLPack, and a call that blocks says that it releases the GIL. In the
+  binding the text is passed to `nb::class_`, `.def` and `def_prop_ro` as
+  adjacent string literals, with `\n` only where a line ends, so that a
+  paragraph is one line to Sphinx. A name that Python wraps, such as `read`
+  or `loader`, is documented in the wrapper and only briefly in the
+  binding, which says to prefer the wrapper.
 - **`import vitrio as vio`.** That is how the package is imported wherever
   it is shown in use: the README, the examples and the tests. numpy is
   `np` and pandas is `pd`, as their own documentation has them. Prose names
@@ -327,8 +351,9 @@ before 1.0 a release may break the ABI, and the report tells which kind of
 release the next one has to be. Both are built against the packages of
 Ubuntu, and the release finds the half this tree fetched.
 
-`.github/workflows/documentation.yml` builds the documentation of the API
-and publishes it to GitHub Pages when a version is tagged.
+`.github/workflows/documentation.yml` builds the documentation of the C++ API
+and of the Python package, puts them side by side and publishes them to
+GitHub Pages when a version is tagged.
 
 `.github/workflows/release.yml` builds the source distribution and, from it,
 the wheels of each platform, and tests each wheel. How cibuildwheel builds

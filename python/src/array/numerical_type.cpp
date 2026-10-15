@@ -11,7 +11,14 @@ namespace nb = nanobind;
 
 void bind_numerical_type(nb::module_ &m)
 {
-	nb::enum_<numerical_type>(m, "NumericalType")
+	nb::enum_<numerical_type>(
+		m, "NumericalType",
+		"The data type of the elements of an array or of a file.\n"
+		"\n"
+		"Anywhere a data type is asked for, so is whatever names one of "
+		"these: the name as a string (`\"float32\"`), a numpy dtype or type\n"
+		""
+		"(`np.float32`), or a member of this enumeration.")
 		.value("boolean", numerical_type::boolean)
 		.value("int8", numerical_type::int8)
 		.value("uint8", numerical_type::uint8)

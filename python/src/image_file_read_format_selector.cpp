@@ -15,11 +15,22 @@ void bind_image_file_read_format_selector(nb::module_ &m)
 {
 	nb::class_<image_file_read_format_selector>(
 		m,
-		"ImageFileReadFormatSelector"
+		"ImageFileReadFormatSelector",
+		"Holds the formats a file may be read with.\n"
+		"\n"
+		"It opens a file with the one that suits it.\n"
+		"\n"
+		"A file is recognized by its contents where its format allows it, and "
+		"by its extension otherwise."
 	)
 		.def_static(
 			"get_shared",
-			&image_file_read_format_selector::get_shared
+			&image_file_read_format_selector::get_shared,
+			"Get the selector that holds the formats that come with vitrio.\n"
+			"\n"
+			"Returns:\n"
+			"    ImageFileReadFormatSelector: MRC, TIFF and EER (when built "
+			"with TIFF) and DM."
 		);
 }
 

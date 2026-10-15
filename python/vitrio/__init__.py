@@ -2,7 +2,7 @@
 
 """High-throughput image I/O for Cryo-Electron Microscopy (CryoEM).
 
-The package is imported as `vio`:
+The package is imported as `vio`::
 
 	import vitrio as vio
 
@@ -95,6 +95,65 @@ from ._functions import (
 	write_stack as write_stack,
 	writer_provider as writer_provider,
 )
+
+__all__ = [
+	'Array',
+	'CachingImageReaderProvider',
+	'Completion',
+	'CountingDetectorEventRenderer',
+	'DetectorEventBinning',
+	'DetectorEventFractionation',
+	'DetectorEventImageReaderProvider',
+	'DetectorEventRenderer',
+	'DetectorEventTimeline',
+	'DetectorEventTimelineDescriptor',
+	'DetectorEventTimelineFileReadFormatSelector',
+	'DetectorEventTimelineReader',
+	'DetectorEventTimelineReaderProvider',
+	'Executor',
+	'ExecutorImageLoader',
+	'ExecutorImageSaver',
+	'FileDetectorEventTimelineReaderProvider',
+	'FileImageReaderProvider',
+	'FileImageWriterProvider',
+	'ImageDescriptor',
+	'ImageFileReadFormatSelector',
+	'ImageFileWriteFormatSelector',
+	'ImageLoader',
+	'ImageLocation',
+	'ImageLocationGrouping',
+	'ImageReaderProvider',
+	'ImageSaver',
+	'ImageScratch',
+	'ImageWriterProvider',
+	'IndexTable',
+	'NumericalType',
+	'ScratchImageReaderProvider',
+	'SynchronousExecutor',
+	'ThreadPoolExecutor',
+	'create_directory_image_scratch',
+	'create_host_image_scratch',
+	'create_mapped_file_image_scratch',
+	'detector_event_image_reader_provider',
+	'detector_event_timeline_reader_provider',
+	'get_core_extents',
+	'loader',
+	'prefetch_scratch_async',
+	'query_descriptor',
+	'read',
+	'read_batch_async',
+	'read_events',
+	'read_patches_async',
+	'reader_provider',
+	'saver',
+	'write',
+	'write_batch_async',
+	'write_single',
+	'write_stack',
+	'writer_provider',
+	'data',
+	'__version__',
+]
 
 __version__ = '.'.join(str(part) for part in _get_library_version())
 

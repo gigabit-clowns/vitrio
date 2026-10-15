@@ -199,7 +199,7 @@ def read_events(
 	Read the events a detector counted over a stretch of time.
 
 	Time is counted in the quanta of the file, which are frames for EER.
-	The events come in groups of one timestamp each:
+	The events come in groups of one timestamp each::
 
 		timeline = read_events('movie.eer', 0, 10)
 		frames = np.asarray(timeline.timestamps)
@@ -528,7 +528,7 @@ def query_descriptor(
 	The extents are those of the whole file, slowest axis first, so a
 	stack reports the axis it stacks along before the shape of one of
 	its images. `get_core_extents` leaves that axis out, which is the
-	shape a batch destination carries beside its leading extent:
+	shape a batch destination carries beside its leading extent::
 
 		descriptor = query_descriptor(path)
 		destination = np.empty(

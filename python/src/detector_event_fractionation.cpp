@@ -54,22 +54,48 @@ void bind_detector_event_fractionation(nb::module_ &m)
 {
 	nb::class_<detector_event_fractionation> fractionation(
 		m,
-		"DetectorEventFractionation"
+		"DetectorEventFractionation",
+		"How the time of an acquisition is cut into the fractions of a movie.\n"
+		"\n"
+		"The time quanta are shared as evenly as they allow: none is dropped, "
+		"and a fraction has at most one more than another."
 	);
 
 	fractionation
-		.def(nb::init<std::size_t>(), nb::arg("fraction_count"))
+		.def(
+			nb::init<std::size_t>(), nb::arg("fraction_count"),
+			"Cut time into a number of fractions.\n"
+			"\n"
+			"Args:\n"
+			"    fraction_count: How many fractions, at least one.\n"
+			"\n"
+			"Raises:\n"
+			"    ValueError: If it is zero or more than `max_fraction_count`."
+		)
 		.def(nb::self == nb::self)
 		.def(nb::self != nb::self)
 		.def("__hash__", &hash)
 		.def("__repr__", &to_repr)
 		.def_prop_ro(
 			"fraction_count",
-			&detector_event_fractionation::get_fraction_count
+			&detector_event_fractionation::get_fraction_count,
+			"How many fractions the time is cut into."
 		)
 		.def(
 			"get_fraction_begin", &get_fraction_begin,
-			nb::arg("fraction"), nb::arg("time_extent")
+			nb::arg("fraction"), nb::arg("time_extent"),
+			"Get the first time quantum of a fraction.\n"
+			"\n"
+			"Args:\n"
+			"    fraction: The fraction. `fraction_count` gives where the "
+			"last one ends, which is `time_extent`.\n"
+			"    time_extent: How many time quanta the acquisition spans.\n"
+			"\n"
+			"Returns:\n"
+			"    int: The time quantum the fraction begins at.\n"
+			"\n"
+			"Raises:\n"
+			"    IndexError: If `fraction` is past `fraction_count`."
 		);
 
 	fractionation.attr("max_fraction_count") =

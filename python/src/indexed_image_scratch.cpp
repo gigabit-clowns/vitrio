@@ -95,19 +95,64 @@ void bind_indexed_image_scratch(nb::module_ &m)
 	m.def(
 		"create_host_image_scratch", &py_create_host_image_scratch,
 		nb::arg("locations"), nb::arg("files"), nb::arg("run_length"),
-		nb::arg("max_size") = nb::none()
+		nb::arg("max_size") = nb::none(),
+		"Create a scratch that keeps its copies in main memory.\n"
+		"\n"
+		"Prefer `vitrio.create_host_image_scratch`, which defaults the files.\n"
+		"\n"
+		"Args:\n"
+		"    locations: An `ImageLocationGrouping` of the images to hold.\n"
+		"    files: The `ImageReaderProvider` that reads the files.\n"
+		"    run_length: How many held images of a file are taken in "
+		"together.\n"
+		"    max_size: The most bytes to allocate. Defaults to no maximum.\n"
+		"\n"
+		"Returns:\n"
+		"    ImageScratch: The scratch, which starts empty."
 	);
 	m.def(
 		"create_mapped_file_image_scratch",
 		&py_create_mapped_file_image_scratch,
 		nb::arg("locations"), nb::arg("files"), nb::arg("path"),
-		nb::arg("run_length"), nb::arg("max_size") = nb::none()
+		nb::arg("run_length"), nb::arg("max_size") = nb::none(),
+		"Create a scratch that keeps its copies in a file mapped into memory.\n"
+		"\n"
+		"Prefer `vitrio.create_mapped_file_image_scratch`, which defaults the "
+		"files.\n"
+		"\n"
+		"Args:\n"
+		"    locations: An `ImageLocationGrouping` of the images to hold.\n"
+		"    files: The `ImageReaderProvider` that reads the files.\n"
+		"    path: The file that holds the copies. It is not removed.\n"
+		"    run_length: How many held images of a file are taken in "
+		"together.\n"
+		"    max_size: The most bytes to map. Defaults to no maximum.\n"
+		"\n"
+		"Returns:\n"
+		"    ImageScratch: The scratch, which resumes from what the file "
+		"holds."
 	);
 	m.def(
 		"create_directory_image_scratch",
 		&py_create_directory_image_scratch,
 		nb::arg("locations"), nb::arg("files"), nb::arg("directory"),
-		nb::arg("run_length"), nb::arg("budget")
+		nb::arg("run_length"), nb::arg("budget"),
+		"Create a scratch that keeps its files in a directory, to a budget.\n"
+		"\n"
+		"Prefer `vitrio.create_directory_image_scratch`, which defaults the "
+		"files.\n"
+		"\n"
+		"Args:\n"
+		"    locations: An `ImageLocationGrouping` of the images to hold.\n"
+		"    files: The `ImageReaderProvider` that reads the files.\n"
+		"    directory: Where the files are kept.\n"
+		"    run_length: How many held images of a file are taken in "
+		"together.\n"
+		"    budget: The most bytes the files of the directory may take. The "
+		"files used least recently are removed to make room.\n"
+		"\n"
+		"Returns:\n"
+		"    ImageScratch: The scratch."
 	);
 }
 

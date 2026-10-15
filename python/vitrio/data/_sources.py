@@ -67,10 +67,14 @@ class Source(Protocol):
 	"""
 
 	@property
-	def shape(self) -> tuple[int, ...]: ...
+	def shape(self) -> tuple[int, ...]:
+		"""The shape of the value of one row."""
+		...
 
 	@property
-	def dtype(self) -> np.dtype: ...
+	def dtype(self) -> np.dtype:
+		"""The data type of the values."""
+		...
 
 	def __len__(self) -> int: ...
 
@@ -173,7 +177,7 @@ class ImageSource:
 		"""
 		Args:
 			locations: The location of the image of each row, or a row of
-				locations for each row: `ImageLocation`s, or keys of whole
+				locations for each row: `ImageLocation` objects, or keys of whole
 				files.
 			data_type: The type to read the values as. Defaults to the one
 				the first file holds.
@@ -242,7 +246,7 @@ class ImageSource:
 
 	@property
 	def locations(self) -> np.ndarray:
-		"""The location of each row, as an array of `ImageLocation`s."""
+		"""The location of each row, as an array of `ImageLocation` objects."""
 		return self._locations
 
 	def __len__(self) -> int:
@@ -254,6 +258,7 @@ class ImageSource:
 		rows: np.ndarray,
 		out: np.ndarray
 	) -> list[Pending]:
+		"""Start reading the values of some rows, as `Source.read_async`."""
 		locations = self._locations[rows]
 		if locations.ndim == 1:
 			return [read_batch_async(loader, out, list(locations))]
@@ -269,6 +274,7 @@ class ImageSource:
 		]
 
 	def subset(self, rows: np.ndarray) -> ImageSource:
+		"""Get the source of only these rows, in this order."""
 		subset = object.__new__(ImageSource)
 		subset._locations = self._locations[rows]
 		subset._core = self._core
@@ -406,6 +412,7 @@ class PatchSource:
 		rows: np.ndarray,
 		out: np.ndarray
 	) -> list[Pending]:
+		"""Start reading the values of some rows, as `Source.read_async`."""
 		out[...] = self.fill
 		codes = self._codes[rows]
 		order = np.argsort(codes, kind='stable')
@@ -430,6 +437,7 @@ class PatchSource:
 		return pending
 
 	def subset(self, rows: np.ndarray) -> PatchSource:
+		"""Get the source of only these rows, in this order."""
 		subset = object.__new__(PatchSource)
 		subset.shape = self.shape
 		subset.dtype = self.dtype
@@ -471,10 +479,12 @@ class ArraySource:
 		rows: np.ndarray,
 		out: np.ndarray
 	) -> list[Pending]:
+		"""Start reading the values of some rows, as `Source.read_async`."""
 		np.take(self._array, rows, axis=0, out=out)
 		return []
 
 	def subset(self, rows: np.ndarray) -> ArraySource:
+		"""Get the source of only these rows, in this order."""
 		return ArraySource(self._array[rows])
 
 def wait_all(pending: Sequence[Pending]) -> None:

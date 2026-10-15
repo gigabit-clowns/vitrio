@@ -54,7 +54,9 @@ option(
 )
 option(
 	VITRIO_BUILD_DOCS
-	"Add a target that builds the documentation of the API, which needs Doxygen"
+	"Add the targets that build the documentation of the API, which needs \
+Doxygen, and with VITRIO_BUILD_PYTHON that of the Python package, which \
+needs Sphinx"
 	OFF
 )
 option(

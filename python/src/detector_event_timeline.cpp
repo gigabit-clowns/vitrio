@@ -193,30 +193,87 @@ std::string to_repr(guarded &self)
 
 void bind_detector_event_timeline(nb::module_ &m)
 {
-	nb::class_<guarded>(m, "DetectorEventTimeline")
-		.def(nb::init<std::size_t>(), nb::arg("rank"))
+	nb::class_<guarded>(
+		m, "DetectorEventTimeline",
+		"The events a detector counted over a stretch of time.\n"
+		"\n"
+		"The events come in groups of one timestamp each, such as the frames "
+		"of an EER file. `timestamps` and `get_positions` return read-only "
+		"views of the memory of the timeline, which keep it alive. The "
+		"timeline refuses to change with `BufferError` while one of them is "
+		"alive, as a `bytearray` refuses to resize while a `memoryview` of it "
+		"is."
+	)
+		.def(
+			nb::init<std::size_t>(), nb::arg("rank"),
+			"Make an empty timeline.\n"
+			"\n"
+			"Args:\n"
+			"    rank: How many axes the positions of its events have."
+		)
 		.def("__repr__", &to_repr)
-		.def_prop_ro("rank", &get_rank)
-		.def_prop_ro("group_count", &get_group_count)
-		.def_prop_ro("event_count", &get_event_count)
-		.def_prop_ro("view_count", &guarded::get_view_count)
+		.def_prop_ro(
+			"rank", &get_rank,
+			"How many coordinates the position of an event has."
+		)
+		.def_prop_ro(
+			"group_count", &get_group_count,
+			"How many groups of events, one for each timestamp."
+		)
+		.def_prop_ro(
+			"event_count", &get_event_count,
+			"How many events in all the groups."
+		)
+		.def_prop_ro(
+			"view_count", &guarded::get_view_count,
+			"How many views of its memory are alive."
+		)
 		// The view owns its memory, so it needs no owner of the getter's.
 		.def_prop_ro(
 			"timestamps", &get_timestamps,
-			nb::rv_policy::reference
+			nb::rv_policy::reference,
+			"A view of the timestamps, one for each group, in time quanta."
 		)
 		.def(
 			"get_positions", &get_positions,
-			nb::arg("group") = nb::none()
+			nb::arg("group") = nb::none(),
+			"View the positions of the events.\n"
+			"\n"
+			"Args:\n"
+			"    group: The group to view. Defaults to every group, one after "
+			"the other.\n"
+			"\n"
+			"Returns: A read-only view with a row of coordinates for each "
+			"event, on the grid of position quanta, slowest axis first.\n"
+			"\n"
+			"Raises:\n"
+			"    IndexError: If the group is not there."
 		)
 		.def(
 			"add_group", &add_group,
-			nb::arg("timestamp"), nb::arg("positions")
+			nb::arg("timestamp"), nb::arg("positions"),
+			"Add a group of events to the end.\n"
+			"\n"
+			"Args:\n"
+			"    timestamp: The time quantum its events happened in.\n"
+			"    positions: A two-dimensional array of unsigned 32-bit "
+			"integers with a row for each event.\n"
+			"\n"
+			"Raises:\n"
+			"    ValueError: If a row does not have the rank of the timeline.\n"
+			"    BufferError: If a view of the timeline is alive."
 		)
-		.def("clear", &clear)
+		.def(
+			"clear", &clear,
+			"Remove every group.\n"
+			"\n"
+			"Raises:\n"
+			"    BufferError: If a view of the timeline is alive."
+		)
 		.def(
 			"reserve", &reserve,
-			nb::arg("group_count"), nb::arg("event_count")
+			nb::arg("group_count"), nb::arg("event_count"),
+			"Make room for that many groups and events, to allocate once."
 		);
 }
 

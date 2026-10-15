@@ -11,7 +11,13 @@ namespace nb = nanobind;
 
 void bind_image_saver(nb::module_ &m)
 {
-	nb::class_<image_saver>(m, "ImageSaver");
+	nb::class_<image_saver>(
+		m, "ImageSaver",
+		"Writes batches of images asynchronously.\n"
+		"\n"
+		"It is what `write_batch_async` dispatches its writes to. "
+		"`vitrio.saver` assembles one."
+	);
 }
 
 } // namespace vitrio

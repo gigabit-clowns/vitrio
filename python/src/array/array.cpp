@@ -133,9 +133,24 @@ const std::array<PyType_Slot, 2> buffer_slots = {{
 
 void bind_array(nb::module_ &m)
 {
-	nb::class_<array>(m, "Array", nb::type_slots(buffer_slots.data()))
-		.def_prop_ro("shape", &get_shape)
-		.def_prop_ro("data_type", &get_data_type)
+	nb::class_<array>(
+		m, "Array", nb::type_slots(buffer_slots.data()),
+		"Memory that holds an image, a stack of images or a volume.\n"
+		"\n"
+		"An `Array` owns its memory, which is what the reads that are not "
+		"given an array return. `numpy.asarray(array)` views that memory, and "
+		"so do `torch.from_dlpack` and `jax.numpy.from_dlpack`, since an "
+		"`Array` speaks DLPack and the buffer protocol. Nothing is copied, "
+		"and the memory stays alive for as long as anything views it."
+	)
+		.def_prop_ro(
+			"shape", &get_shape,
+			"The extents of the array, slowest axis first, as a tuple."
+		)
+		.def_prop_ro(
+			"data_type", &get_data_type,
+			"The `NumericalType` of the elements."
+		)
 		.def("__len__", &get_length)
 		.def("__repr__", &to_repr)
 		.def("__dlpack__", &to_dlpack)

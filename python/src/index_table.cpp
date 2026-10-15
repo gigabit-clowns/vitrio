@@ -202,17 +202,59 @@ nb::object to_array(const index_table &self, nb::handle dtype, nb::handle copy)
 
 void bind_index_table(nb::module_ &m)
 {
-	nb::class_<index_table>(m, "IndexTable")
-		.def(nb::init<>())
-		.def(nb::init<std::size_t>(), nb::arg("rank"))
+	nb::class_<index_table>(
+		m, "IndexTable",
+		"A list of indices of the same rank, such as the centres of patches.\n"
+		"\n"
+		"Every index has as many coordinates as the table has rank, slowest "
+		"axis first. `numpy.asarray(table)` copies them into an array with a "
+		"row for each index, and `IndexTable.from_array` does the converse."
+	)
+		.def(
+			nb::init<>(),
+			"Make an empty table, whose rank its first index sets."
+		)
+		.def(
+			nb::init<std::size_t>(), nb::arg("rank"),
+			"Make an empty table.\n"
+			"\n"
+			"Args:\n"
+			"    rank: How many coordinates each index has."
+		)
 		.def_static(
 			"from_array", &from_array,
-			nb::arg("indices").noconvert()
+			nb::arg("indices").noconvert(),
+			"Make a table from an array of integers with a row for each "
+			"index.\n"
+			"\n"
+			"Args:\n"
+			"    indices: A two-dimensional array of integers, such as "
+			"numpy's.\n"
+			"\n"
+			"Returns:\n"
+			"    IndexTable: The table, with the rank of the rows.\n"
+			"\n"
+			"Raises:\n"
+			"    TypeError: If the array does not hold integers.\n"
+			"    ValueError: If it is not two-dimensional or holds a negative "
+			"index."
 		)
-		.def("add", &add, nb::arg("index"))
-		.def("clear", &index_table::clear)
-		.def("reserve", &index_table::reserve, nb::arg("count"))
-		.def_prop_ro("rank", &index_table::get_rank)
+		.def(
+			"add", &add, nb::arg("index"),
+			"Add an index to the end.\n"
+			"\n"
+			"Args:\n"
+			"    index: Its coordinates, as many as the rank of the table."
+		)
+		.def("clear", &index_table::clear, "Remove every index.")
+		.def(
+			"reserve", &index_table::reserve, nb::arg("count"),
+			"Make room for `count` indices, to allocate once."
+		)
+		.def_prop_ro(
+			"rank", &index_table::get_rank,
+			"How many coordinates each index has."
+		)
 		.def("__len__", &index_table::get_index_count)
 		.def("__getitem__", &get, nb::arg("position"))
 		.def(

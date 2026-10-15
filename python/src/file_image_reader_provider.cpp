@@ -19,13 +19,19 @@ void bind_file_image_reader_provider(nb::module_ &m)
 {
 	nb::class_<file_image_reader_provider, image_reader_provider>(
 		m,
-		"FileImageReaderProvider"
+		"FileImageReaderProvider",
+		"Opens the file at a path with the format that suits it."
 	)
 		.def(
 			nb::init<
 				std::shared_ptr<const image_file_read_format_selector>
 			>(),
-			nb::arg("formats")
+			nb::arg("formats"),
+			"Make a provider.\n"
+			"\n"
+			"Args:\n"
+			"    formats: The `ImageFileReadFormatSelector` that opens the "
+			"files."
 		);
 }
 

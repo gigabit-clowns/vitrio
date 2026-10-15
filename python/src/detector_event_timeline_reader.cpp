@@ -35,16 +35,26 @@ void bind_detector_event_timeline_reader(nb::module_ &m)
 {
 	nb::class_<detector_event_timeline_reader>(
 		m,
-		"DetectorEventTimelineReader"
+		"DetectorEventTimelineReader",
+		"An open file of the events of an acquisition."
 	)
 		.def_prop_ro(
 			"descriptor",
-			&detector_event_timeline_reader::get_descriptor
+			&detector_event_timeline_reader::get_descriptor,
+			"The `DetectorEventTimelineDescriptor` of the acquisition."
 		)
 		.def(
 			"read", &read,
 			nb::arg("time_begin"), nb::arg("time_end"),
-			nb::arg("destination")
+			nb::arg("destination"),
+			"Read the events of a stretch of time.\n"
+			"\n"
+			"The GIL is released meanwhile.\n"
+			"\n"
+			"Args:\n"
+			"    time_begin: The first time quantum to read.\n"
+			"    time_end: One past the last.\n"
+			"    destination: The `DetectorEventTimeline` they are read into."
 		);
 }
 
