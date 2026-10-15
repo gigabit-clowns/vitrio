@@ -16,6 +16,8 @@ license = "LGPL-2.1-or-later"
 license-files = ["LICENSE"]
 authors = [
     { name = "Oier Lauzirika Zarrabeitia", email = "oierlauzi@bizkaia.eu" },
+    { name = "Martin Salinas Antón", email = "ssalinasmartin@gmail.com" },
+    { name = "Mikel Iceta Tena", email = "m.icetatena@gmail.com" }
 ]
 requires-python = ">=3.10"
 dependencies = []
