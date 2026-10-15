@@ -63,9 +63,9 @@ pip install vitrio
 
 There are wheels for Linux (x86_64 and aarch64), macOS (Apple silicon and
 Intel) and Windows (x86_64), for Python 3.10 and newer. They carry everything
-they need. On any other platform pip builds the package from source, and
-then the dependencies listed under "Building from source" below have to be
-installed first.
+they need. On any other platform pip builds the package from source, which
+takes a C++ compiler and access to the network: the libraries vitrio needs
+are fetched and built with it.
 
 The C++ library is built from source for now.
 
@@ -351,14 +351,15 @@ what it declares.
 
 ## Building from source
 
-You need a C++14 compiler, CMake 3.18 or newer and these libraries, which
-CMake looks for with `find_package`:
+You need a C++14 compiler and CMake 3.24 or newer. The libraries vitrio
+needs are fetched and built with it, static, inside its own library:
 
-- Boost 1.70 or newer (Filesystem, Interprocess and ContainerHash)
+- Boost (Filesystem, Interprocess and ContainerHash)
 - half
 - spdlog
-- libtiff 4.5 or newer, unless TIFF is turned off, which leaves EER out too
-- Catch2 3 and trompeloeil, for the tests
+- libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
+  too
+- Catch2 and trompeloeil, for the tests
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -367,13 +368,26 @@ ctest --test-dir build
 cmake --install build --prefix <where>
 ```
 
-The repository has a vcpkg manifest, so one way of getting all of them is
-to pass vcpkg's toolchain file to the first command.
+To use the libraries installed on the system instead, turn
+`VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
+`find_package`, and CMake 3.18 is enough. They have to be Boost 1.70,
+libtiff 4.5, spdlog 1.4 and Catch2 3 or newer. One of them alone is found
+rather than built by turning its own option off, such as
+`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
+`VITRIO_BUILD_HALF`, `VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`,
+`VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`. Few distributions
+package half: where yours does not, point `half_INCLUDE_DIR` at the
+`include` directory of a release of it.
+
+Without access to the network, give each library that is built the
+directory of its sources instead, such as
+`-DFETCHCONTENT_SOURCE_DIR_BOOST=<dir>`.
 
 A few options change what gets built:
 
 | Option | Effect |
 |---|---|
+| `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
@@ -381,7 +395,9 @@ A few options change what gets built:
 
 With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
 tree, so putting that directory on `PYTHONPATH` is enough to import it.
-`pip install .` builds and installs it in one go.
+`pip install .` builds and installs it in one go. It is given the options
+above as `-C cmake.define.<option>=<value>`, such as
+`-C cmake.define.VITRIO_BUILD_DEPENDENCIES=OFF`.
 
 ## Licence
 

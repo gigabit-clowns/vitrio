@@ -1,7 +1,36 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-find_package(Catch2 3 REQUIRED CONFIG)
-find_package(trompeloeil REQUIRED CONFIG)
+# Declared here rather than beside the other toggles, because these two
+# dependencies exist only while the tests are built.
+cmake_dependent_option(
+	VITRIO_BUILD_CATCH2 "Fetch Catch2 and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_TROMPELOEIL "Fetch trompeloeil and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+
+if(VITRIO_BUILD_CATCH2)
+	include(vitrio_fetch_catch2)
+	vitrio_fetch_catch2(
+		VERSION 3.16.1
+		SHA256 d16bd1b8b2364918bd472cb216394acb93bde6784890df0d91bccfb3f28d777d
+	)
+else()
+	find_package(Catch2 3 REQUIRED CONFIG)
+endif()
+
+if(VITRIO_BUILD_TROMPELOEIL)
+	include(vitrio_fetch_trompeloeil)
+	vitrio_fetch_trompeloeil(
+		VERSION 49
+		SHA256 2523571fb7920b2813cbc23b46e60294aba8ead7eba434bfec69c24408615593
+	)
+else()
+	find_package(trompeloeil REQUIRED CONFIG)
+endif()
+
 include(Catch)
 
 # Registers the cases of a test executable with CTest, either one by one or
