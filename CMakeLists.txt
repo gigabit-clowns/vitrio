@@ -7,6 +7,12 @@ if(POLICY CMP0141)
 	cmake_policy(SET CMP0141 NEW)
 endif()
 
+# What a fetched archive holds takes the time it is extracted at, so that a
+# new archive always rebuilds what came from it.
+if(POLICY CMP0135)
+	cmake_policy(SET CMP0135 NEW)
+endif()
+
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/VERSION PROJECT_VERSION)
 string(STRIP "${PROJECT_VERSION}" PROJECT_VERSION)
 
@@ -23,6 +29,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+include(CMakeDependentOption)
 include(GenerateExportHeader)
 include(vitrio_enable_warnings)
 
@@ -57,6 +64,36 @@ compiler supports"
 	OFF
 )
 
+# Every dependency is private and none appears in a public header, so building
+# one here or finding an installed one changes nothing for a consumer of the
+# installed library. Turning the global switch off turns every one of the
+# others off, on every configure.
+option(
+	VITRIO_BUILD_DEPENDENCIES
+	"Build the dependencies with vitrio, rather than finding installed ones"
+	ON
+)
+cmake_dependent_option(
+	VITRIO_BUILD_BOOST "Fetch Boost and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_HALF "Fetch half and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_SPDLOG "Fetch spdlog and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_ZLIB "Fetch zlib and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_TIFF "Fetch libtiff and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+
 # The library and its public headers are C++14. The standard is required
 # rather than preferred, so that nothing newer gets in unnoticed.
 set(CMAKE_CXX_STANDARD 14)
@@ -71,13 +108,56 @@ if(WIN32 AND NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
 endif()
 
 find_package(Threads REQUIRED)
-find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
-find_package(half REQUIRED)
-find_package(spdlog 1.4 REQUIRED CONFIG)
+
+if(VITRIO_BUILD_BOOST)
+	include(vitrio_fetch_boost)
+	vitrio_fetch_boost(
+		TAG boost-1.92.0
+		SHA256 9bed76128d4e46755dbe818487788c6fceb6f72b378f4daa49b7e1e600d9088d
+	)
+else()
+	find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
+endif()
+
+if(VITRIO_BUILD_HALF)
+	include(vitrio_fetch_half)
+	vitrio_fetch_half(
+		VERSION 2.2.1
+		SHA256 76ddbf406e9d9b772ec73af2bf925b38b290b4390cc4064720a08d4b4bca0aa9
+	)
+else()
+	find_package(half REQUIRED)
+endif()
+
+if(VITRIO_BUILD_SPDLOG)
+	include(vitrio_fetch_spdlog)
+	vitrio_fetch_spdlog(
+		COMMIT 79524ddd08a4ec981b7fea76afd08ee05f83755d
+	) # v1.17.0
+else()
+	find_package(spdlog 1.4 REQUIRED CONFIG)
+endif()
+
+# Only the TIFF and EER formats need libtiff, and zlib is libtiff's. libtiff
+# looks zlib up itself, so zlib comes first: built here, it is the one
+# libtiff finds.
+if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_ZLIB)
+	include(vitrio_fetch_zlib)
+	vitrio_fetch_zlib(
+		COMMIT da607da739fa6047df13e66a2af6b8bec7c2a498
+	) # v1.3.2
+elseif(VITRIO_ENABLE_TIFF)
+	find_package(ZLIB REQUIRED)
+endif()
 
 # The handlers a file is opened with, which keep its errors apart from those
 # of every other file, arrived in libtiff 4.5.
-if(VITRIO_ENABLE_TIFF)
+if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_TIFF)
+	include(vitrio_fetch_tiff)
+	vitrio_fetch_tiff(
+		COMMIT d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d
+	) # v4.7.2
+elseif(VITRIO_ENABLE_TIFF)
 	find_package(TIFF 4.5 REQUIRED)
 endif()
 

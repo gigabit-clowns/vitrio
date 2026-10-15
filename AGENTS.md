@@ -42,11 +42,10 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/` | Programs that show the Python package at work. Each is run by a test of `tests/python/` |
 | `docs/` | Builds the documentation of the API with Doxygen, out of the public headers and the README |
-| `cmake/modules/` | CMake modules of the project |
+| `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
-| `.github/actions/` | The actions the workflows share. They belong to this repository |
-| `pyproject.toml` | How pip builds the Python package, the versions of what its builds and tests install, and how cibuildwheel builds the wheels |
+| `pyproject.toml` | How pip builds the Python package, and the versions of what its builds and tests install |
 
 Every directory holding sources carries a `CMakeLists.txt` naming them. The
 lists are explicit rather than globbed, so a new `.cpp` has to be named there
@@ -66,9 +65,11 @@ cmake --build build
 ctest --test-dir build
 ```
 
-With CMake 3.21 or newer the presets do the same: `cmake --preset debug`,
+That fetches the dependencies and builds them with the project, which takes
+CMake 3.24. With it the presets do the same: `cmake --preset debug`,
 `cmake --build --preset debug`, `ctest --preset debug`. There are `release` and
-`sanitize` and `sanitize-thread` presets too. CMake 3.18 is the minimum, and one CI job builds with
+`sanitize` and `sanitize-thread` presets too. CMake 3.18 is the minimum for
+a build that finds its dependencies installed, and one CI job builds with
 exactly that version. Under it CTest runs each suite as a single test, because
 listing the cases needs the JSON support of CMake 3.19.
 
@@ -89,16 +90,15 @@ JAX and rexlib are skipped where those are not installed, and so is the
 test of an example where what the example needs is not.
 
 `pip install .` builds the same package through scikit-build-core, which
-configures this project as it is. The dependencies have to be found, as in
-any other build: pip installs nothing but the build tools. A plain
+configures this project as it is. The dependencies are fetched and built
+with it, as in any other build, so a compiler is all it takes. A plain
 `cmake --install` leaves the package out. It is the component
 `vitrio_python`, which goes into the directory Python looks for packages
 in, with the library beside the extension.
 
-The wheels are built by cibuildwheel, with vcpkg providing the
-dependencies from the same manifest the other workflows use. On Linux and
-macOS vcpkg builds static libraries and on Windows it is asked to, so a
-wheel holds everything it needs. A wheel is built against the stable ABI
+The wheels are built by cibuildwheel from the source distribution, as pip
+builds it. The dependencies are built static, inside the library of vitrio,
+so a wheel holds everything it needs. A wheel is built against the stable ABI
 of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
 each.
 
@@ -120,28 +120,42 @@ drop the object files nothing else refers to.
 
 ## Dependencies
 
-Dependencies are found with `find_package` and nothing else: the build never
-downloads. Where they come from is up to whoever builds, be it system
-packages, conda or vcpkg.
+Every dependency is fetched and built with vitrio by default, static, and
+ends up inside its library. Turning `VITRIO_BUILD_DEPENDENCIES` off finds
+them all installed instead, with `find_package`, as a distribution or conda
+builds vitrio. Turning off `VITRIO_BUILD_<DEP>` does that for one of them.
+`cmake_dependent_option` declares those toggles, so that the global one
+forces the others off.
 
-`vcpkg.json` is how CI gets them. Its `builtin-baseline` pins every version at
-once, and the CMake files never mention vcpkg. To use it locally, set
-`CMAKE_TOOLCHAIN_FILE` to `scripts/buildsystems/vcpkg.cmake` of a vcpkg
-checkout.
+A dependency is a branch where it is used, in `CMakeLists.txt` for the
+library and in `tests/CMakeLists.txt` for the tests. Built, it is a call to
+`vitrio_fetch_<dep>()` with what pins the release it fetches. Found, it is
+the `find_package` call, with the oldest version that works. Each `vitrio_fetch_<dep>()` has a
+module of its own in `cmake/modules/`, reads nothing but its arguments, and
+sets the options of the project it fetches in its own scope. A new
+dependency gets a toggle, a branch, a module and a manager in
+`renovate.json`.
 
-A dependency a test needs goes in the `tests` feature of the manifest. One the
-library needs goes in `dependencies`.
+Those calls hold the only pins, in forms Renovate keeps up to date. What is
+released on GitHub or GitLab is pinned by the commit of its release tag,
+`COMMIT <sha>) # <tag>`, as the actions of the workflows are. Boost is
+pinned by its tag and the SHA256 of the archive it attaches to the release,
+since the archive of a commit lacks its libraries, which are submodules.
+half, released on SourceForge alone, is pinned by its version and SHA256:
+Renovate bumps the version, and the hash is then filled in by hand, from
+the one CMake reports when it does not match.
 
 | Dependency | Needed by |
 |---|---|
 | Threads | The library, privately |
 | Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
-| half | The library, privately, for half precision numbers. It ships no CMake package, so `cmake/modules/Findhalf.cmake` finds its header |
+| half | The library, privately, for half precision numbers. It ships no CMake of its own: `vitrio_fetch_half()` defines the target of a fetched one, and `cmake/modules/Findhalf.cmake` finds an installed one. No distribution but Fedora packages it |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
-| libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, and it is the `tiff` feature of the manifest |
+| libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
+| zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
-| Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and not in the manifest: pip provides nanobind |
+| Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and never fetched: pip provides nanobind |
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them |
 | pytest | The tests of the Python package |
@@ -296,18 +310,23 @@ with CMake 3.18. The jobs that are not under a sanitizer build the Python
 package too and run its suite, one of them with the oldest Python the
 package supports.
 
+Those jobs fetch the dependencies, except the one with CMake 3.18. That one
+finds them installed from the packages of Ubuntu, as a distribution builds
+vitrio, and fetches only half, which Ubuntu does not package.
+
 One more job builds the last release beside the tree and has libabigail
 say what changed in the ABI between the two. A change does not fail it:
 before 1.0 a release may break the ABI, and the report tells which kind of
-release the next one has to be.
+release the next one has to be. Both are built against the packages of
+Ubuntu, and the release finds the half this tree fetched.
 
 `.github/workflows/documentation.yml` builds the documentation of the API
 and publishes it to GitHub Pages when a version is tagged.
 
 `.github/workflows/release.yml` builds the source distribution and, from it,
-the wheels of each platform, and tests each wheel. A tag `v*` publishes
+the wheels of each platform, and tests each wheel. How cibuildwheel builds
+them is stated there, on its step. A tag `v*` publishes
 them to PyPI, which trusts the workflow, so no token is kept. It runs too
 when what decides how they are built changes, and by hand.
 
-All of them use public actions and the ones under `.github/actions/`, and
-none of the organisation's.
+All of them use public actions, and none of the organisation's.

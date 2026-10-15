@@ -16,6 +16,8 @@ license = "LGPL-2.1-or-later"
 license-files = ["LICENSE"]
 authors = [
     { name = "Oier Lauzirika Zarrabeitia", email = "oierlauzi@bizkaia.eu" },
+    { name = "Martin Salinas Antón", email = "ssalinasmartin@gmail.com" },
+    { name = "Mikel Iceta Tena", email = "m.icetatena@gmail.com" }
 ]
 requires-python = ">=3.10"
 dependencies = []
@@ -103,64 +105,17 @@ sdist.exclude = [
     "renovate.json",
 ]
 
-# The last two are read by the toolchain of vcpkg, when that is what
-# provides the dependencies: a wheel has no use for what the tests need.
+# The dependencies are fetched and built with the package, as in any build
+# that does not turn VITRIO_BUILD_DEPENDENCIES off, so a compiler is all it
+# takes. They are static, and end up inside the library of vitrio.
 [tool.scikit-build.cmake.define]
 VITRIO_BUILD_PYTHON = "ON"
 VITRIO_PYTHON_STABLE_ABI = "ON"
 VITRIO_BUILD_TESTING = "OFF"
 BUILD_TESTING = "OFF"
-VCPKG_MANIFEST_NO_DEFAULT_FEATURES = "ON"
-VCPKG_MANIFEST_FEATURES = "tiff"
 
 [[tool.dynamic-metadata]]
 provider = "scikit_build_core.metadata.regex"
 field = "version"
 input = "VERSION"
 regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
-
-# The wheels are built with the dependencies vcpkg provides, from the same
-# manifest the other workflows use. Whoever runs cibuildwheel has a vcpkg
-# checkout at the baseline of the manifest and points CMAKE_TOOLCHAIN_FILE
-# at its toolchain, as .github/actions/setup-vcpkg does. On Linux and macOS
-# vcpkg builds static libraries, which end up inside the library of vitrio,
-# so a wheel needs nothing that is not in it.
-[tool.cibuildwheel]
-build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
-skip = ["*-musllinux_*"]
-archs = ["auto64"]
-test-groups = ["test"]
-test-command = "pytest {project}/tests/python"
-
-# A wheel for Linux is built in a container, which sees the files of the
-# machine under /host. vcpkg is given the tools it unpacks its downloads
-# with, and git is told that a checkout owned by someone else is fine.
-[tool.cibuildwheel.linux]
-before-all = [
-    "dnf install -y zip unzip",
-    "git config --global --add safe.directory '*'",
-]
-environment-pass = ["VCPKG_ROOT", "VCPKG_DEFAULT_BINARY_CACHE"]
-
-[tool.cibuildwheel.linux.environment]
-CMAKE_TOOLCHAIN_FILE = "/host$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-VCPKG_ROOT = "/host$VCPKG_ROOT"
-VCPKG_DEFAULT_BINARY_CACHE = "/host$VCPKG_DEFAULT_BINARY_CACHE"
-
-# vcpkg builds in an environment of its own, and has to be told to keep
-# the oldest macOS the wheel is for.
-[tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "11.0"
-VCPKG_KEEP_ENV_VARS = "MACOSX_DEPLOYMENT_TARGET"
-
-# On Windows vcpkg builds dynamic libraries unless it is asked for this
-# triplet. delvewheel adds the runtime of the compiler, which Windows does
-# not have until something installs it. It is told to leave the library of
-# vitrio where it is in the wheel, and it still follows what that needs.
-[tool.cibuildwheel.windows]
-before-build = "pip install --group repair-windows"
-repair-wheel-command = """\
-    delvewheel repair --ignore-existing -w {dest_dir} {wheel}"""
-
-[tool.cibuildwheel.windows.environment]
-CMAKE_ARGS = "-DVCPKG_TARGET_TRIPLET=x64-windows-static-md"

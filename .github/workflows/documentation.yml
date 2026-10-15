@@ -40,16 +40,11 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: ubuntu-latest-g++
-
       - name: Install Doxygen, and Graphviz for its diagrams
         run: sudo apt-get update && sudo apt-get install --yes doxygen graphviz
 
       # Nothing is compiled, but the project is configured as a whole, and
-      # that looks for what the library is built with.
+      # that fetches what the library is built with.
       - name: Configure
         run: >-
           cmake --preset debug

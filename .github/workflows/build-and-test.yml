@@ -59,11 +59,6 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: ${{ matrix.os }}-${{ matrix.cxx }}
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -108,11 +103,6 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: ubuntu-latest-clang++
-
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
 
@@ -126,6 +116,11 @@ jobs:
   # release beside this tree and comparing the two libraries. A change does
   # not fail it: before 1.0 a release may break the ABI, and this tells
   # which kind of release the next one has to be.
+  #
+  # Both are built against the packages of the distribution, which a release
+  # that predates the VITRIO_BUILD_* toggles can only find. No distribution
+  # package carries half, so this tree, built first, fetches it and the
+  # release finds that copy.
   abi:
     name: ABI since the last release
     runs-on: ubuntu-latest
@@ -137,13 +132,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: ubuntu-latest-g++
-
-      - name: Install libabigail
-        run: sudo apt-get update && sudo apt-get install --yes abigail-tools
+      - name: Install libabigail and the dependencies the distribution carries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes abigail-tools \
+            libboost-filesystem-dev libboost-dev libspdlog-dev \
+            libtiff-dev zlib1g-dev
 
       - name: Check out the last release beside this tree
         run: |
@@ -155,7 +149,10 @@ jobs:
         run: |
           for tree in . "$RUNNER_TEMP/release"; do
             cmake -S "$tree" --preset debug \
-              -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF
+              -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF \
+              -DVITRIO_BUILD_BOOST=OFF -DVITRIO_BUILD_SPDLOG=OFF \
+              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF \
+              -Dhalf_INCLUDE_DIR="$GITHUB_WORKSPACE/build/debug/_deps/half-src/include"
             cmake --build "$tree/build/debug" --parallel 4
           done
 
@@ -189,8 +186,11 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $((status & 3))
 
-  # The presets need CMake 3.21, so this is the one job that does without
-  # them, and the one that holds cmake_minimum_required to its word.
+  # The presets need CMake 3.24, so this is the one job that does without
+  # them, and the one that holds cmake_minimum_required to its word. It is
+  # also the one that finds the dependencies installed, as a distribution
+  # builds vitrio. No distribution package carries half, so half alone is
+  # fetched, which CMake 3.18 does as well.
   minimum-cmake:
     name: CMake 3.18
     runs-on: ubuntu-latest
@@ -200,10 +200,12 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up vcpkg
-        uses: ./.github/actions/setup-vcpkg
-        with:
-          key: ubuntu-latest-g++
+      - name: Install the dependencies the distribution carries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libboost-filesystem-dev libboost-dev libspdlog-dev \
+            libtiff-dev zlib1g-dev catch2 libtrompeloeil-cpp-dev
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -226,9 +228,14 @@ jobs:
         run: >-
           "$RUNNER_TEMP/cmake/bin/cmake" -S . -B build
           -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_TOOLCHAIN_FILE="$CMAKE_TOOLCHAIN_FILE"
           -DVITRIO_CHECK_HEADERS=ON
           -DVITRIO_BUILD_PYTHON=ON
+          -DVITRIO_BUILD_BOOST=OFF
+          -DVITRIO_BUILD_SPDLOG=OFF
+          -DVITRIO_BUILD_ZLIB=OFF
+          -DVITRIO_BUILD_TIFF=OFF
+          -DVITRIO_BUILD_CATCH2=OFF
+          -DVITRIO_BUILD_TROMPELOEIL=OFF
 
       - name: Build
         run: >-
