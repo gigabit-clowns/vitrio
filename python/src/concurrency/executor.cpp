@@ -11,7 +11,13 @@ namespace nb = nanobind;
 
 void bind_executor(nb::module_ &m)
 {
-	nb::class_<executor>(m, "Executor");
+	nb::class_<executor>(
+		m, "Executor",
+		"Where the work of a loader or a saver runs.\n"
+		"\n"
+		"Its subclasses are `SynchronousExecutor`, which runs it in the "
+		"calling thread, and `ThreadPoolExecutor`."
+	);
 }
 
 } // namespace vitrio

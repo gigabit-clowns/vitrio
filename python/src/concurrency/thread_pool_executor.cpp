@@ -38,11 +38,25 @@ std::shared_ptr<thread_pool_executor> make_pool(std::size_t worker_count)
 
 void bind_thread_pool_executor(nb::module_ &m)
 {
-	nb::class_<thread_pool_executor, executor>(m, "ThreadPoolExecutor")
-		.def(nb::new_(&make_pool), nb::arg("worker_count"))
+	nb::class_<thread_pool_executor, executor>(
+		m, "ThreadPoolExecutor",
+		"Runs the work on a fixed number of threads.\n"
+		"\n"
+		"Destroying it waits for its workers, which finish what they have "
+		"been given first. So keep it alive for as long as work is submitted "
+		"to it, and for the completions of that work."
+	)
+		.def(
+			nb::new_(&make_pool), nb::arg("worker_count"),
+			"Start the threads.\n"
+			"\n"
+			"Args:\n"
+			"    worker_count: How many threads to run."
+		)
 		.def_prop_ro(
 			"worker_count",
-			&thread_pool_executor::get_worker_count
+			&thread_pool_executor::get_worker_count,
+			"How many threads run the work."
 		);
 }
 

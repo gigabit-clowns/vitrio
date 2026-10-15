@@ -18,13 +18,22 @@ namespace nb = nanobind;
 
 void bind_executor_image_saver(nb::module_ &m)
 {
-	nb::class_<executor_image_saver, image_saver>(m, "ExecutorImageSaver")
+	nb::class_<executor_image_saver, image_saver>(
+		m, "ExecutorImageSaver",
+		"A saver that runs its writes on an executor."
+	)
 		.def(
 			nb::init<
 				std::shared_ptr<image_writer_provider>,
 				std::shared_ptr<executor>
 			>(),
-			nb::arg("writers"), nb::arg("executor")
+			nb::arg("writers"), nb::arg("executor"),
+			"Make a saver.\n"
+			"\n"
+			"Args:\n"
+			"    writers: The `ImageWriterProvider` where a key becomes a "
+			"writer.\n"
+			"    executor: The `Executor` the writes run on."
 		);
 }
 

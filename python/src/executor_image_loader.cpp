@@ -18,13 +18,21 @@ namespace nb = nanobind;
 
 void bind_executor_image_loader(nb::module_ &m)
 {
-	nb::class_<executor_image_loader, image_loader>(m, "ExecutorImageLoader")
+	nb::class_<executor_image_loader, image_loader>(
+		m, "ExecutorImageLoader",
+		"A loader that runs its reads on an executor."
+	)
 		.def(
 			nb::init<
 				std::shared_ptr<image_reader_provider>,
 				std::shared_ptr<executor>
 			>(),
-			nb::arg("readers"), nb::arg("executor")
+			nb::arg("readers"), nb::arg("executor"),
+			"Make a loader.\n"
+			"\n"
+			"Args:\n"
+			"    readers: The `ImageReaderProvider` that opens the files.\n"
+			"    executor: The `Executor` the reads run on."
 		);
 }
 

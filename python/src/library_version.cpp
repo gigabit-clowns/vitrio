@@ -32,7 +32,14 @@ py_get_library_version()
 
 void bind_library_version(nb::module_ &m)
 {
-	m.def("get_library_version", &py_get_library_version);
+	m.def(
+		"get_library_version", &py_get_library_version,
+		"Get the version of the library.\n"
+		"\n"
+		"Returns:\n"
+		"    tuple: Its major, minor and patch numbers. `vitrio.__version__` "
+		"is these, joined."
+	);
 }
 
 } // namespace vitrio

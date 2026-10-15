@@ -83,17 +83,46 @@ void set_state(image_location &self, const state &value)
 
 void bind_image_location(nb::module_ &m)
 {
-	nb::class_<image_location> location(m, "ImageLocation");
-
+	nb::class_<image_location> location(
+		m, "ImageLocation",
+		"Names an image: a file and, for a stack, the index of one in it.\n"
+		"\n"
+		"A location without an index names the whole file. It is what the "
+		"reads and writes of batches are given a list of, so that the images "
+		"of a batch may come from any number of files."
+	);
 	location
-		.def(nb::init<>())
+		.def(nb::init<>(), "Make a location that names no file.")
 		.def(
 			"__init__", &construct,
 			nb::arg("key"),
 			nb::arg("index_in_stack") =
-				std::size_t(image_location::no_stack_index)
+				std::size_t(image_location::no_stack_index),
+			"Name an image.\n"
+			"\n"
+			"Args:\n"
+			"    key: The file, as the path that opens it.\n"
+			"    index_in_stack: The image of the stack, counting from zero. "
+			"Defaults to naming the whole file."
 		)
-		.def_static("from_string", &from_string, nb::arg("text"))
+		.def_static(
+			"from_string", &from_string, nb::arg("text"),
+			"Parse the spelling a STAR file of RELION uses.\n"
+			"\n"
+			"It is written `\"index@key\"`, the index counting from one, or "
+			"`\"key\"` for a whole file. "
+			"`ImageLocation.from_string(\"3@stack.mrcs\")` is the third image "
+			"of the stack, whose `index_in_stack` is 2.\n"
+			"\n"
+			"Args:\n"
+			"    text: The location, as written.\n"
+			"\n"
+			"Returns:\n"
+			"    ImageLocation: The location it names.\n"
+			"\n"
+			"Raises:\n"
+			"    ValueError: If `text` is not a location."
+		)
 		.def(nb::self == nb::self)
 		.def(nb::self != nb::self)
 		.def(nb::self < nb::self)
@@ -105,14 +134,20 @@ void bind_image_location(nb::module_ &m)
 		.def("__repr__", &to_repr)
 		.def("__getstate__", &get_state)
 		.def("__setstate__", &set_state)
-		.def_prop_ro("key", &image_location::get_key)
 		.def_prop_ro(
-			"index_in_stack",
-			&image_location::get_index_in_stack
+			"key", &image_location::get_key,
+			"The file, as the path that opens it."
 		)
 		.def_prop_ro(
-			"has_index_in_stack",
-			&image_location::has_index_in_stack
+			"index_in_stack", &image_location::get_index_in_stack,
+			"The image of the stack, counting from zero.\n"
+			"\n"
+			"It is `ImageLocation.no_stack_index` for a location that names "
+			"the whole file."
+		)
+		.def_prop_ro(
+			"has_index_in_stack", &image_location::has_index_in_stack,
+			"Whether the location names one image of a stack."
 		);
 
 	location.attr("no_stack_index") =

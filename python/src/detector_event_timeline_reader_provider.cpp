@@ -40,9 +40,19 @@ void bind_detector_event_timeline_reader_provider(nb::module_ &m)
 {
 	nb::class_<detector_event_timeline_reader_provider>(
 		m,
-		"DetectorEventTimelineReaderProvider"
+		"DetectorEventTimelineReaderProvider",
+		"Turns a key into an open reader of the events of an acquisition."
 	)
-		.def("acquire", &acquire, nb::arg("key"));
+		.def(
+			"acquire", &acquire, nb::arg("key"),
+			"Get the reader of a key.\n"
+			"\n"
+			"Args:\n"
+			"    key: The key, a path for the provider of files.\n"
+			"\n"
+			"Returns:\n"
+			"    DetectorEventTimelineReader: The reader."
+		);
 }
 
 } // namespace vitrio

@@ -11,7 +11,13 @@ namespace nb = nanobind;
 
 void bind_image_writer_provider(nb::module_ &m)
 {
-	nb::class_<image_writer_provider>(m, "ImageWriterProvider");
+	nb::class_<image_writer_provider>(
+		m, "ImageWriterProvider",
+		"Turns a key into an open writer of images.\n"
+		"\n"
+		"`FileImageWriterProvider`, whose keys are paths, is the one that "
+		"comes with vitrio."
+	);
 }
 
 } // namespace vitrio

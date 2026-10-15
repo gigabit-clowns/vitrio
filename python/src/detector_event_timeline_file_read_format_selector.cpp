@@ -15,11 +15,17 @@ void bind_detector_event_timeline_file_read_format_selector(nb::module_ &m)
 {
 	nb::class_<detector_event_timeline_file_read_format_selector>(
 		m,
-		"DetectorEventTimelineFileReadFormatSelector"
+		"DetectorEventTimelineFileReadFormatSelector",
+		"Holds the formats the events of a detector may be read from."
 	)
 		.def_static(
 			"get_shared",
-			&detector_event_timeline_file_read_format_selector::get_shared
+			&detector_event_timeline_file_read_format_selector::get_shared,
+			"Get the selector that holds the formats that come with vitrio.\n"
+			"\n"
+			"Returns:\n"
+			"    DetectorEventTimelineFileReadFormatSelector: Holds EER, when "
+			"built with TIFF."
 		);
 }
 
