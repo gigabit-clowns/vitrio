@@ -79,8 +79,8 @@ jobs:
         run: |
           mkdir site
           cp docs/index.html site/index.html
-          cp -r build/debug/docs/html site/cpp
-          cp -r build/debug/docs/python-html site/python
+          cp -r build/debug/docs/doxygen/html site/cpp
+          cp -r build/debug/docs/sphinx/html site/python
           touch site/.nojekyll
 
       - name: Set up Pages

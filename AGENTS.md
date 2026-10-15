@@ -42,7 +42,9 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `docs/` | Builds the documentation of the API: with Doxygen, that of the C++ headers with the README as its first page, and with Sphinx, in `docs/python/`, that of the Python package. `docs/index.html` is the page of the site that links both |
+| `docs/` | Builds the documentation of the API. `index.html` is the page of the site that links both references |
+| `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |
+| `docs/sphinx/` | The reference of the Python package, with Sphinx, from its docstrings. It holds the `.rst` pages and `conf.py` |
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |
@@ -108,8 +110,8 @@ each.
 target of its own and a test that runs it. They are off by default.
 
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
-Doxygen and writes the documentation of the C++ API under `docs/html` of the
-build tree. A warning of Doxygen fails it, so a comment that names a
+Doxygen and writes the documentation of the C++ API under
+`docs/doxygen/html` of the build tree. A warning of Doxygen fails it, so a comment that names a
 parameter that is not there does not go unnoticed. The README is its first
 page, so a link in it to another file of the repository is a full URL: a
 relative one is taken for a reference to a page of the documentation, and
@@ -117,11 +119,11 @@ fails it.
 
 With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
 imports the package from the build tree and has Sphinx write its reference
-under `docs/python-html`. It needs Sphinx and Furo (`pip install --group
+under `docs/sphinx/html`. It needs Sphinx and Furo (`pip install --group
 docs`), and a warning of Sphinx fails it too. The reference is built from
 docstrings and holds none of its own text beyond the introduction and the
 list of what each page documents, so a new name is added to a page of
-`docs/python/`. Both references are published together, under `/cpp/` and
+`docs/sphinx/`. Both references are published together, under `/cpp/` and
 `/python/` of the site, which has `docs/index.html` at its root.
 
 The sanitizer presets leave the Python package out. Its stubs are written
