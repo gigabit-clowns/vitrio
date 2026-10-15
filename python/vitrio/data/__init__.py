@@ -2,6 +2,8 @@
 
 """Feeding images and their metadata to a model, a batch at a time.
 
+For instance::
+
 	import vitrio as vio
 
 	particles = starfile.read("particles.star", always_dict=True)["particles"]
@@ -54,3 +56,17 @@ from ._tables import (
 	make_locations as make_locations,
 	parse_locations as parse_locations,
 )
+
+__all__ = [
+	'ArraySource',
+	'BatchSampler',
+	'DataLoader',
+	'Dataset',
+	'ImageSource',
+	'PatchSource',
+	'PendingBatch',
+	'Source',
+	'as_columns',
+	'make_locations',
+	'parse_locations',
+]

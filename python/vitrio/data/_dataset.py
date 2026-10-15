@@ -97,7 +97,7 @@ class Dataset:
 	an array of integers reads a batch of rows into an array for each field.
 	Each batch also holds the index of each of its rows, under `index`. So
 	it works as it is with the DataLoader of PyTorch, which reads a batch at
-	a time when its sampler draws batches:
+	a time when its sampler draws batches::
 
 		torch.utils.data.DataLoader(
 			dataset,
