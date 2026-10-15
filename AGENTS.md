@@ -42,7 +42,8 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `docs/` | Builds the documentation of the API. `index.html` is the page of the site that links both references |
+| `docs/` | Builds the documentation of the API, a directory for each of its parts |
+| `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
 | `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |
 | `docs/sphinx/` | The reference of the Python package, with Sphinx, from its docstrings. It holds the `.rst` pages and `conf.py` |
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
@@ -124,7 +125,7 @@ docs`), and a warning of Sphinx fails it too. The reference is built from
 docstrings and holds none of its own text beyond the introduction and the
 list of what each page documents, so a new name is added to a page of
 `docs/sphinx/`. Both references are published together, under `/cpp/` and
-`/python/` of the site, which has `docs/index.html` at its root.
+`/python/` of the site, which has the contents of `docs/site/` at its root.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented

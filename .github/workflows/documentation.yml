@@ -78,7 +78,7 @@ jobs:
       - name: Put the two references together
         run: |
           mkdir site
-          cp docs/index.html site/index.html
+          cp -r docs/site/. site/
           cp -r build/debug/docs/doxygen/html site/cpp
           cp -r build/debug/docs/sphinx/html site/python
           touch site/.nojekyll
