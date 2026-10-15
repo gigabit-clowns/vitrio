@@ -5,7 +5,7 @@
 # tree, so the extension and its stubs come first. A warning of Sphinx fails
 # it, as one of Doxygen fails the other.
 execute_process(
-	COMMAND ${Python_EXECUTABLE} -c "import sphinx, furo"
+	COMMAND ${Python_EXECUTABLE} -c "import sphinx, furo, numpy"
 	RESULT_VARIABLE VITRIO_SPHINX_RESULT
 	OUTPUT_QUIET
 	ERROR_QUIET
@@ -13,7 +13,7 @@ execute_process(
 if(VITRIO_SPHINX_RESULT)
 	message(
 		FATAL_ERROR
-		"VITRIO_BUILD_DOCS with VITRIO_BUILD_PYTHON needs Sphinx and Furo "
+		"VITRIO_BUILD_DOCS with VITRIO_BUILD_PYTHON needs Sphinx, Furo and numpy "
 		"in the interpreter ${Python_EXECUTABLE}: pip install --group docs"
 	)
 endif()

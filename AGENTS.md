@@ -119,7 +119,7 @@ fails it.
 
 With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
 imports the package from the build tree and has Sphinx write its reference
-under `docs/sphinx/html`. It needs Sphinx and Furo (`pip install --group
+under `docs/sphinx/html`. It needs Sphinx, Furo and numpy (`pip install --group
 docs`), and a warning of Sphinx fails it too. The reference is built from
 docstrings and holds none of its own text beyond the introduction and the
 list of what each page documents, so a new name is added to a page of
@@ -177,7 +177,7 @@ the one CMake reports when it does not match.
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them |
 | pytest | The tests of the Python package |
-| Sphinx, Furo | The reference of the Python package. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
+| Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |
 
 ## Conventions
