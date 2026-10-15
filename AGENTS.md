@@ -133,10 +133,12 @@ library and in `tests/CMakeLists.txt` for the tests. Built, it is
 call, with the oldest version that works. Each `vitrio_fetch_<dep>()` has a
 module of its own in `cmake/modules/`, reads nothing but its arguments, and
 sets the options of the project it fetches in its own scope. A new
-dependency gets a toggle, a branch and a module.
+dependency gets a toggle, a branch, a module and a manager in
+`renovate.json`.
 
-The versions and hashes at those calls are the only pins. A new version
-takes the hash of its archive, which CMake reports when it does not match.
+The versions and hashes at those calls are the only pins. Renovate bumps the
+versions, and the hash of the new archive is then filled in by hand: CMake
+reports the one it found when it does not match.
 
 | Dependency | Needed by |
 |---|---|

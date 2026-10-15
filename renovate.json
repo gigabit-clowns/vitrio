@@ -10,11 +10,85 @@
   ],
   "minimumReleaseAge": "14 days",
   "internalChecksFilter": "strict",
+  "ignorePresets": [":ignoreModulesAndTests"],
   "packageRules": [
     {
       "description": "Security advisories bypass the 14-day delay",
       "matchUpdateTypes": ["security"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "matchDatasources": ["custom.half"],
+      "extractVersion": "^/projects/half/files/half/(?<version>[0-9.]+)/$"
+    }
+  ],
+  "customDatasources": {
+    "half": {
+      "defaultRegistryUrlTemplate": "https://sourceforge.net/projects/half/files/half/",
+      "format": "html"
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_boost\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "boost",
+      "packageNameTemplate": "boostorg/boost",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^boost-(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_half\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "half",
+      "datasourceTemplate": "custom.half"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_spdlog\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "spdlog",
+      "packageNameTemplate": "gabime/spdlog",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_zlib\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "zlib",
+      "packageNameTemplate": "madler/zlib",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_tiff\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "libtiff",
+      "packageNameTemplate": "libtiff/libtiff",
+      "datasourceTemplate": "gitlab-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_catch2\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "catch2",
+      "packageNameTemplate": "catchorg/Catch2",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_trompeloeil\\(\\s*VERSION (?<currentValue>\\S+)"],
+      "depNameTemplate": "trompeloeil",
+      "packageNameTemplate": "rollbear/trompeloeil",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$"
     }
   ]
 }
