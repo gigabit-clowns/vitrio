@@ -14,9 +14,8 @@ cmake_dependent_option(
 if(VITRIO_BUILD_CATCH2)
 	include(vitrio_fetch_catch2)
 	vitrio_fetch_catch2(
-		VERSION 3.16.1
-		SHA256 d16bd1b8b2364918bd472cb216394acb93bde6784890df0d91bccfb3f28d777d
-	)
+		COMMIT 08092139210881f01a34e60c5f2fd6afa0ea4024
+	) # v3.16.1
 else()
 	find_package(Catch2 3 REQUIRED CONFIG)
 endif()
@@ -24,9 +23,8 @@ endif()
 if(VITRIO_BUILD_TROMPELOEIL)
 	include(vitrio_fetch_trompeloeil)
 	vitrio_fetch_trompeloeil(
-		VERSION 49
-		SHA256 2523571fb7920b2813cbc23b46e60294aba8ead7eba434bfec69c24408615593
-	)
+		COMMIT eaeb89c1ce9d354b0ba7eb921fd5712cdbd78adf
+	) # v49
 else()
 	find_package(trompeloeil REQUIRED CONFIG)
 endif()

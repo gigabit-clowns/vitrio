@@ -2,20 +2,19 @@
 
 include(FetchContent)
 
-# Fetches trompeloeil at VERSION, checks it against SHA256 and adds it to the
+# Fetches trompeloeil at COMMIT, that of a release, and adds it to the
 # project as trompeloeil::trompeloeil.
 #
-#   vitrio_fetch_trompeloeil(VERSION <version> SHA256 <hash>)
+#   vitrio_fetch_trompeloeil(COMMIT <sha>)
 #
 # Added below another project, trompeloeil installs nothing of its own.
 function(vitrio_fetch_trompeloeil)
-	cmake_parse_arguments(PARSE_ARGV 0 arg "" "VERSION;SHA256" "")
+	cmake_parse_arguments(PARSE_ARGV 0 arg "" "COMMIT" "")
 
-	set(tags "https://github.com/rollbear/trompeloeil/archive/refs/tags")
+	set(archives "https://github.com/rollbear/trompeloeil/archive")
 	FetchContent_Declare(
 		trompeloeil
-		URL "${tags}/v${arg_VERSION}.tar.gz"
-		URL_HASH SHA256=${arg_SHA256}
+		URL "${archives}/${arg_COMMIT}.tar.gz"
 	)
 	FetchContent_MakeAvailable(trompeloeil)
 endfunction()

@@ -128,17 +128,22 @@ builds vitrio. Turning off `VITRIO_BUILD_<DEP>` does that for one of them.
 forces the others off.
 
 A dependency is a branch where it is used, in `CMakeLists.txt` for the
-library and in `tests/CMakeLists.txt` for the tests. Built, it is
-`vitrio_fetch_<dep>(VERSION … SHA256 …)`. Found, it is the `find_package`
-call, with the oldest version that works. Each `vitrio_fetch_<dep>()` has a
+library and in `tests/CMakeLists.txt` for the tests. Built, it is a call to
+`vitrio_fetch_<dep>()` with what pins the release it fetches. Found, it is
+the `find_package` call, with the oldest version that works. Each `vitrio_fetch_<dep>()` has a
 module of its own in `cmake/modules/`, reads nothing but its arguments, and
 sets the options of the project it fetches in its own scope. A new
 dependency gets a toggle, a branch, a module and a manager in
 `renovate.json`.
 
-The versions and hashes at those calls are the only pins. Renovate bumps the
-versions, and the hash of the new archive is then filled in by hand: CMake
-reports the one it found when it does not match.
+Those calls hold the only pins, in forms Renovate keeps up to date. What is
+released on GitHub or GitLab is pinned by the commit of its release tag,
+`COMMIT <sha>) # <tag>`, as the actions of the workflows are. Boost is
+pinned by its tag and the SHA256 of the archive it attaches to the release,
+since the archive of a commit lacks its libraries, which are submodules.
+half, released on SourceForge alone, is pinned by its version and SHA256:
+Renovate bumps the version, and the hash is then filled in by hand, from
+the one CMake reports when it does not match.
 
 | Dependency | Needed by |
 |---|---|

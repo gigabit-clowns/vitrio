@@ -2,23 +2,21 @@
 
 include(FetchContent)
 
-# Fetches Catch2 at VERSION, checks it against SHA256 and builds it with the
+# Fetches Catch2 at COMMIT, that of a release, and builds it with the
 # project, as Catch2::Catch2WithMain.
 #
-#   vitrio_fetch_catch2(VERSION <version> SHA256 <hash>)
+#   vitrio_fetch_catch2(COMMIT <sha>)
 #
 # Catch2 adds the directory of its Catch module, which defines
 # catch_discover_tests(), to CMAKE_MODULE_PATH, as its installed package does
 # for whoever finds it. That happens in this function's scope, so it is
 # handed on to the caller.
 function(vitrio_fetch_catch2)
-	cmake_parse_arguments(PARSE_ARGV 0 arg "" "VERSION;SHA256" "")
+	cmake_parse_arguments(PARSE_ARGV 0 arg "" "COMMIT" "")
 
-	set(tags "https://github.com/catchorg/Catch2/archive/refs/tags")
 	FetchContent_Declare(
 		Catch2
-		URL "${tags}/v${arg_VERSION}.tar.gz"
-		URL_HASH SHA256=${arg_SHA256}
+		URL "https://github.com/catchorg/Catch2/archive/${arg_COMMIT}.tar.gz"
 	)
 	FetchContent_MakeAvailable(Catch2)
 

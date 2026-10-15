@@ -112,7 +112,7 @@ find_package(Threads REQUIRED)
 if(VITRIO_BUILD_BOOST)
 	include(vitrio_fetch_boost)
 	vitrio_fetch_boost(
-		VERSION 1.92.0
+		TAG boost-1.92.0
 		SHA256 9bed76128d4e46755dbe818487788c6fceb6f72b378f4daa49b7e1e600d9088d
 	)
 else()
@@ -132,9 +132,8 @@ endif()
 if(VITRIO_BUILD_SPDLOG)
 	include(vitrio_fetch_spdlog)
 	vitrio_fetch_spdlog(
-		VERSION 1.17.0
-		SHA256 d8862955c6d74e5846b3f580b1605d2428b11d97a410d86e2fb13e857cd3a744
-	)
+		COMMIT 79524ddd08a4ec981b7fea76afd08ee05f83755d
+	) # v1.17.0
 else()
 	find_package(spdlog 1.4 REQUIRED CONFIG)
 endif()
@@ -145,9 +144,8 @@ endif()
 if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_ZLIB)
 	include(vitrio_fetch_zlib)
 	vitrio_fetch_zlib(
-		VERSION 1.3.2
-		SHA256 d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3
-	)
+		COMMIT da607da739fa6047df13e66a2af6b8bec7c2a498
+	) # v1.3.2
 elseif(VITRIO_ENABLE_TIFF)
 	find_package(ZLIB REQUIRED)
 endif()
@@ -157,9 +155,8 @@ endif()
 if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_TIFF)
 	include(vitrio_fetch_tiff)
 	vitrio_fetch_tiff(
-		VERSION 4.7.2
-		SHA256 4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88
-	)
+		COMMIT d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d
+	) # v4.7.2
 elseif(VITRIO_ENABLE_TIFF)
 	find_package(TIFF 4.5 REQUIRED)
 endif()

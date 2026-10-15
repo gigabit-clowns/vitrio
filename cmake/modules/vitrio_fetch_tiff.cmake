@@ -2,10 +2,10 @@
 
 include(FetchContent)
 
-# Fetches libtiff at VERSION, checks it against SHA256 and builds it with the
+# Fetches libtiff at COMMIT, that of a release, and builds it with the
 # project, static, as TIFF::TIFF.
 #
-#   vitrio_fetch_tiff(VERSION <version> SHA256 <hash>)
+#   vitrio_fetch_tiff(COMMIT <sha>)
 #
 # Only what reads and writes TIFF and EER files is built: its tools, tests,
 # documentation and every codec but zlib are left out, so that nothing else
@@ -15,7 +15,7 @@ include(FetchContent)
 # libtiff states the policies of CMake 3.10, before options took the value
 # of a variable of the same name, so that is asked for here.
 function(vitrio_fetch_tiff)
-	cmake_parse_arguments(PARSE_ARGV 0 arg "" "VERSION;SHA256" "")
+	cmake_parse_arguments(PARSE_ARGV 0 arg "" "COMMIT" "")
 
 	set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 	set(BUILD_SHARED_LIBS OFF)
@@ -34,10 +34,10 @@ function(vitrio_fetch_tiff)
 	set(webp OFF)
 	set(zstd OFF)
 
+	set(archives "https://gitlab.com/libtiff/libtiff/-/archive")
 	FetchContent_Declare(
 		TIFF
-		URL "https://download.osgeo.org/libtiff/tiff-${arg_VERSION}.tar.xz"
-		URL_HASH SHA256=${arg_SHA256}
+		URL "${archives}/${arg_COMMIT}/libtiff-${arg_COMMIT}.tar.gz"
 	)
 	FetchContent_MakeAvailable(TIFF)
 
