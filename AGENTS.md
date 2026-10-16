@@ -332,6 +332,13 @@ the one CMake reports when it does not match.
   release may break the ABI, so the name of the shared library carries the
   minor version (`libvitrio.so.0.1`).
 
+## Pull requests
+
+Whoever opens a pull request assigns it to themselves and gives it the label,
+among the repository's own, that matches what it changes: `bug` for a fix,
+`enhancement` for something new, `documentation` when only documentation
+changes, and so on.
+
 ## Continuous integration
 
 `.github/workflows/build-and-test.yml` builds and tests with GCC and Clang on
