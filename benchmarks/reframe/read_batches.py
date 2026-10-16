@@ -62,3 +62,17 @@ class cache(ReadBatches):
 		['single-stack', 'per-micrograph:20', 'per-micrograph:100'], type=str
 	)
 	cache = parameter([0, 16, 64, 256, 4096], type=int)
+
+@rfm.simple_test
+class dtype(ReadBatches):
+	"""
+	Reading fewer bytes: particles stored as float16 or int16 and delivered
+	as float32, which vitrio converts as it reads, against the baselines,
+	which convert after.
+	"""
+
+	dtype = parameter(['float32', 'float16', 'int16'], type=str)
+	reader = parameter(
+		['vitrio-loader', 'numpy-memmap', 'mrcfile-open'], type=str
+	)
+	cache = parameter([4096], type=int)

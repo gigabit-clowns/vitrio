@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from collections.abc import Iterable, Iterator
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -38,7 +39,21 @@ class Reader:
 	requires: ClassVar[tuple[str, ...]] = ()
 	defaults: ClassVar[dict[str, Any]] = {}
 
-	def __init__(self, dataset: Dataset, params: dict[str, Any]) -> None:
+	def __init__(
+		self,
+		dataset: Dataset,
+		params: dict[str, Any],
+		scratchdir: str | Path | None = None
+	) -> None:
+		"""
+		Args:
+			dataset: What to read.
+			params: The reader's parameters, as `defaults` names them.
+			scratchdir: Where a reader may keep copies of the dataset,
+				such as a scratch or a converted database. That is fast local
+				storage as a rule, and a reader that needs it refuses to run
+				without it.
+		"""
 		allowed = {'name', 'dtype', *self.defaults}
 		unknown = set(params) - allowed
 		if unknown:
@@ -47,6 +62,7 @@ class Reader:
 				f"It has {sorted(allowed - {'name'})}."
 			)
 		self.dataset = dataset
+		self.scratchdir = Path(scratchdir) if scratchdir is not None else None
 		self.params = {
 			'dtype': 'float32',
 			**self.defaults,
@@ -70,6 +86,42 @@ class Reader:
 	def close(self) -> None:
 		"""Release what `open` opened."""
 
+	def unavailable(self) -> str | None:
+		"""Why the reader cannot run here, or None if it can."""
+		needed = missing(type(self))
+		return f"{self.name} needs {needed}." if needed else None
+
+	def files(self) -> list[Path]:
+		"""
+		The copies of the dataset the reader keeps between runs, such as a
+		converted database, which a cold run drops from the cache as it does
+		the dataset. Only those that exist before `open` count.
+		"""
+		return []
+
+	def metrics(self) -> dict[str, Any]:
+		"""
+		What the reader measured of itself, such as the time it took to
+		convert the dataset, to add to the metrics of the run.
+		"""
+		return {}
+
+	def require_scratchdir(self) -> Path:
+		"""
+		The directory the reader keeps its copies in, made if it is
+		missing.
+
+		Raises:
+			ValueError: If the run was given none.
+		"""
+		if self.scratchdir is None:
+			raise ValueError(
+				f"{self.name} keeps a copy of the dataset, and needs a place "
+				"for it: --environment.scratchdir."
+			)
+		self.scratchdir.mkdir(parents=True, exist_ok=True)
+		return self.scratchdir
+
 	def describe(self) -> dict[str, Any]:
 		"""
 		The reader and every one of its settings, as a record states
@@ -88,18 +140,21 @@ def default_workers() -> int:
 	"""The number of threads vitrio's loader runs when given none."""
 	return os.cpu_count() or 1
 
+from .lmdb_store import LmdbStore    # noqa: E402
 from .mrcfile_open import MrcfileOpen    # noqa: E402
 from .mrcfile_per_read import MrcfilePerRead    # noqa: E402
 from .numpy_memmap import NumpyMemmap    # noqa: E402
 from .preload import Preload    # noqa: E402
+from .torch_dataloader import TorchDataloader    # noqa: E402
+from .vitrio_data import VitrioData    # noqa: E402
 from .vitrio_loader import VitrioLoader    # noqa: E402
 from .vitrio_per_item import VitrioPerItem    # noqa: E402
 
 READERS: dict[str, type[Reader]] = {
 	reader.name: reader
 	for reader in (
-		VitrioLoader, VitrioPerItem, MrcfilePerRead, MrcfileOpen,
-		NumpyMemmap, Preload,
+		VitrioLoader, VitrioPerItem, VitrioData, MrcfilePerRead, MrcfileOpen,
+		NumpyMemmap, TorchDataloader, Preload, LmdbStore,
 	)
 }
 

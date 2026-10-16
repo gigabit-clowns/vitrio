@@ -18,8 +18,8 @@ and campaigns of runs are left to ReFrame.
 
 The harness is not part of the package and is not built. CI runs none of
 the benchmarks, apart from the smoke test in
-`tests/python/test_benchmarks.py`, which checks that every reader delivers
-the same batches and that every record follows its schema.
+`tests/python/test_benchmarks.py`, which checks that every reader and every
+scratch delivers the same batches and that every record follows its schema.
 
 ## Getting started
 
@@ -30,6 +30,9 @@ cmake --preset release -DVITRIO_BUILD_PYTHON=ON
 cmake --build --preset release
 pip install --group bench
 ```
+
+PyTorch, the baseline `torch-dataloader` needs, is left out of the group for
+its size; install it to run that baseline.
 
 A run by hand. `--datadir` is where datasets are generated and read, so it
 is the storage being measured, and it has no default:
@@ -48,6 +51,8 @@ A campaign, which runs a named sweep three times over, in a random order:
 ```sh
 export PYTHONPATH=$PWD/build/release/python
 export VITRIO_BENCH_DATADIR=/nvme/vitrio-bench
+export VITRIO_BENCH_SCRATCHDIR=/nvme/vitrio-scratch
+export VITRIO_BENCH_FEATURES=fio,cgroup-memory
 reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
 	-n '^cache\b' -S results=$PWD/results.jsonl \
 	--exec-policy=serial --repeat=3 --exec-order=random -r
@@ -62,8 +67,10 @@ reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
 - **One-off questions.** `-P` turns any parameter or variable of a test
   into a sweep from the command line, such as `-P cold=fadvise` or
   `-P cache=0,64 -P workers=4`, and `-S` sets one value.
-- **Your machine.** Copy `reframe/config/workstation.py` and list what it
-  can do in `features` (below).
+- **Your machine.** `reframe/config/workstation.py` reads it from the
+  environment: `VITRIO_BENCH_FEATURES` lists what it can do (below),
+  `VITRIO_BENCH_DATADIR` and `VITRIO_BENCH_SCRATCHDIR` where datasets and
+  the copies readers make of them go.
 
 ## A run
 
@@ -75,9 +82,9 @@ left for the next. The point is given part by part, as
 | Part | What | Examples |
 |---|---|---|
 | `dataset` | What is read | `count`, `box`, `dtype`, `layout`, `seed` |
-| `reader` | Who reads it, with which settings | `name`, `workers`, `cache`, `in_flight`, `dtype` |
-| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `verify` |
-| `environment` | Where, and in what state | `cold`, `cpus` |
+| `reader` | Who reads it, with which settings | `name`, and the reader's own (below) |
+| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `step_s`, `verify` |
+| `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
 text otherwise. Whatever is not given takes its default, and the record
@@ -95,18 +102,28 @@ vitrio_bench metric images_per_s 127210.6
 ### Features used on request
 
 What a run can do beyond reading is done only when it is asked for, the run
-fails if the machine cannot do it, and the record says what was done.
+fails if the machine cannot do it, and the record says what was done. The
+ReFrame feature of each is what a machine's configuration lists to say it
+can; a variant that asks for one its machine lacks is skipped.
 
-| Capability | Asked with | Needs |
+| Capability | Asked with | ReFrame feature |
 |---|---|---|
-| Drop the dataset's pages from the cache, with `POSIX_FADV_DONTNEED` | `--environment.cold=fadvise` | Linux |
-| Drop every clean page of the machine | `--environment.cold=drop` | root, and the ReFrame feature `root` |
-| Run on some CPUs only | `--environment.cpus=0-3` | Linux |
+| Drop the dataset's pages, and those of a reader's copies, from the cache, with `POSIX_FADV_DONTNEED` (Linux) | `--environment.cold=fadvise` | |
+| Drop every clean page of the machine (root) | `--environment.cold=drop` | `root` |
+| Run on some CPUs only (Linux) | `--environment.cpus=0-3` | |
+| Limit the memory of the run, page cache included, with a scope of systemd | `--environment.memory_max=8G` | `cgroup-memory` |
+| Measure the storage's ceiling with fio | the procedure `ceiling` | `fio` |
 
-After the cache is dropped, how much of the dataset is still cached is
-measured with `mincore` and recorded as `residency`. On NFS or a parallel
-file system that empties the client's cache only. The server keeps its own,
-which only someone with access to it can empty.
+- **Cold runs.** After the cache is dropped, how much of the files is still
+  cached is measured with `mincore` and recorded as `residency`. On NFS or
+  a parallel file system that empties the client's cache only. The server
+  keeps its own, which only someone with access to it can empty.
+- **Memory limits.** A limited run is the same command run again in the
+  scope, which records the limit it found and the most memory the scope
+  held (`cgroup_memory_peak_bytes`). A run the limit kills cannot record
+  itself, so the command that started it records it as failed. The scope
+  starts empty, and pages another process cached are not counted against
+  it, so a limited run should be a cold one.
 
 ## Datasets
 
@@ -144,16 +161,51 @@ compute to hide behind, it measures the reader alone.
 | `seed` | 0 | What decides the order of each epoch |
 | `verify` | `false` | Hash every batch, to check readers against each other. It costs CPU time, so measurements leave it off |
 
+### `epochs`
+
+Several epochs, with a step of known length after each batch standing in
+for a model. The step sleeps, which releases the GIL as a step on a GPU
+does, so no GPU is needed to tell how much of an epoch was spent waiting
+for data. The first epoch is reported apart, since that is where a scratch
+fills up and a converted copy is made.
+
+Its workload is that of `read_batches`, with 3 epochs by default, and
+`step_s`, the seconds of the step (0 by default). Besides the metrics of
+`read_batches` it reports `first_epoch_s`, `later_epoch_s`,
+`stall_fraction` (the time spent waiting for data, of all the time) and its
+first and later parts, and the bytes read from storage in each epoch.
+
+### `ceiling`
+
+What the storage behind a dataset can deliver, measured with fio on its
+largest file, with direct I/O: sequential reads of 1 MiB at queue depth 16,
+and random reads of a particle's size at queue depths 1, 4, 16 and 64. Its
+"reader" is fio: `runtime_s` (10), `ioengine` (`libaio`), `direct`,
+`depths`, `sequential_block`, `sequential_depth`. It has no workload.
+
 ## Readers
 
 | Reader | Stands for | Parameters |
 |---|---|---|
-| `vitrio-loader` | `vio.loader` and `read_batch_async`: each batch in one call, batches read ahead | `workers`, `cache`, `in_flight` |
-| `vitrio-per-item` | The ablation of `vitrio-loader`: the same loader, one particle per call, each waited for. The gap between the two is what batching and reading ahead are worth | `workers`, `cache` |
+| `vitrio-loader` | `vio.loader` and `read_batch_async`: each batch in one call, batches read ahead | the loader's, and `in_flight` |
+| `vitrio-per-item` | The ablation of `vitrio-loader`: the same loader, one particle per call, each waited for. The gap between the two is what batching and reading ahead are worth | the loader's |
+| `vitrio-data` | `vio.data.DataLoader`, as users write it. Left at its defaults it reads through the loader `vio.data` shares | the loader's, and `prefetch` |
 | `mrcfile-per-read` | `mrcfile.mmap` opened for every particle, as cryoSTAR and DynaMight read | |
 | `mrcfile-open` | Every stack kept open with mrcfile, one particle at a time | |
 | `numpy-memmap` | Every stack mapped with `np.memmap`, a batch gathered from each stack with one fancy index | |
+| `torch-dataloader` | PyTorch's DataLoader over a dataset of one particle per item, read with mrcfile | `num_workers`, `persistent_workers`, `prefetch_factor` |
 | `preload` | Everything read into memory first: the upper bound, and where it stops fitting | |
+| `lmdb` | **Convert first**: every particle written once into an LMDB database in the scratch directory, then read from it, as cryodata does for Cryo-IEF, without its resizing. Conversion time and size are reported | `reuse`: read an earlier run's conversion, as a rerun does; `readahead`: let the kernel read ahead, which LSUN's loader turns off |
+
+The loader's parameters, shared by vitrio's readers:
+
+| Parameter | Default | |
+|---|---|---|
+| `workers` | the machine's CPUs | Threads of the pool |
+| `cache` | 0 (`vitrio-data`: the shared loader's 64) | Open readers kept |
+| `scratch` | `none` | Copies of what has been read: `host` memory, a `mapped` file, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
+| `run_length` | 64 | Particles of a file a scratch takes in together |
+| `budget` | what the dataset takes, and a margin | Bytes a directory scratch may take |
 
 Every reader takes `dtype`, the data type it delivers, `float32` by
 default.
@@ -163,15 +215,26 @@ default.
 Each answers one question, most of them about what the code predicts and
 the defaults do not account for.
 
-| Sweep | Question |
-|---|---|
-| `readers` | Where vitrio stands against the baselines, on one stack and on one stack per micrograph |
-| `workers` | **H1**: a batch is read with one task per file, so a batch from one stack runs on one thread whatever the pool's size, unless batches are read ahead. **H4**: the pool's size that suits the storage need not be the number of cores the loader takes by default, which is the machine's and not the process's |
-| `cache` | **H3**: `vio.loader` keeps no open readers by default and opens a file for every batch that reads from it, while the loader `vio.data` shares keeps 64. What is each worth for each layout? |
+| Sweep | Procedure | Question |
+|---|---|---|
+| `readers` | `read_batches` | Where vitrio stands against the baselines, on one stack and on one stack per micrograph |
+| `workers` | `read_batches` | **H1**: a batch is read with one task per file, so a batch from one stack runs on one thread whatever the pool's size, unless batches are read ahead. **H4**: the pool's size that suits the storage need not be the number of cores the loader takes by default, which is the machine's and not the process's |
+| `cache` | `read_batches` | **H3**: `vio.loader` keeps no open readers by default and opens a file for every batch that reads from it, while the loader `vio.data` shares keeps 64. What is each worth for each layout? |
+| `dtype` | `read_batches` | Reading fewer bytes: float16 or int16 on disk, delivered as float32 |
+| `scratch` | `epochs` | **H2**: a scratch is opened through the file it copies, so without a cache every batch still opens its files. **H5**: a scratch takes in the runs of a file one after another, so filling it from one stack is serial |
+| `run_length` | `epochs` | How many particles of a file a scratch should take in together |
+| `larger_than_ram` | `epochs` | **H6**: past the memory, a mapped scratch is read without the advice vitrio gives the pages of a stack, and should fault one page at a time |
+| `overlap` | `epochs` | How many batches to read ahead, against the length of a step |
+| `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
+| `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |
+| `convert_first` | `epochs` | A converted dataset's first run, which converts it, against a rerun |
+| `ceiling` | `ceiling` | What the storage delivers |
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,
-C2 and C4, `readers` the baselines of C1, `workers` C1 and the ablation of
-F1, `cache` C2.
+C2 and C4; `epochs` C3, C7 and the loader side of A6; `ceiling` its storage
+ceilings. Among the sweeps, `readers` covers the baselines of C1, `workers`
+C1 and the ablation of F1, `cache` C2 (F2), `dtype` C4 (F5), `scratch`,
+`run_length` and `larger_than_ram` C3 (F7), and `overlap` C7 (F3).
 
 ## Records
 

@@ -46,11 +46,12 @@ def test_every_reader_delivers_the_same_batches(tmp_path, layout, dtype):
 	dataset = [f'--dataset.layout={layout}', f'--dataset.dtype={dtype}']
 	harness('generate', '--datadir', str(tmp_path), *DATASET, *dataset)
 	records_file = tmp_path / 'results.jsonl'
+	scratchdir = f'--environment.scratchdir={tmp_path / "scratch"}'
 	for name in readers.READERS:
 		run(
 			tmp_path, records_file, *dataset, f'--reader.name={name}',
 			'--workload.batch=32', '--workload.epochs=2',
-			'--workload.verify=true'
+			'--workload.verify=true', scratchdir
 		)
 
 	records = results.load(records_file)
@@ -64,6 +65,72 @@ def test_every_reader_delivers_the_same_batches(tmp_path, layout, dtype):
 	assert {record['reader']['name'] for record in succeeded} == runnable
 	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
 	assert all(record['metrics']['images'] == 240 for record in succeeded)
+
+@pytest.mark.parametrize('reader', ['vitrio-loader', 'vitrio-data'])
+def test_every_scratch_delivers_the_same_batches(tmp_path, reader):
+	layout = '--dataset.layout=per-micrograph:7'
+	harness('generate', '--datadir', str(tmp_path), *DATASET, layout)
+	records_file = tmp_path / 'results.jsonl'
+	for scratch in ('none', 'host', 'mapped', 'directory'):
+		harness(
+			'run', 'epochs', '--datadir', str(tmp_path),
+			'--results', str(records_file), *DATASET, layout,
+			f'--reader.name={reader}', f'--reader.scratch={scratch}',
+			'--reader.run_length=4', '--reader.cache=64',
+			'--workload.batch=32', '--workload.verify=true',
+			f'--environment.scratchdir={tmp_path / "scratch"}'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	assert all(record['status'] == 'ok' for record in records)
+	assert len({record['metrics']['batch_hash'] for record in records}) == 1
+	# A scratch is made anew for every run, and removed after.
+	assert not list((tmp_path / 'scratch').iterdir())
+
+@pytest.mark.skipif(shutil.which('fio') is None, reason="fio is missing")
+def test_the_ceiling_is_measured(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	harness(
+		'run', 'ceiling', '--datadir', str(tmp_path),
+		'--results', str(records_file), *DATASET, '--reader.runtime_s=1',
+		'--reader.depths=[1]', '--reader.ioengine=psync'
+	)
+	(record,) = results.load(records_file)
+	results.check(record)
+	assert record['status'] == 'ok', record['reason']
+	assert record['metrics']['random_qd1_iops'] > 0
+
+def memory_limits_work():
+	if shutil.which('systemd-run') is None:
+		return False
+	completed = subprocess.run(
+		['systemd-run', '--user', '--scope', '--quiet', '-p', 'MemoryMax=1G',
+		'true'],
+		capture_output=True, timeout=60
+	)
+	return completed.returncode == 0
+
+@pytest.mark.skipif(
+	not memory_limits_work(), reason="systemd cannot limit memory here"
+)
+def test_a_memory_limit_applies_and_what_it_kills_is_recorded(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	run(tmp_path, records_file, '--environment.memory_max=500M')
+	completed = run(
+		tmp_path, records_file, '--environment.memory_max=20M', check=False
+	)
+	assert completed.returncode == 1
+	held, killed = results.load(records_file)
+	for record in (held, killed):
+		results.check(record)
+	assert held['status'] == 'ok', held['reason']
+	assert held['environment']['memory_limit_bytes'] == 500 << 20
+	assert held['metrics']['cgroup_memory_peak_bytes'] <= 500 << 20
+	assert killed['status'] == 'failed'
+	assert '20M' in killed['reason']
 
 @pytest.mark.skipif(
 	not hasattr(os, 'posix_fadvise'), reason="this system has no fadvise"

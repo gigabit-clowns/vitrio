@@ -186,10 +186,10 @@ the one CMake reports when it does not match.
 | trompeloeil | The unit tests, for their mocks |
 | Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and never fetched: pip provides nanobind |
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
-| PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them |
+| PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them. PyTorch is also a baseline of the benchmarks, which skip it without it |
 | pytest | The tests of the Python package |
 | psutil | The harness of the benchmarks, for the CPU time, memory and bytes read of a run |
-| mrcfile | The baselines of the benchmarks that read as other software does |
+| mrcfile, lmdb | The baselines of the benchmarks that read as other software does |
 | ReFrame | Running campaigns of the benchmarks. Not installed on Windows, where it does not run |
 | Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |

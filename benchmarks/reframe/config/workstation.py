@@ -2,15 +2,19 @@
 
 """ReFrame's configuration for a workstation that runs the benchmarks itself.
 
-Copy it, and fit two things to the machine:
+It is read from the environment, so that one file serves any machine:
 
-- `features`: what the machine can do that a benchmark may ask for.
-  `root` drops every cached page, `cgroup-memory` limits the memory of a
-  run, `fio` measures the storage's ceiling, `gpu` takes batches to a GPU.
-  A variant that asks for what is not listed is skipped, and says why.
-- `datadir`: where datasets are generated and read, which is the storage
-  being measured. It is read from `VITRIO_BENCH_DATADIR` here, or given
-  with `-S datadir=...`.
+- `VITRIO_BENCH_FEATURES`: what the machine can do that a benchmark may ask
+  for, separated by commas. `root` drops every cached page,
+  `cgroup-memory` limits the memory of a run, `fio` measures the storage's
+  ceiling. A variant that asks for what is not listed is skipped, and says
+  why.
+- `VITRIO_BENCH_DATADIR`: where datasets are generated and read, which is
+  the storage being measured.
+- `VITRIO_BENCH_SCRATCHDIR`: where readers keep copies of a dataset, such
+  as a scratch or a converted database: fast local storage, as a rule.
+
+`-S datadir=...` and `-S scratchdir=...` override the last two.
 """
 
 import os
@@ -31,9 +35,16 @@ site_configuration = {
 					# One run at a time: runs that overlap compete for the
 					# storage they measure.
 					'max_jobs': 1,
-					'features': [],
+					'features': [
+						feature for feature in os.environ.get(
+							'VITRIO_BENCH_FEATURES', ''
+						).split(',') if feature
+					],
 					'extras': {
 						'datadir': os.environ.get('VITRIO_BENCH_DATADIR', ''),
+						'scratchdir': os.environ.get(
+							'VITRIO_BENCH_SCRATCHDIR', ''
+						),
 					},
 				},
 			],

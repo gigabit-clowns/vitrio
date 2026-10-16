@@ -58,13 +58,14 @@ example = [
     "starfile==0.5.13",
     "tqdm==4.70.1",
 ]
-# What the harness of the benchmarks measures with, the baseline it
+# What the harness of the benchmarks measures with, the baselines it
 # compares vitrio against, and ReFrame, which runs campaigns of it.
-# ReFrame does not run on Windows. The smoke test of the benchmarks skips
-# what it lacks.
+# ReFrame does not run on Windows. PyTorch, another baseline, is left out
+# for its size. The smoke test of the benchmarks skips what it lacks.
 bench = [
     "psutil==7.2.2",
     "mrcfile==1.5.4",
+    "lmdb==2.3.0",
     "reframe-hpc==4.10.4; sys_platform != 'win32'",
 ]
 # What building the package with CMake alone takes, besides its tests and

@@ -52,6 +52,7 @@ class ProcessTree:
 		self.read_bytes: int | None = None
 		self._process = psutil.Process()
 		self._children: dict[int, int] = {}
+		self._lock = threading.Lock()
 		self._stop = threading.Event()
 		self._thread: threading.Thread | None = None
 
@@ -69,19 +70,35 @@ class ProcessTree:
 				pass
 		return total
 
-	def _sample(self) -> None:
-		memory, kind = _memory(self._process)
+	def _sample_children(self, memory: bool) -> int:
+		total = 0
 		for child in self._process.children(recursive=True):
 			try:
-				child_memory, _ = _memory(child)
-				memory += child_memory
+				if memory:
+					total += _memory(child)[0]
 				read = _read_bytes(child)
 				if read is not None:
-					self._children[child.pid] = read
+					with self._lock:
+						self._children[child.pid] = read
 			except psutil.NoSuchProcess:
 				pass
+		return total
+
+	def _sample(self) -> None:
+		memory, kind = _memory(self._process)
+		memory += self._sample_children(memory=True)
 		self.memory_kind = kind
 		self.peak_memory_bytes = max(self.peak_memory_bytes, memory)
+
+	def read_bytes_now(self) -> int | None:
+		"""The bytes the tree has read since the block began."""
+		current = _read_bytes(self._process)
+		if current is None or self._read_start is None:
+			return None
+		self._sample_children(memory=False)
+		with self._lock:
+			children = sum(self._children.values())
+		return current - self._read_start + children
 
 	def _run(self) -> None:
 		while not self._stop.wait(self.interval):
@@ -100,11 +117,7 @@ class ProcessTree:
 		self._thread.join()
 		self._sample()
 		self.cpu_s = self._cpu() - self._cpu_start
-		read_end = _read_bytes(self._process)
-		if read_end is not None and self._read_start is not None:
-			self.read_bytes = (
-				read_end - self._read_start + sum(self._children.values())
-			)
+		self.read_bytes = self.read_bytes_now()
 
 	def metrics(self) -> dict[str, Any]:
 		"""What was measured, named as the records name it."""

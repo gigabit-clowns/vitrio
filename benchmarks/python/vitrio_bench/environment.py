@@ -209,3 +209,37 @@ def raise_open_file_limit() -> None:
 	soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
 	if soft < hard:
 		resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+
+def _cgroup() -> Path | None:
+	try:
+		with open('/proc/self/cgroup', encoding='utf-8') as file:
+			for line in file:
+				# cgroup v2 has a single hierarchy, numbered 0.
+				if line.startswith('0::'):
+					return Path('/sys/fs/cgroup') / line[3:].strip().lstrip('/')
+	except OSError:
+		pass
+	return None
+
+def _read_bytes_value(path: Path) -> int | None:
+	try:
+		text = path.read_text().strip()
+	except OSError:
+		return None
+	return None if text == 'max' else int(text)
+
+def memory_limit() -> int | None:
+	"""
+	The memory limit of the cgroup this process is in, page cache included,
+	or None if it has none.
+	"""
+	cgroup = _cgroup()
+	return _read_bytes_value(cgroup / 'memory.max') if cgroup else None
+
+def memory_peak() -> int | None:
+	"""
+	The most memory the cgroup of this process has held, page cache
+	included, or None if the system does not say.
+	"""
+	cgroup = _cgroup()
+	return _read_bytes_value(cgroup / 'memory.peak') if cgroup else None

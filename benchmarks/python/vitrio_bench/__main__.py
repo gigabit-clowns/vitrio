@@ -27,6 +27,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 import traceback
 from pathlib import Path
@@ -39,7 +41,19 @@ from .metrics import nfs_read_bytes
 
 PREFIX = 'vitrio_bench'
 RUN_PARTS = ('dataset', 'reader', 'workload', 'environment')
-ENVIRONMENT = {'cold': 'none', 'cpus': None}
+ENVIRONMENT = {
+	'cold': 'none',
+	'cpus': None,
+	'memory_max': None,
+	'scratchdir': None,
+}
+
+# What a run started within a memory limit is told by the run that started
+# it: that it is within the limit, when the first process began, and the
+# identifier of the record it is to write.
+SCOPED = 'VITRIO_BENCH_SCOPED'
+STARTED = 'VITRIO_BENCH_STARTED'
+RECORD = 'VITRIO_BENCH_RECORD'
 
 def _value(text: str) -> Any:
 	try:
@@ -92,13 +106,79 @@ def _report(record: dict[str, Any]) -> None:
 		if isinstance(value, (int, float)) and not isinstance(value, bool):
 			print(f"{PREFIX} metric {name} {value}")
 
+def _finish(results_file: str, record: dict[str, Any]) -> int:
+	record['finished'] = results.now()
+	results.append(results_file, record)
+	_report(record)
+	return 1 if record['status'] == 'failed' else 0
+
+def _recorded(results_file: str, identifier: str) -> bool:
+	try:
+		with open(results_file, encoding='utf-8') as file:
+			return any(identifier in line for line in file)
+	except OSError:
+		return False
+
+def _within_memory_limit(
+	args: argparse.Namespace,
+	parts: dict[str, dict[str, Any]],
+	memory_max: str
+) -> int:
+	"""
+	Run the same point again in a scope of systemd whose memory, page cache
+	included, is limited, and record what the limit did to it.
+
+	A run the limit kills cannot record itself, so this process records it
+	instead, as failed.
+	"""
+	record = results.new_record(args.procedure)
+	for part in RUN_PARTS:
+		record[part] = dict(parts[part])
+	command = [
+		'systemd-run', '--user', '--scope', '--quiet',
+		'-p', f'MemoryMax={memory_max}', '-p', 'MemorySwapMax=0', '--',
+		sys.executable, '-m', 'vitrio_bench', *args.argv,
+	]
+	if shutil.which('systemd-run') is None:
+		record['status'] = 'failed'
+		record['reason'] = "A memory limit needs systemd-run."
+		return _finish(args.results, record)
+
+	started = psutil.Process().create_time()
+	completed = subprocess.run(command, env={
+		**os.environ,
+		SCOPED: '1',
+		STARTED: repr(started),
+		RECORD: record['id'],
+	})
+	if _recorded(args.results, record['id']):
+		return completed.returncode
+	record['status'] = 'failed'
+	record['reason'] = (
+		f"The run ended with status {completed.returncode} within a "
+		f"memory limit of {memory_max}, without recording itself: the "
+		"limit killed it, or systemd could not apply it."
+	)
+	return _finish(args.results, record)
+
 def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 	"""Run one point, record it, and report it."""
-	started = psutil.Process().create_time()
 	record = results.new_record(args.procedure)
+	record['id'] = os.environ.get(RECORD) or record['id']
+	try:
+		settings = _environment(parts['environment'])
+	except ValueError as error:
+		record['status'] = 'failed'
+		record['reason'] = str(error)
+		return _finish(args.results, record)
+	if settings['memory_max'] is not None and not os.environ.get(SCOPED):
+		return _within_memory_limit(args, parts, str(settings['memory_max']))
+
+	started = float(
+		os.environ.get(STARTED) or psutil.Process().create_time()
+	)
 	try:
 		procedure = procedures.get(args.procedure)
-		settings = _environment(parts['environment'])
 		record['environment'] = dict(settings)
 
 		# Before vitrio starts a thread, so that every thread inherits it.
@@ -108,13 +188,26 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 			)
 		if hasattr(os, 'sched_getaffinity'):
 			record['environment']['usable_cpus'] = len(os.sched_getaffinity(0))
+		if settings['memory_max'] is not None:
+			limit = environment.memory_limit()
+			record['environment']['memory_limit_bytes'] = limit
+			if limit is None:
+				raise environment.Unavailable(
+					"A memory limit was asked for, and none applies."
+				)
 		environment.raise_open_file_limit()
 
 		spec = datasets.make_spec(parts['dataset'])
 		dataset = datasets.load(args.datadir, spec)
 		record['dataset'] = dataset.describe()
-		reader_type = readers.get(parts['reader'].get('name', 'vitrio-loader'))
-		reader = reader_type(dataset, parts['reader'])
+		scratchdir = settings['scratchdir']
+		if hasattr(procedure, 'make_reader'):
+			reader = procedure.make_reader(dataset, parts['reader'], scratchdir)
+		else:
+			reader_type = readers.get(
+				parts['reader'].get('name', 'vitrio-loader')
+			)
+			reader = reader_type(dataset, parts['reader'], scratchdir)
 		record['reader'] = reader.describe()
 		workload = procedure.make_workload(parts['workload'], dataset)
 		record['workload'] = workload
@@ -126,12 +219,13 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		})
 		record['build'] = environment.build()
 
-		needed = readers.missing(reader_type)
-		if needed:
-			raise readers.Skip(f"{reader_type.name} needs {needed}.")
+		reason = reader.unavailable()
+		if reason:
+			raise readers.Skip(reason)
 
-		cache.evict(dataset.stacks, settings['cold'])
-		record['environment']['residency'] = cache.residency(dataset.stacks)
+		cached = [*dataset.stacks, *reader.files()]
+		cache.evict(cached, settings['cold'])
+		record['environment']['residency'] = cache.residency(cached)
 
 		nfs = target.get('filesystem', '').startswith('nfs')
 		nfs_before = nfs_read_bytes(target['mountpoint']) if nfs else None
@@ -140,6 +234,8 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 			metrics['nfs_read_bytes'] = (
 				nfs_read_bytes(target['mountpoint']) - nfs_before
 			)
+		if settings['memory_max'] is not None:
+			metrics['cgroup_memory_peak_bytes'] = environment.memory_peak()
 
 		record['reader'] = reader.describe()
 		record['metrics'] = metrics
@@ -151,10 +247,7 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		traceback.print_exc()
 		record['status'] = 'failed'
 		record['reason'] = f"{type(error).__name__}: {error}"
-	record['finished'] = results.now()
-	results.append(args.results, record)
-	_report(record)
-	return 1 if record['status'] == 'failed' else 0
+	return _finish(args.results, record)
 
 def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(
@@ -178,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
 	point.add_argument('--results', required=True)
 
 	args, rest = parser.parse_known_args(argv)
+	args.argv = list(sys.argv[1:] if argv is None else argv)
 	parts = {'generate': ('dataset',), 'run': RUN_PARTS}.get(args.command, ())
 	try:
 		gathered = parse_parts(rest, parts)
