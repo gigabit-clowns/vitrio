@@ -2,15 +2,13 @@
 
 #pragma once
 
-#include <half.hpp>
+#include "float16_t.hpp"
 
 namespace vitrio
 {
 
-/**
- * @brief A floating point number of half precision.
- */
-using float16_t = half_float::half;
+// A floating point number of half precision is float16_t, a class of its
+// own, since C++14 has no such type.
 static_assert(sizeof(float16_t) == 2, "float16_t should be 2 bytes long");
 
 /**

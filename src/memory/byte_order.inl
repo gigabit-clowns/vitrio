@@ -4,7 +4,8 @@
 
 #include "byte_order.hpp"
 
-#include <algorithm>
+#include "reinterpret_bits.hpp"
+
 #include <cstdint>
 
 namespace vitrio
@@ -67,15 +68,6 @@ constexpr std::uint64_t reverse_bytes(
 		(x << 56);
 }
 
-// A value that is not an integer is reversed through its bytes in memory.
-template <typename T>
-inline T reverse_object_bytes(T x) noexcept
-{
-	auto *bytes = reinterpret_cast<unsigned char*>(&x);
-	std::reverse(bytes, bytes + sizeof(T));
-	return x;
-}
-
 template <typename T>
 constexpr typename std::enable_if<std::is_integral<T>::value, T>::type
 reverse_byte_order(T x) noexcept
@@ -88,19 +80,25 @@ reverse_byte_order(T x) noexcept
 	);
 }
 
-inline float reverse_byte_order(float x) noexcept
+// A floating point number is reversed through the integer of its width,
+// which a compiler reverses with a single instruction.
+inline float32_t reverse_byte_order(float32_t x) noexcept
 {
-	return reverse_object_bytes(x);
+	return reinterpret_bits<float>(
+		reverse_byte_order(reinterpret_bits<std::uint32_t>(x))
+	);
 }
 
-inline double reverse_byte_order(double x) noexcept
+inline float64_t reverse_byte_order(float64_t x) noexcept
 {
-	return reverse_object_bytes(x);
+	return reinterpret_bits<double>(
+		reverse_byte_order(reinterpret_bits<std::uint64_t>(x))
+	);
 }
 
 inline float16_t reverse_byte_order(float16_t x) noexcept
 {
-	return reverse_object_bytes(x);
+	return float16_t::from_bits(reverse_byte_order(x.get_bits()));
 }
 
 template <typename T>

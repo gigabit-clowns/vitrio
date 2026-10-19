@@ -29,7 +29,8 @@ void cast(T *destination, const Q *source) noexcept;
  * @brief Convert one element into half precision.
  *
  * The value goes through a float and is rounded to the nearest half
- * precision number.
+ * precision number, ties to even. That rounds it once: a float holds as it
+ * is every integer half precision does not round to an infinity.
  *
  * @tparam Q Type converted from.
  * @param destination Where the converted value is written.
@@ -40,7 +41,20 @@ typename std::enable_if<std::is_arithmetic<Q>::value>::type
 cast(float16_t *destination, const Q *source) noexcept;
 
 /**
+ * @brief Convert one double into half precision.
+ *
+ * The double is rounded to the nearest half precision number, ties to
+ * even, without going through a float, which would round it twice.
+ *
+ * @param destination Where the converted value is written.
+ * @param source The value to convert.
+ */
+void cast(float16_t *destination, const double *source) noexcept;
+
+/**
  * @brief Convert one half precision element into another type.
+ *
+ * The value goes through a float, which holds it exactly.
  *
  * @tparam T Type converted into.
  * @param destination Where the converted value is written.

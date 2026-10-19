@@ -7,6 +7,7 @@
 
 #include <array/fixed_width_float.hpp>
 
+#include <cmath>
 #include <complex>
 #include <type_traits>
 
@@ -37,6 +38,34 @@ TEST_CASE( "cast rounds into a float16_t destination", "[cast]" )
 	cast(&destination, &source);
 
 	REQUIRE( static_cast<float>(destination) == value );
+}
+
+TEST_CASE( "cast rounds a double into a float16_t only once", "[cast]" )
+{
+	// Past halfway between 1 and the next half precision number, by so
+	// little that a float holds only halfway, which then rounds to the even
+	// one, 1.
+	const double source = 1.0 + std::ldexp(1.0, -11) + std::ldexp(1.0, -40);
+	float16_t destination;
+
+	cast(&destination, &source);
+
+	REQUIRE( static_cast<float>(destination) == 1.0F + std::ldexp(1.0F, -10) );
+}
+
+TEST_CASE( "cast rounds an integer into a float16_t, ties to even", "[cast]" )
+{
+	// Above 2048 half precision numbers are two apart, so an odd integer is
+	// halfway between two of them.
+	const int below = 2049;
+	const int above = 2051;
+	float16_t destination;
+
+	cast(&destination, &below);
+	REQUIRE( static_cast<float>(destination) == 2048.0F );
+
+	cast(&destination, &above);
+	REQUIRE( static_cast<float>(destination) == 2052.0F );
 }
 
 TEST_CASE( "cast widens from a float16_t source", "[cast]" )

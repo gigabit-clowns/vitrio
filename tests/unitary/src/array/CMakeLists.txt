@@ -13,6 +13,7 @@ target_sources(
 		test_checked_arithmetic.cpp
 		test_const_array.cpp
 		test_const_array_ref.cpp
+		test_float16_t.cpp
 		test_numerical_type.cpp
 		test_numerical_type_dispatch.cpp
 )

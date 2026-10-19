@@ -218,7 +218,6 @@ You need a C++14 compiler and CMake 3.24 or newer. The libraries vitrio
 needs are fetched and built with it, static, inside its own library:
 
 - Boost (Filesystem, Interprocess and ContainerHash)
-- half
 - spdlog
 - libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
   too
@@ -237,10 +236,8 @@ To use the libraries installed on the system instead, turn
 libtiff 4.5, spdlog 1.4 and Catch2 3 or newer. One of them alone is found
 rather than built by turning its own option off, such as
 `-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
-`VITRIO_BUILD_HALF`, `VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`,
-`VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`. Few distributions
-package half: where yours does not, point `half_INCLUDE_DIR` at the
-`include` directory of a release of it.
+`VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_CATCH2` and
+`VITRIO_BUILD_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
 directory of its sources instead, such as
