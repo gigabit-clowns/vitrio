@@ -362,8 +362,7 @@ One more job builds the last release beside the tree and has libabigail
 say what changed in the ABI between the two. A change does not fail it:
 before 1.0 a release may break the ABI, and the report tells which kind of
 release the next one has to be. Both are built against the packages of
-Ubuntu, and a release that needs half, as those up to 0.1.4 do, fetches
-it itself, since Ubuntu does not package it.
+Ubuntu.
 
 `.github/workflows/documentation.yml` builds the documentation of the C++ API
 and of the Python package, puts them side by side and publishes them to
