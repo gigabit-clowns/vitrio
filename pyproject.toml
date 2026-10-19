@@ -58,11 +58,24 @@ example = [
     "starfile==0.5.13",
     "tqdm==4.70.1",
 ]
+# What the harness of the benchmarks measures with, the baselines it
+# compares vitrio against, what reads the STAR files of real datasets, and
+# ReFrame, which runs campaigns of it.
+# ReFrame does not run on Windows. PyTorch, another baseline, is left out
+# for its size. The smoke test of the benchmarks skips what it lacks.
+bench = [
+    "psutil==7.2.2",
+    "mrcfile==1.5.4",
+    "lmdb==2.3.0",
+    "starfile==0.5.13",
+    "reframe-hpc==4.10.4; sys_platform != 'win32'",
+]
 # What building the package with CMake alone takes, besides its tests and
-# those of the example.
+# those of the example and the benchmarks.
 dev = [
     { include-group = "test" },
     { include-group = "example" },
+    { include-group = "bench" },
     "nanobind==3.1.0",
 ]
 # What builds the reference of the Python package, which is imported from
@@ -121,7 +134,6 @@ sdist.exclude = [
 [tool.scikit-build.cmake.define]
 VITRIO_BUILD_PYTHON = "ON"
 VITRIO_PYTHON_STABLE_ABI = "ON"
-VITRIO_BUILD_TESTING = "OFF"
 BUILD_TESTING = "OFF"
 
 [[tool.dynamic-metadata]]

@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <complex>
+#include <cstdint>
 #include <type_traits>
 
 using namespace vitrio;
@@ -66,6 +67,19 @@ TEST_CASE( "cast rounds an integer into a float16_t, ties to even", "[cast]" )
 
 	cast(&destination, &above);
 	REQUIRE( static_cast<float>(destination) == 2052.0F );
+}
+
+TEST_CASE( "cast copies a float16_t into a float16_t bit for bit", "[cast]" )
+{
+	// Negative zero, a NaN with a payload and a signalling NaN: a copy
+	// through a float would quiet the last.
+	const auto bits = GENERATE(
+		std::uint16_t(0x8000), std::uint16_t(0x7E01), std::uint16_t(0x7C01)
+	);
+	const auto source = float16_t::from_bits(bits);
+	auto destination = float16_t::from_bits(0);
+	cast(&destination, &source);
+	REQUIRE( destination.get_bits() == bits );
 }
 
 TEST_CASE( "cast widens from a float16_t source", "[cast]" )

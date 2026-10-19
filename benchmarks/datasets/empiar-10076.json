@@ -1,0 +1,29 @@
+{
+	"name": "EMPIAR-10076",
+	"title": "L17-depleted 50S ribosome assembly intermediates, the dataset of cryoDRGN's tutorial",
+	"page": "https://www.ebi.ac.uk/empiar/EMPIAR-10076/",
+	"download": "https://ftp.ebi.ac.uk/empiar/world_availability/10076/data/",
+	"files": [
+		{
+			"path": "L17Combine_weight_local.mrc",
+			"bytes": 54025831424,
+			"stack": {"count": 131899, "box": 320, "dtype": "float32"}
+		},
+		{"path": "Parameters.star", "bytes": 11218449},
+		{"path": "Frealign9Parameter_0_r1.par", "bytes": 18070300}
+	],
+	"notes": [
+		"Every particle is in one stack, named .mrc. Its header states the space group of a stack of images, 0, so vitrio reads it as a stack as it is.",
+		"Parameters.star has the poses and the CTF of the particles, as cryoDRGN's tutorial uses them."
+	],
+	"variants": [
+		{
+			"name": "D=128 and D=256",
+			"recipe": "cryodrgn downsample L17Combine_weight_local.mrc -D 128 -o particles.128.mrcs, and -D 256. The stack does not fit in the memory of most machines, so downsample it before converting it."
+		},
+		{
+			"name": "float16 on disk",
+			"recipe": "python examples/python/basic/convert.py particles.128.mrcs particles.128.f16.mrcs --data-type float16, on a downsampled stack: the converter reads a file whole."
+		}
+	]
+}

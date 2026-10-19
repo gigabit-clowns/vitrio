@@ -10,7 +10,7 @@ target_link_libraries(
 
 # Compiling it keeps the example in step with the API. Running it is cheap,
 # and it checks what it prints, so it is a test too.
-if(BUILD_TESTING AND VITRIO_BUILD_TESTING)
+if(VITRIO_BUILD_TESTING)
 	add_test(
 		NAME vitrio-example-read-and-convert
 		COMMAND vitrio-example-read-and-convert

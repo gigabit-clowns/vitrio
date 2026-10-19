@@ -42,6 +42,11 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
+| `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
+| `benchmarks/cpp/` | The C++ benchmarks, built with `-DVITRIO_BUILD_BENCHMARKS=ON`: that of the engine of `src/formats/strided_transfer/`, white-box, linked with the objects of the library as the unit tests are |
+| `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch |
+| `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, the fixture that builds vitrio for the sweeps of its tuning macros, and example configurations of machines |
+| `benchmarks/datasets/` | The manifests of real datasets, in JSON: where to download each, what its files are, how to check them (`python -m vitrio_bench dataset check`) and how to make its variants. The data is never committed |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
 | `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
 | `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |
@@ -110,6 +115,16 @@ each.
 `-DVITRIO_BUILD_EXAMPLES=ON` builds the C++ examples of `examples/cpp`, each a
 target of its own and a test that runs it. They are off by default.
 
+The harness of the benchmarks is not built. It runs from the source tree
+beside the package of a build, `PYTHONPATH=build/python:benchmarks/python
+python -m vitrio_bench`, and ReFrame runs campaigns of it, as
+`benchmarks/README.md` says. What it needs is the `bench` group of
+`pyproject.toml`, which `dev` includes, so that the suite of the Python
+package runs its smoke test. `-DVITRIO_BUILD_BENCHMARKS=ON` builds the C++
+benchmarks of `benchmarks/cpp`, with Google Benchmark, and adds a test that
+runs each for a moment, labelled `benchmark`. CI builds them in its main
+job.
+
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
 Doxygen and writes the documentation of the C++ API under
 `docs/doxygen/html` of the build tree. A warning of Doxygen fails it, so a comment that names a
@@ -170,10 +185,14 @@ since the archive of a commit lacks its libraries, which are submodules.
 | zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
+| Google Benchmark 1.8 or newer | The C++ benchmarks. Not needed without `-DVITRIO_BUILD_BENCHMARKS=ON`. Unlike the others it is cloned with git, not fetched as an archive, since it reads its version from the tags of its repository |
 | Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and never fetched: pip provides nanobind |
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
-| PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them |
+| PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them. PyTorch is also a baseline of the benchmarks, which skip it without it |
 | pytest | The tests of the Python package |
+| psutil | The harness of the benchmarks, for the CPU time, memory and bytes read of a run |
+| mrcfile, lmdb | The baselines of the benchmarks that read as other software does |
+| ReFrame | Running campaigns of the benchmarks. Not installed on Windows, where it does not run |
 | Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |
 
@@ -334,6 +353,13 @@ since the archive of a commit lacks its libraries, which are submodules.
 - **The GIL.** A bound function that reads, writes or waits releases the
   GIL meanwhile. So does destroying a thread pool, which waits for its
   workers.
+- **Benchmarks.** A procedure measures, and a question is a named sweep of
+  its ReFrame test, not a procedure of its own. A run writes every setting
+  into its record, defaults included, and fails on a parameter it does not
+  have, so that a mistyped one does not measure the default. Results are
+  never committed. The schema of the records, in
+  `benchmarks/python/vitrio_bench/results.py`, is the contract with whoever
+  analyses them, and a change to what a field means bumps it.
 - **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
   release may break the ABI, so the name of the shared library carries the
   minor version (`libvitrio.so.0.1`).
