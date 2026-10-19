@@ -132,7 +132,7 @@ sdist.exclude = [
 [tool.scikit-build.cmake.define]
 VITRIO_BUILD_PYTHON = "ON"
 VITRIO_PYTHON_STABLE_ABI = "ON"
-VITRIO_BUILD_TESTING = "OFF"
+# Turns VITRIO_BUILD_TESTING off with it.
 BUILD_TESTING = "OFF"
 
 [[tool.dynamic-metadata]]
