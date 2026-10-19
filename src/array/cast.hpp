@@ -52,6 +52,16 @@ cast(float16_t *destination, const Q *source) noexcept;
 void cast(float16_t *destination, const double *source) noexcept;
 
 /**
+ * @brief Copy one half precision element.
+ *
+ * It is copied as the bits that encode it.
+ *
+ * @param destination Where the value is written.
+ * @param source The value to copy.
+ */
+void cast(float16_t *destination, const float16_t *source) noexcept;
+
+/**
  * @brief Convert one half precision element into another type.
  *
  * The value goes through a float, which holds it exactly.

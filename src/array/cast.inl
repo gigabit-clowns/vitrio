@@ -33,6 +33,13 @@ inline void cast(float16_t *destination, const double *source) noexcept
 	*destination = float16_t(*source);
 }
 
+inline void cast(float16_t *destination, const float16_t *source) noexcept
+{
+	VITRIO_ASSERT(destination);
+	VITRIO_ASSERT(source);
+	*destination = float16_t::from_bits(source->get_bits());
+}
+
 template <typename T>
 inline typename std::enable_if<std::is_arithmetic<T>::value>::type
 cast(T *destination, const float16_t *source) noexcept
