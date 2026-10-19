@@ -9,6 +9,7 @@ from collections.abc import Iterable, Iterator
 
 import numpy as np
 
+from ..datasets import Picks
 from . import Reader
 
 class MrcfileOpen(Reader):
@@ -19,6 +20,7 @@ class MrcfileOpen(Reader):
 
 	name = 'mrcfile-open'
 	requires = ('mrcfile',)
+	reads_patches = True
 
 	def open(self) -> None:
 		import mrcfile
@@ -43,6 +45,18 @@ class MrcfileOpen(Reader):
 					data[self.index_of[row]] if data.ndim == 3 else data
 				)
 			yield images
+
+	def _crop(self, image: int, y: int, x: int, side: int) -> np.ndarray:
+		data = self._data(self.stack_of[image])
+		plane = data[self.index_of[image]] if data.ndim == 3 else data
+		return plane[y:y + side, x:x + side]
+
+	def patches(
+		self,
+		batches: Iterable[np.ndarray],
+		picks: Picks
+	) -> Iterator[np.ndarray]:
+		return self.crop_patches(batches, picks, self._crop)
 
 	def close(self) -> None:
 		for mrc in self._open.values():

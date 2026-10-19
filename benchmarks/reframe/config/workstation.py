@@ -13,8 +13,12 @@ It is read from the environment, so that one file serves any machine:
   the storage being measured.
 - `VITRIO_BENCH_SCRATCHDIR`: where readers keep copies of a dataset, such
   as a scratch or a converted database: fast local storage, as a rule.
+- `VITRIO_BENCH_BUILDSDIR`: where the builds of vitrio that sweeps of its
+  tuning macros compare are kept, between campaigns. Defaults to
+  build/benchmarks of the sources.
 
-`-S datadir=...` and `-S scratchdir=...` override the last two.
+`-S datadir=...`, `-S scratchdir=...` and `-S buildsdir=...` override the
+last three.
 """
 
 import os
@@ -44,6 +48,9 @@ site_configuration = {
 						'datadir': os.environ.get('VITRIO_BENCH_DATADIR', ''),
 						'scratchdir': os.environ.get(
 							'VITRIO_BENCH_SCRATCHDIR', ''
+						),
+						'buildsdir': os.environ.get(
+							'VITRIO_BENCH_BUILDSDIR', ''
 						),
 					},
 				},

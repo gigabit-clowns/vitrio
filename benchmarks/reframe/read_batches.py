@@ -9,11 +9,11 @@ import os
 import sys
 
 import reframe as rfm
-from reframe.core.builtins import parameter
+from reframe.core.builtins import fixture, parameter
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from vitrio_tests import ReadBatches    # noqa: E402
+from vitrio_tests import ReadBatches, VitrioBuild    # noqa: E402
 
 @rfm.simple_test
 class readers(ReadBatches):
@@ -75,4 +75,26 @@ class dtype(ReadBatches):
 	reader = parameter(
 		['vitrio-loader', 'numpy-memmap', 'mrcfile-open'], type=str
 	)
+	cache = parameter([4096], type=int)
+
+class BudgetBuild(VitrioBuild):
+	"""vitrio built with each budget of a step of a read, 64 MiB by default."""
+
+	budget = parameter(
+		[1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28], type=int
+	)
+
+	def defines(self):
+		return {'VITRIO_PREFETCH_BYTE_BUDGET': self.budget}
+
+@rfm.simple_test
+class prefetch_budget(ReadBatches):
+	"""
+	How many bytes a read should ask the kernel for at once, ahead of
+	copying them, for one stack and for one stack per micrograph. Run it
+	cold, with `-P cold=fadvise`, where asking ahead matters.
+	"""
+
+	vitrio = fixture(BudgetBuild, scope='environment')
+	layout = parameter(['single-stack', 'per-micrograph:100'], type=str)
 	cache = parameter([4096], type=int)

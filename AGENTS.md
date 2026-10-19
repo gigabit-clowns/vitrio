@@ -45,7 +45,8 @@ in the same commit that causes it.
 | `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
 | `benchmarks/cpp/` | The C++ benchmarks, built with `-DVITRIO_BUILD_BENCHMARKS=ON`: that of the engine of `src/formats/strided_transfer/`, white-box, linked with the objects of the library as the unit tests are |
 | `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch |
-| `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, and example configurations of machines |
+| `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, the fixture that builds vitrio for the sweeps of its tuning macros, and example configurations of machines |
+| `benchmarks/datasets/` | The manifests of real datasets, in JSON: where to download each, what its files are, how to check them (`python -m vitrio_bench dataset check`) and how to make its variants. The data is never committed |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
 | `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
 | `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |

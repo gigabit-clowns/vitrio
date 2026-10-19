@@ -9,6 +9,7 @@ from collections.abc import Iterable, Iterator
 
 import numpy as np
 
+from ..datasets import Picks
 from . import Reader
 from ._mrc import layout
 
@@ -19,6 +20,7 @@ class NumpyMemmap(Reader):
 	"""
 
 	name = 'numpy-memmap'
+	reads_patches = True
 
 	def open(self) -> None:
 		self._paths = list(self.dataset.stacks)
@@ -44,6 +46,17 @@ class NumpyMemmap(Reader):
 				positions = np.flatnonzero(stacks == stack)
 				images[positions] = self._map(stack)[indices[positions]]
 			yield images
+
+	def _crop(self, image: int, y: int, x: int, side: int) -> np.ndarray:
+		plane = self._map(self.stack_of[image])[self.index_of[image]]
+		return plane[y:y + side, x:x + side]
+
+	def patches(
+		self,
+		batches: Iterable[np.ndarray],
+		picks: Picks
+	) -> Iterator[np.ndarray]:
+		return self.crop_patches(batches, picks, self._crop)
 
 	def close(self) -> None:
 		self._maps = {}

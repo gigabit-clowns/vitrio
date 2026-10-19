@@ -1,18 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """What the procedures that read batches share: their workload, the order of
-an epoch, and going through epochs while measuring them."""
+an epoch, and going through epochs while measuring them.
+
+A row is what a batch is made of: a particle of a dataset, or a patch to be
+cropped out of one of its images. Each row belongs to a group, the stack or
+the image it is read from, inside which `shuffled-within` shuffles.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
-from ..datasets import Dataset
 from ..metrics import ProcessTree, max_rss_bytes, percentiles
 from ..readers import Reader
 
@@ -30,11 +35,17 @@ def make_workload(
 	procedure: str,
 	defaults: dict[str, Any],
 	params: dict[str, Any],
-	dataset: Dataset
+	count: int
 ) -> dict[str, Any]:
 	"""
 	The complete workload of a procedure: the parameters given, and its
 	defaults for the rest, written out.
+
+	Args:
+		procedure: The name of the procedure, for the errors.
+		defaults: Its workload parameters and their defaults.
+		params: The parameters given.
+		count: How many rows there are.
 
 	Raises:
 		ValueError: If a parameter is unknown, or holds what it cannot.
@@ -49,28 +60,35 @@ def make_workload(
 	if workload['order'] not in ORDERS:
 		raise ValueError(f"An order is one of {ORDERS}.")
 	if workload['images'] is None:
-		workload['images'] = dataset.count
-	workload['images'] = min(int(workload['images']), dataset.count)
+		workload['images'] = count
+	workload['images'] = min(int(workload['images']), count)
 	workload['batch'] = int(workload['batch'])
 	workload['epochs'] = int(workload['epochs'])
 	if workload['batch'] < 1 or workload['epochs'] < 1:
-		raise ValueError("An epoch has batches of at least one particle.")
+		raise ValueError("An epoch has batches of at least one row.")
 	return workload
 
 def order(
-	dataset: Dataset,
 	workload: dict[str, Any],
-	epoch: int
+	epoch: int,
+	groups: np.ndarray
 ) -> np.ndarray:
-	"""The particles an epoch reads, in the order it reads them."""
+	"""
+	The rows an epoch reads, in the order it reads them.
+
+	Args:
+		workload: The workload, whose order, seed and images it follows.
+		epoch: The number of the epoch.
+		groups: The group of each row.
+	"""
+	count = len(groups)
 	rng = np.random.default_rng([workload['seed'], epoch])
 	if workload['order'] == 'sequential':
-		rows = np.arange(dataset.count)
+		rows = np.arange(count)
 	elif workload['order'] == 'shuffled':
-		rows = rng.permutation(dataset.count)
+		rows = rng.permutation(count)
 	else:
-		stack, _ = dataset.locate()
-		rows = np.lexsort((rng.random(dataset.count), stack))
+		rows = np.lexsort((rng.random(count), groups))
 	return rows[:workload['images']]
 
 @dataclass
@@ -88,10 +106,11 @@ class Measured:
 	tree: ProcessTree | None = None
 
 def measure(
-	dataset: Dataset,
 	reader: Reader,
 	workload: dict[str, Any],
 	started: float,
+	groups: np.ndarray,
+	read: Callable[[list[np.ndarray]], Iterator[np.ndarray]] | None = None,
 	step_s: float = 0.0
 ) -> Measured:
 	"""
@@ -99,9 +118,19 @@ def measure(
 
 	After each batch the process sleeps `step_s`, standing in for a step of
 	a model on a GPU: it releases the GIL, as such a step does, and takes a
-	known time. `started` is when the process began, in the seconds of
-	`time.time`, from which the time to the first batch is counted.
+	known time.
+
+	Args:
+		reader: What reads.
+		workload: How it reads.
+		started: When the process began, in the seconds of `time.time`, from
+			which the time to the first batch is counted.
+		groups: The group of each row, as `order` takes them.
+		read: What reads the batches of an epoch. Defaults to the epochs of
+			the reader.
+		step_s: How long the step after each batch takes.
 	"""
+	read = read or reader.epoch
 	batch = workload['batch']
 	hasher = hashlib.blake2b(digest_size=16) if workload['verify'] else None
 	measured = Measured(tree=ProcessTree())
@@ -112,14 +141,14 @@ def measure(
 		try:
 			read_before = measured.tree.read_bytes_now()
 			for epoch in range(workload['epochs']):
-				rows = order(dataset, workload, epoch)
+				rows = order(workload, epoch, groups)
 				batches = [
 					rows[first:first + batch]
 					for first in range(0, len(rows), batch)
 				]
 				waits = []
 				epoch_begin = time.perf_counter()
-				iterator = reader.epoch(batches)
+				iterator = read(batches)
 				while True:
 					asked = time.perf_counter()
 					try:
@@ -152,14 +181,22 @@ def measure(
 
 def metrics(
 	measured: Measured,
-	dataset: Dataset,
-	reader: Reader
+	reader: Reader,
+	file_image_bytes: int,
+	delivered_image_bytes: int
 ) -> dict[str, Any]:
-	"""The metrics every procedure that reads batches reports."""
+	"""
+	The metrics every procedure that reads batches reports.
+
+	Args:
+		measured: What going through the epochs measured.
+		reader: What read, which may add metrics of its own.
+		file_image_bytes: The bytes of the files one row needs.
+		delivered_image_bytes: The bytes one row is delivered as.
+	"""
 	reading = sum(measured.epoch_s)
 	delivered = measured.delivered
-	delivered_image_bytes = dataset.box * dataset.box * reader.dtype.itemsize
-	file_bytes = delivered * dataset.image_bytes
+	file_bytes = delivered * file_image_bytes
 	every_wait = [wait for waits in measured.waits for wait in waits]
 	result = {
 		'wall_s': measured.wall_s,

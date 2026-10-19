@@ -5,6 +5,8 @@
 	python -m vitrio_bench env
 	python -m vitrio_bench generate --datadir DIR [--dataset.NAME=VALUE ...]
 	python -m vitrio_bench cold {none,fadvise,drop} PATH...
+	python -m vitrio_bench dataset list
+	python -m vitrio_bench dataset check NAME ROOT
 	python -m vitrio_bench run PROCEDURE --datadir DIR --results FILE \\
 		[--PART.NAME=VALUE ...]
 
@@ -36,7 +38,8 @@ from typing import Any
 
 import psutil
 
-from . import cache, datasets, environment, procedures, readers, results
+from . import cache, datasets, environment, manifests, procedures, readers
+from . import results
 from .metrics import nfs_read_bytes
 
 PREFIX = 'vitrio_bench'
@@ -265,6 +268,16 @@ def main(argv: list[str] | None = None) -> int:
 	)
 	cold.add_argument('mode', choices=cache.MODES)
 	cold.add_argument('paths', nargs='+')
+	real = commands.add_parser(
+		'dataset', help="list the manifests of real datasets, or check one"
+	)
+	actions = real.add_subparsers(dest='action', required=True)
+	actions.add_parser('list', help="list the manifests")
+	checked = actions.add_parser(
+		'check', help="check that a dataset downloaded is whole"
+	)
+	checked.add_argument('name', help="a manifest's name, or its path")
+	checked.add_argument('root', help="the directory it was downloaded into")
 	point = commands.add_parser('run', help="run one point, and record it")
 	point.add_argument('procedure', choices=sorted(procedures.PROCEDURES))
 	point.add_argument('--datadir', required=True)
@@ -295,6 +308,17 @@ def main(argv: list[str] | None = None) -> int:
 		cache.evict(args.paths, args.mode)
 		print(f"{PREFIX} residency {cache.residency(args.paths)}")
 		return 0
+	if args.command == 'dataset':
+		if args.action == 'list':
+			for name in manifests.names():
+				manifest = manifests.load(name)
+				print(f"{manifest['name']}: {manifest['title']}")
+			return 0
+		problems = manifests.check(manifests.load(args.name), args.root)
+		for problem in problems:
+			print(problem)
+		print(f"{PREFIX} dataset {'incomplete' if problems else 'whole'}")
+		return 1 if problems else 0
 	return run(args, gathered)
 
 if __name__ == '__main__':

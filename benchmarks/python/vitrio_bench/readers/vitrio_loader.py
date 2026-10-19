@@ -10,6 +10,7 @@ from collections.abc import Iterable, Iterator
 
 import numpy as np
 
+from ..datasets import Picks
 from . import Reader
 from ._vitrio import LOADER, make_loader, remove_scratch, scratch_bytes
 
@@ -35,6 +36,7 @@ class VitrioLoader(Reader):
 
 	name = 'vitrio-loader'
 	defaults = {**LOADER, 'in_flight': 2}
+	reads_patches = True
 
 	def open(self) -> None:
 		import vitrio as vio
@@ -61,6 +63,45 @@ class VitrioLoader(Reader):
 		while pending:
 			images, reading = pending.popleft()
 			reading.get()
+			yield images
+
+	def _start_patches(self, rows: np.ndarray, picks: Picks):
+		images = self.new_patches(len(rows), picks.patch)
+		image_of = picks.image[rows]
+		firsts = np.flatnonzero(np.r_[True, image_of[1:] != image_of[:-1]])
+		lasts = np.r_[firsts[1:], len(rows)]
+		readings = [
+			self._vio.read_patches_async(
+				self._loader,
+				images[first:last],
+				self._locations[image_of[first]],
+				picks.corner[rows[first:last]] + picks.patch // 2
+			)
+			for first, last in zip(firsts, lasts)
+		]
+		return images, readings
+
+	def patches(
+		self,
+		batches: Iterable[np.ndarray],
+		picks: Picks
+	) -> Iterator[np.ndarray]:
+		"""
+		Crops the patches of each image of a batch with one
+		`read_patches_async` call, and reads batches ahead as `epoch` does.
+		"""
+		pending = deque()
+		for rows in batches:
+			pending.append(self._start_patches(rows, picks))
+			if len(pending) > self.params['in_flight']:
+				images, readings = pending.popleft()
+				for reading in readings:
+					reading.get()
+				yield images
+		while pending:
+			images, readings = pending.popleft()
+			for reading in readings:
+				reading.get()
 			yield images
 
 	def close(self) -> None:

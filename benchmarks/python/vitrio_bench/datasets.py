@@ -19,6 +19,12 @@ Layouts:
   pipelines keep them.
 - `per-micrograph:<mean>`: one stack per micrograph, as RELION extracts
   them, with a number of particles in each drawn around a mean.
+- `one-per-file`: one image per file, as micrographs are kept.
+- `replay`: the stacks of a real dataset, as many as it has and with as
+  many particles each, read from its STAR file with `like`. The spec holds
+  their sizes rather than the path of the file, so the same layout makes
+  the same dataset wherever its STAR file is. A STAR file of a subset of
+  particles gives stacks of the particles it names, and no more.
 """
 
 from __future__ import annotations
@@ -58,19 +64,70 @@ CHUNK_BYTES = 1 << 28
 class Missing(FileNotFoundError):
 	"""A dataset was asked for that has not been generated."""
 
+def star_layout(path: str | Path) -> tuple[list[int], int | None]:
+	"""
+	How many particles each stack a STAR file names holds, in the order
+	the file first names them, and their box if its optics state one.
+
+	Raises:
+		ValueError: If the file names no particle images, or its optics
+			state several boxes.
+	"""
+	import starfile
+
+	blocks = starfile.read(path, always_dict=True)
+	particles = next(
+		(
+			block for block in blocks.values()
+			if hasattr(block, 'columns') and 'rlnImageName' in block.columns
+		),
+		None
+	)
+	if particles is None:
+		raise ValueError(f"{path} names no particle images (rlnImageName).")
+	files = particles['rlnImageName'].str.split('@', n=1).str[1]
+	sizes = files.groupby(files, sort=False).size().tolist()
+
+	box = None
+	optics = blocks.get('optics')
+	if optics is not None and 'rlnImageSize' in optics.columns:
+		boxes = set(int(size) for size in optics['rlnImageSize'])
+		if len(boxes) > 1:
+			raise ValueError(f"{path} states several boxes: {sorted(boxes)}.")
+		box = boxes.pop()
+	return sizes, box
+
 def make_spec(params: dict[str, Any]) -> dict[str, Any]:
 	"""
 	A complete spec: the parameters given, and the defaults for the rest.
 
+	`like`, the path of a STAR file, stands for `count` and `layout`: the
+	layout is that of the file, and the box its optics state unless `box`
+	is given.
+
 	Raises:
 		ValueError: If a parameter is unknown, or holds what it cannot.
 	"""
+	params = dict(params)
+	like = params.pop('like', None)
 	unknown = set(params) - set(DEFAULTS)
 	if unknown:
 		raise ValueError(
 			f"A dataset has no parameter {sorted(unknown)}. It has "
-			f"{sorted(DEFAULTS)}."
+			f"{sorted({*DEFAULTS, 'like'})}."
 		)
+	if like is not None:
+		if {'count', 'layout'} & set(params):
+			raise ValueError(
+				"A dataset like a STAR file takes its count and layout from "
+				"the file."
+			)
+		sizes, box = star_layout(like)
+		params.update(count=sum(sizes), layout='replay', sizes=sizes)
+		if 'box' not in params:
+			if box is None:
+				raise ValueError(f"{like} states no box: give one.")
+			params['box'] = box
 	spec = {**DEFAULTS, **params}
 	spec['count'] = int(spec['count'])
 	spec['box'] = int(spec['box'])
@@ -94,6 +151,16 @@ def stack_sizes(spec: dict[str, Any]) -> list[int]:
 	layout, _, argument = spec['layout'].partition(':')
 	if layout == 'single-stack' and not argument:
 		return [spec['count']]
+	if layout == 'one-per-file' and not argument:
+		return [1] * spec['count']
+	if layout == 'replay' and not argument:
+		sizes = [int(size) for size in spec.get('sizes', [])]
+		if not sizes or sum(sizes) != spec['count'] or min(sizes) < 1:
+			raise ValueError(
+				"A replayed layout states the size of every stack, which add "
+				"up to the count."
+			)
+		return sizes
 	if layout == 'per-micrograph' and argument:
 		mean = float(argument)
 		if mean < 1:
@@ -107,8 +174,8 @@ def stack_sizes(spec: dict[str, Any]) -> list[int]:
 			left -= size
 		return sizes
 	raise ValueError(
-		f"A layout is 'single-stack' or 'per-micrograph:<mean>', not "
-		f"{spec['layout']!r}."
+		"A layout is 'single-stack', 'per-micrograph:<mean>', 'one-per-file' "
+		f"or 'replay', not {spec['layout']!r}."
 	)
 
 @dataclass
@@ -166,9 +233,14 @@ class Dataset:
 		return stack, index
 
 	def describe(self) -> dict[str, Any]:
-		"""The dataset, as a record states it."""
+		"""
+		The dataset, as a record states it. The sizes of a replayed layout
+		are left out: the name stands for them.
+		"""
+		spec = dict(self.spec)
+		spec.pop('sizes', None)
 		return {
-			**self.spec,
+			**spec,
 			'name': self.name,
 			'path': str(self.path),
 			'stacks': len(self.sizes),
@@ -269,3 +341,37 @@ def _write(datadir: str | Path, spec: dict[str, Any]) -> Dataset:
 		os.sync()
 	partial.rename(final)
 	return Dataset(final, spec, sizes)
+
+@dataclass
+class Picks:
+	"""
+	Patches to crop out of the images of a dataset: the image of each, and
+	its top left corner, all of one side.
+	"""
+
+	image: np.ndarray
+	corner: np.ndarray
+	patch: int
+
+def draw_picks(
+	dataset: Dataset,
+	patches: int,
+	patch: int,
+	seed: int
+) -> Picks:
+	"""
+	Draw as many patches in every image of a dataset, at random, each lying
+	inside its image.
+
+	Raises:
+		ValueError: If a patch is larger than an image, or none is asked for.
+	"""
+	if not 0 < patch <= dataset.box or patches < 1:
+		raise ValueError(
+			f"Patches of side 1 to {dataset.box} are cropped, at least one "
+			"per image."
+		)
+	rng = np.random.default_rng([seed, 2])
+	image = np.repeat(np.arange(dataset.count), patches)
+	corner = rng.integers(0, dataset.box - patch + 1, size=(len(image), 2))
+	return Picks(image, corner, patch)

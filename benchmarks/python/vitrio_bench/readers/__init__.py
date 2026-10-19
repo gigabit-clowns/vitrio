@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import importlib.util
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
 
-from ..datasets import Dataset
+from ..datasets import Dataset, Picks
 
 class Skip(Exception):
 	"""A reader cannot run here, for the reason it gives."""
@@ -38,6 +38,8 @@ class Reader:
 	name: ClassVar[str]
 	requires: ClassVar[tuple[str, ...]] = ()
 	defaults: ClassVar[dict[str, Any]] = {}
+	#: Whether the reader crops patches, which `patches` asks of it.
+	reads_patches: ClassVar[bool] = False
 
 	def __init__(
 		self,
@@ -76,12 +78,46 @@ class Reader:
 		box = self.dataset.box
 		return np.empty((size, box, box), dtype=self.dtype)
 
+	def new_patches(self, size: int, patch: int) -> np.ndarray:
+		"""An array for a batch of `size` patches of side `patch`."""
+		return np.empty((size, patch, patch), dtype=self.dtype)
+
 	def open(self) -> None:
 		"""Open what the reader reads with."""
 
 	def epoch(self, batches: Iterable[np.ndarray]) -> Iterator[np.ndarray]:
 		"""Hand out the particles of each batch of rows, in order."""
 		raise NotImplementedError
+
+	def patches(
+		self,
+		batches: Iterable[np.ndarray],
+		picks: Picks
+	) -> Iterator[np.ndarray]:
+		"""
+		Hand out the patches of each batch of rows of `picks`, in order. The
+		rows of a batch come in the order of their images.
+		"""
+		raise NotImplementedError
+
+	def crop_patches(
+		self,
+		batches: Iterable[np.ndarray],
+		picks: Picks,
+		crop: Callable[[int, int, int, int], np.ndarray]
+	) -> Iterator[np.ndarray]:
+		"""
+		Hand out batches of patches cropped one at a time, as `patches`
+		does, by `crop(image, y, x, side)`.
+		"""
+		for rows in batches:
+			images = self.new_patches(len(rows), picks.patch)
+			for position, row in enumerate(rows):
+				y, x = picks.corner[row]
+				images[position] = crop(
+					int(picks.image[row]), int(y), int(x), picks.patch
+				)
+			yield images
 
 	def close(self) -> None:
 		"""Release what `open` opened."""

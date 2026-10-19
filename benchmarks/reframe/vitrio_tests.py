@@ -33,7 +33,8 @@ from reframe.core.builtins import (
 	variable,
 )
 
-HARNESS = Path(__file__).resolve().parents[1] / 'python'
+SOURCES = Path(__file__).resolve().parents[2]
+HARNESS = SOURCES / 'benchmarks' / 'python'
 sys.path.insert(0, str(HARNESS))
 
 from vitrio_bench import readers    # noqa: E402
@@ -90,6 +91,13 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 	def run_options(self):
 		"""The other options of the run, besides those of the environment."""
 		return []
+
+	@run_after('setup')
+	def use_fixture_build(self):
+		# A test with a fixture named vitrio reads the vitrio it built.
+		vitrio = getattr(self, 'vitrio', None)
+		if vitrio is not None:
+			self.build_tree = vitrio.build_tree
 
 	@run_after('setup')
 	def check_capabilities(self):
@@ -158,6 +166,9 @@ class ReaderBenchmark(VitrioBenchmark):
 
 	#: Particles in the dataset.
 	count = variable(int, value=20000)
+	#: A STAR file whose layout the dataset replays, instead of `count` and
+	#: `layout`.
+	like = variable(str, value='')
 	box = parameter([128], type=int)
 	dtype = parameter(['float32'], type=str)
 	layout = parameter(['single-stack'], type=str)
@@ -205,11 +216,16 @@ class ReaderBenchmark(VitrioBenchmark):
 		self.skip_if(bool(needed), f"{self.reader} needs {needed}.")
 
 	def dataset_options(self):
+		shape = (
+			[f'--dataset.like={self.like}'] if self.like else [
+				f'--dataset.count={self.count}',
+				f'--dataset.layout={self.layout}',
+			]
+		)
 		return [
-			f'--dataset.count={self.count}',
+			*shape,
 			f'--dataset.box={self.box}',
 			f'--dataset.dtype={self.dtype}',
-			f'--dataset.layout={self.layout}',
 			f'--dataset.seed={self.seed}',
 		]
 
@@ -301,6 +317,90 @@ class Epochs(ReaderBenchmark):
 	@performance_function('')
 	def later_stall_fraction(self):
 		return self.metric('later_stall_fraction')
+
+class Patches(ReaderBenchmark):
+	"""
+	Patches cropped out of micrographs, one per file, at corners drawn at
+	random (`patches`).
+	"""
+
+	procedure = 'patches'
+	#: Micrographs in the dataset.
+	count = 32
+	box = parameter([4096], type=int)
+	layout = parameter(['one-per-file'], type=str)
+
+	#: Side of a patch.
+	patch = parameter([128], type=int)
+	#: Patches per micrograph.
+	patches = variable(int, value=100)
+
+	def workload_options(self):
+		return [
+			*super().workload_options(),
+			f'--workload.patch={self.patch}',
+			f'--workload.patches={self.patches}',
+		]
+
+class VitrioBuild(rfm.CompileOnlyRegressionTest):
+	"""
+	A build tree of vitrio whose tuning macros a subclass sets, in
+	`defines`, for the sweeps that compare them. A test uses one as a
+	fixture named `vitrio`.
+
+	A tree is kept between campaigns under `buildsdir`, named after its
+	macros, so that building it again builds only what changed. TIFF is left
+	out, which no sweep of the macros reads.
+	"""
+
+	valid_systems = ['*']
+	valid_prog_environs = ['*']
+	sourcesdir = None
+	build_system = 'CustomBuild'
+
+	#: Where the trees are kept. Defaults to the partition's `buildsdir`
+	#: extra, or to build/benchmarks of the sources.
+	buildsdir = variable(str, value='')
+
+	#: The tree, once set up.
+	build_tree = variable(str, value='')
+
+	def defines(self):
+		"""The macros the tree is built with, and their values."""
+		return {}
+
+	@run_before('compile')
+	def set_commands(self):
+		buildsdir = (
+			self.buildsdir
+			or self.current_partition.extras.get('buildsdir', '')
+			or str(SOURCES / 'build' / 'benchmarks')
+		)
+		defines = sorted(self.defines().items())
+		name = '-'.join(
+			f"{macro.lower().replace('_', '-')}-{value}"
+			for macro, value in defines
+		)
+		self.build_tree = os.path.join(buildsdir, name or 'defaults')
+		flags = ' '.join(f'-D{macro}={value}' for macro, value in defines)
+		self.build_system.commands = [
+			shlex.join([
+				'cmake', '-S', str(SOURCES), '-B', self.build_tree,
+				'-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=OFF',
+				'-DVITRIO_ENABLE_TIFF=OFF', '-DVITRIO_BUILD_PYTHON=ON',
+				f'-DPython_EXECUTABLE={sys.executable}',
+				f'-DCMAKE_CXX_FLAGS={flags}',
+			]),
+			shlex.join([
+				'cmake', '--build', self.build_tree,
+				'--parallel', str(os.cpu_count() or 1),
+			]),
+		]
+
+	@sanity_function
+	def built(self):
+		package = Path(self.build_tree) / 'python' / 'vitrio' / '__init__.py'
+		return sn.assert_true(package.is_file())
 
 class Ceiling(VitrioBenchmark):
 	"""What the storage can deliver, measured with fio (`ceiling`)."""

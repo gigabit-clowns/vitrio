@@ -13,7 +13,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
+
+import vitrio as vio
 
 pytest.importorskip('psutil')
 
@@ -21,7 +24,7 @@ BENCHMARKS = Path(__file__).parents[2] / 'benchmarks'
 HARNESS = BENCHMARKS / 'python'
 sys.path.insert(0, str(HARNESS))
 
-from vitrio_bench import readers, results    # noqa: E402
+from vitrio_bench import datasets, manifests, readers, results    # noqa: E402
 
 DATASET = ['--dataset.count=120', '--dataset.box=16']
 LAYOUTS = ['single-stack', 'per-micrograph:7']
@@ -203,3 +206,78 @@ def test_every_reframe_parameter_takes_values_from_the_command_line(tmp_path):
 		for option in ('-P', parameter)
 	]
 	list_reframe_tests(tmp_path, *options)
+
+MICROGRAPHS = [
+	'--dataset.count=3', '--dataset.box=128', '--dataset.layout=one-per-file',
+]
+
+def test_every_patch_reader_crops_the_same_patches(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
+	records_file = tmp_path / 'results.jsonl'
+	for name, reader in readers.READERS.items():
+		if not reader.reads_patches:
+			continue
+		harness(
+			'run', 'patches', '--datadir', str(tmp_path),
+			'--results', str(records_file), *MICROGRAPHS,
+			f'--reader.name={name}', '--workload.patch=32',
+			'--workload.patches=10', '--workload.batch=8',
+			'--workload.verify=true'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert len(succeeded) >= 2
+	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
+	assert all(record['metrics']['images'] == 30 for record in succeeded)
+
+def write_star(path, names):
+	starfile = pytest.importorskip('starfile')
+	import pandas as pd
+
+	starfile.write(
+		{'particles': pd.DataFrame({'rlnImageName': names})}, path,
+		overwrite=True
+	)
+
+def test_a_dataset_replays_the_layout_of_a_star_file(tmp_path):
+	pytest.importorskip('starfile')
+	star = tmp_path / 'particles.star'
+	names = [f'{i:06d}@a.mrcs' for i in (1, 2, 3)]
+	names += [f'{i:06d}@b.mrcs' for i in (1, 2)]
+	write_star(star, names)
+	like = [f'--dataset.like={star}', '--dataset.box=16']
+	harness('generate', '--datadir', str(tmp_path), *like)
+	spec = datasets.make_spec({'like': str(star), 'box': 16})
+	assert datasets.load(tmp_path, spec).sizes == [3, 2]
+
+def test_a_manifest_tells_a_whole_dataset_from_an_incomplete_one(tmp_path):
+	pytest.importorskip('starfile')
+	for name, count in (('a.mrcs', 3), ('b.mrcs', 2)):
+		vio.write_stack(np.zeros((count, 16, 16), np.float32), tmp_path / name)
+	names = [f'{i:06d}@a.mrcs' for i in (1, 2, 3)]
+	names += [f'{i:06d}@b.mrcs' for i in (1, 2)]
+	write_star(tmp_path / 'particles.star', names)
+	manifest = {
+		'files': [{
+			'path': 'a.mrcs',
+			'bytes': (tmp_path / 'a.mrcs').stat().st_size,
+			'stack': {'count': 3, 'box': 16, 'dtype': 'float32'},
+		}],
+		'particles': {
+			'star': 'particles.star', 'count': 5, 'stacks': 2, 'box': 16,
+			'dtype': 'float32',
+		},
+	}
+	assert manifests.check(manifest, tmp_path) == []
+	(tmp_path / 'b.mrcs').unlink()
+	assert any('b.mrcs' in problem for problem in manifests.check(
+		manifest, tmp_path
+	))
+
+def test_every_manifest_says_what_to_download_and_check():
+	for name in manifests.names():
+		manifest = manifests.load(name)
+		assert {'name', 'title', 'page', 'download'} <= set(manifest)
+		assert manifest.get('files') or manifest.get('particles')

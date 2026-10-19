@@ -1,0 +1,34 @@
+{
+	"name": "EMPIAR-10180",
+	"title": "Pre-catalytic spliceosome",
+	"page": "https://www.ebi.ac.uk/empiar/EMPIAR-10180/",
+	"download": "https://ftp.ebi.ac.uk/empiar/world_availability/10180/data/",
+	"files": [
+		{"path": "Example/consensus_data.star", "bytes": 209118988}
+	],
+	"particles": {
+		"star": "Example/consensus_data.star",
+		"count": 327490,
+		"stacks": 4899,
+		"box": 320,
+		"dtype": "float32"
+	},
+	"notes": [
+		"One stack per micrograph, as RELION extracts them, under the Micrographs_* directories: between 5 and 109 particles each, 67 on average. The consensus STAR file names them, and has the poses and the CTF of every particle.",
+		"The STAR file is of RELION 3.0, with no optics, so it states no box: replaying its layout takes --dataset.box."
+	],
+	"variants": [
+		{
+			"name": "D=128 and D=256, in one stack",
+			"recipe": "cryodrgn downsample Example/consensus_data.star --datadir . -D 256 -o particles.256.mrcs, which writes every particle into one stack, as cryoDRGN reads them."
+		},
+		{
+			"name": "float16 on disk, one stack per micrograph",
+			"recipe": "python examples/python/basic/convert.py on each stack, with --data-type float16, into a tree of the same names, and the STAR file pointed at it."
+		},
+		{
+			"name": "The layout alone",
+			"recipe": "python -m vitrio_bench generate --datadir DIR --dataset.like=Example/consensus_data.star --dataset.box=320 makes noise in stacks of the same sizes, without downloading the particles."
+		}
+	]
+}

@@ -16,6 +16,7 @@ and campaigns of runs are left to ReFrame.
 | `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
 | `reframe/` | The ReFrame tests: a base test per procedure, and its named sweeps |
 | `reframe/config/` | Example configurations of machines |
+| `datasets/` | Manifests of real datasets: where to download them, and how to check them |
 
 The harness is not part of the package and is not built. CI runs none of
 the benchmarks, apart from two smoke tests: `tests/python/test_benchmarks.py`
@@ -55,6 +56,7 @@ export PYTHONPATH=$PWD/build/release/python
 export VITRIO_BENCH_DATADIR=/nvme/vitrio-bench
 export VITRIO_BENCH_SCRATCHDIR=/nvme/vitrio-scratch
 export VITRIO_BENCH_FEATURES=fio,cgroup-memory
+export VITRIO_BENCH_BUILDSDIR=/nvme/vitrio-builds
 reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
 	-n '^cache\b' -S results=$PWD/results.jsonl \
 	--exec-policy=serial --repeat=3 --exec-order=random -r
@@ -72,7 +74,13 @@ reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
 - **Your machine.** `reframe/config/workstation.py` reads it from the
   environment: `VITRIO_BENCH_FEATURES` lists what it can do (below),
   `VITRIO_BENCH_DATADIR` and `VITRIO_BENCH_SCRATCHDIR` where datasets and
-  the copies readers make of them go.
+  the copies readers make of them go, and `VITRIO_BENCH_BUILDSDIR` where
+  the builds of vitrio that sweeps of its tuning macros compare are kept.
+- **Tuning macros.** The sweeps `gap_cap` and `prefetch_budget` build vitrio
+  once per value of a macro of `src/config.hpp`, with the fixture
+  `VitrioBuild`, and run each point on its build. A build is kept between
+  campaigns, named after its macros, so only the first campaign pays for
+  it. It needs nanobind in the environment ReFrame runs in.
 
 ## A run
 
@@ -83,9 +91,9 @@ left for the next. The point is given part by part, as
 
 | Part | What | Examples |
 |---|---|---|
-| `dataset` | What is read | `count`, `box`, `dtype`, `layout`, `seed` |
+| `dataset` | What is read | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
 | `reader` | Who reads it, with which settings | `name`, and the reader's own (below) |
-| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `step_s`, `verify` |
+| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `verify` |
 | `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
@@ -141,8 +149,9 @@ a file system could compress or leave sparse.
 | `box` | 128 | Side of a particle, in pixels |
 | `dtype` | `float32` | `float32`, `float16` or `int16` on disk |
 | `format` | `mrcs` | |
-| `layout` | `single-stack` | `single-stack`, or `per-micrograph:<mean>`: one stack per micrograph, as RELION extracts them, with a number of particles drawn around the mean |
+| `layout` | `single-stack` | `single-stack`; `per-micrograph:<mean>`: one stack per micrograph, as RELION extracts them, with a number of particles drawn around the mean; or `one-per-file`: one image per file, as micrographs are kept |
 | `seed` | 0 | |
+| `like` | | A STAR file whose layout to replay: as many stacks as it names, with as many particles each, filled with noise. It stands for `count` and `layout`, and gives the box when its optics state one. The dataset's name follows the layout, not the path of the file |
 
 A dataset is named by a hash of its parameters, so the same parameters make
 the same files on any machine. Generating one that exists does nothing.
@@ -176,6 +185,17 @@ Its workload is that of `read_batches`, with 3 epochs by default, and
 `read_batches` it reports `first_epoch_s`, `later_epoch_s`,
 `stall_fraction` (the time spent waiting for data, of all the time) and its
 first and later parts, and the bytes read from storage in each epoch.
+
+### `patches`
+
+Patches cropped out of the images of a dataset, micrographs as a rule, as
+many per image, at corners drawn at random: particles read out of
+micrographs without extracting them first. The patches of a batch are read
+image by image, in the order extraction reads them. Its workload is that of
+`read_batches`, and `patch`, the side of a patch (128), and `patches`, how
+many each image has (100). The readers that crop patches are
+`vitrio-loader`, with one `read_patches_async` per image of a batch, and
+`mrcfile-open`, `mrcfile-per-read` and `numpy-memmap`, one patch at a time.
 
 ### `ceiling`
 
@@ -230,13 +250,36 @@ the defaults do not account for.
 | `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |
 | `convert_first` | `epochs` | A converted dataset's first run, which converts it, against a rerun |
+| `patch_readers` | `patches` | Every reader that crops patches, at three sides |
+| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_PREFETCH_GAP_CAP`. A build per value |
+| `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_PREFETCH_BYTE_BUDGET`. A build per value |
 | `ceiling` | `ceiling` | What the storage delivers |
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,
 C2 and C4; `epochs` C3, C7 and the loader side of A6; `ceiling` its storage
-ceilings; the engine's benchmark in C++ the first half of C0. Among the sweeps, `readers` covers the baselines of C1, `workers`
-C1 and the ablation of F1, `cache` C2 (F2), `dtype` C4 (F5), `scratch`,
-`run_length` and `larger_than_ram` C3 (F7), and `overlap` C7 (F3).
+ceilings; `patches` the read side of B1 (F8); the engine's benchmark in C++
+the first half of C0. Among the sweeps, `readers` covers the baselines of
+C1, `workers` C1 and the ablation of F1, `cache` C2 (F2), `dtype` C4 (F5),
+`scratch`, `run_length` and `larger_than_ram` C3 (F7), `overlap` C7 (F3),
+and `gap_cap` and `prefetch_budget` the ablation of F6.
+
+## Real datasets
+
+What generated data cannot stand for, such as the end-to-end runs and the
+formats whose content changes what reading costs, is read from real
+datasets. Each has a manifest in `datasets/`, which states where to
+download it, its files and their sizes, the STAR file that names its
+particles, and how to make the variants the benchmarks read. The data is
+never committed.
+
+```sh
+python -m vitrio_bench dataset list
+python -m vitrio_bench dataset check empiar-10180 /data/empiar-10180
+```
+
+`check` takes the directory the manifest's `download` URL lists, and checks
+every file it names, and every stack its STAR file names: there, of the box
+and the data type stated, and holding the particles asked of it.
 
 ## The engine, in C++
 

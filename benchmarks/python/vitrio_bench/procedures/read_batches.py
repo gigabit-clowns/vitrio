@@ -39,7 +39,9 @@ def make_workload(params: dict[str, Any], dataset: Dataset) -> dict[str, Any]:
 	Raises:
 		ValueError: If a parameter is unknown, or holds what it cannot.
 	"""
-	return _batches.make_workload('read_batches', WORKLOAD, params, dataset)
+	return _batches.make_workload(
+		'read_batches', WORKLOAD, params, dataset.count
+	)
 
 def run(
 	dataset: Dataset,
@@ -48,5 +50,9 @@ def run(
 	started: float
 ) -> dict[str, Any]:
 	"""Read the epochs of a workload, and measure them."""
-	measured = _batches.measure(dataset, reader, workload, started)
-	return _batches.metrics(measured, dataset, reader)
+	stacks, _ = dataset.locate()
+	measured = _batches.measure(reader, workload, started, stacks)
+	return _batches.metrics(
+		measured, reader, dataset.image_bytes,
+		dataset.box * dataset.box * reader.dtype.itemsize
+	)

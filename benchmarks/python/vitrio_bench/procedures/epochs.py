@@ -32,7 +32,9 @@ def make_workload(params: dict[str, Any], dataset: Dataset) -> dict[str, Any]:
 	Raises:
 		ValueError: If a parameter is unknown, or holds what it cannot.
 	"""
-	workload = _batches.make_workload('epochs', WORKLOAD, params, dataset)
+	workload = _batches.make_workload(
+		'epochs', WORKLOAD, params, dataset.count
+	)
 	workload['step_s'] = float(workload['step_s'])
 	if workload['step_s'] < 0:
 		raise ValueError("A step takes no less than no time.")
@@ -49,10 +51,14 @@ def run(
 	started: float
 ) -> dict[str, Any]:
 	"""Go through the epochs of a workload, and measure them."""
+	stacks, _ = dataset.locate()
 	measured = _batches.measure(
-		dataset, reader, workload, started, workload['step_s']
+		reader, workload, started, stacks, step_s=workload['step_s']
 	)
-	result = _batches.metrics(measured, dataset, reader)
+	result = _batches.metrics(
+		measured, reader, dataset.image_bytes,
+		dataset.box * dataset.box * reader.dtype.itemsize
+	)
 
 	epochs = measured.epoch_s
 	stalls = [sum(waits) for waits in measured.waits]
