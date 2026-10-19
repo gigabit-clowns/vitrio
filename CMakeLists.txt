@@ -46,7 +46,12 @@ option(
 that one build serves Python 3.12 and newer. Needs CMake 3.26"
 	OFF
 )
-option(VITRIO_BUILD_TESTING "Build vitrio's tests" ${BUILD_TESTING})
+# Only while BUILD_TESTING, the switch of CTest, is on: tests built without
+# it could not be registered with CTest.
+cmake_dependent_option(
+	VITRIO_BUILD_TESTING "Build vitrio's tests" ON
+	"BUILD_TESTING" OFF
+)
 option(
 	VITRIO_BUILD_EXAMPLES
 	"Build the C++ examples of examples/cpp"
@@ -185,7 +190,7 @@ if(VITRIO_BUILD_PYTHON)
 	add_subdirectory(python)
 endif()
 
-if(BUILD_TESTING AND VITRIO_BUILD_TESTING)
+if(VITRIO_BUILD_TESTING)
 	add_subdirectory(tests)
 endif()
 
