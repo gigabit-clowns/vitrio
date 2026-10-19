@@ -79,6 +79,7 @@ jobs:
           cmake --preset debug
           -DVITRIO_BUILD_PYTHON=ON
           -DVITRIO_BUILD_EXAMPLES=ON
+          -DVITRIO_BUILD_BENCHMARKS=ON
 
       - name: Build
         run: cmake --build --preset debug --parallel 4

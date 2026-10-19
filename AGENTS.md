@@ -42,7 +42,8 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Not built, and run by hand, as its README says. CI runs only their smoke test, `tests/python/test_benchmarks.py` |
+| `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
+| `benchmarks/cpp/` | The C++ benchmarks, built with `-DVITRIO_BUILD_BENCHMARKS=ON`: that of the engine of `src/formats/strided_transfer/`, white-box, linked with the objects of the library as the unit tests are |
 | `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch |
 | `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, and example configurations of machines |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
@@ -113,12 +114,15 @@ each.
 `-DVITRIO_BUILD_EXAMPLES=ON` builds the C++ examples of `examples/cpp`, each a
 target of its own and a test that runs it. They are off by default.
 
-The benchmarks are not built. Their harness runs from the source tree
+The harness of the benchmarks is not built. It runs from the source tree
 beside the package of a build, `PYTHONPATH=build/python:benchmarks/python
 python -m vitrio_bench`, and ReFrame runs campaigns of it, as
-`benchmarks/README.md` says. What they need is the `bench` group of
+`benchmarks/README.md` says. What it needs is the `bench` group of
 `pyproject.toml`, which `dev` includes, so that the suite of the Python
-package runs their smoke test.
+package runs its smoke test. `-DVITRIO_BUILD_BENCHMARKS=ON` builds the C++
+benchmarks of `benchmarks/cpp`, with Google Benchmark, and adds a test that
+runs each for a moment, labelled `benchmark`. CI builds them in its main
+job.
 
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
 Doxygen and writes the documentation of the C++ API under
@@ -180,6 +184,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
+| Google Benchmark 1.8 or newer | The C++ benchmarks. Not needed without `-DVITRIO_BUILD_BENCHMARKS=ON`. Unlike the others it is cloned with git, not fetched as an archive, since it reads its version from the tags of its repository |
 | Python 3.10 or newer, nanobind 3 | The Python package. Not needed without `-DVITRIO_BUILD_PYTHON=ON`, and never fetched: pip provides nanobind |
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them. PyTorch is also a baseline of the benchmarks, which skip it without it |

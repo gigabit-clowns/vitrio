@@ -133,11 +133,12 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 			environment.append(f'--environment.memory_max={self.memory_max}')
 		if self.scratchdir:
 			environment.append(f'--environment.scratchdir={self.scratchdir}')
-		self.executable_opts = [
+		# ReFrame writes the options into a shell script as they are.
+		self.executable_opts = [shlex.quote(option) for option in [
 			'-m', 'vitrio_bench', 'run', self.procedure,
 			'--datadir', self.datadir, '--results', self.results,
 			*dataset, *self.run_options(), *environment,
-		]
+		]]
 
 	@sanity_function
 	def succeeded(self):

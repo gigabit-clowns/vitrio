@@ -58,6 +58,11 @@ option(
 	OFF
 )
 option(
+	VITRIO_BUILD_BENCHMARKS
+	"Build the C++ benchmarks of benchmarks/cpp, which need Google Benchmark"
+	OFF
+)
+option(
 	VITRIO_BUILD_DOCS
 	"Add the targets that build the documentation of the API, which needs \
 Doxygen, and with VITRIO_BUILD_PYTHON that of the Python package, which \
@@ -196,6 +201,10 @@ endif()
 
 if(VITRIO_BUILD_EXAMPLES)
 	add_subdirectory(examples)
+endif()
+
+if(VITRIO_BUILD_BENCHMARKS)
+	add_subdirectory(benchmarks)
 endif()
 
 if(VITRIO_CHECK_HEADERS)

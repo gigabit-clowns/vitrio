@@ -13,13 +13,15 @@ and campaigns of runs are left to ReFrame.
 | `python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON |
 | `python/vitrio_bench/readers/` | The readers: vitrio's, and the baselines that read as other software does |
 | `python/vitrio_bench/procedures/` | The procedures |
+| `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
 | `reframe/` | The ReFrame tests: a base test per procedure, and its named sweeps |
 | `reframe/config/` | Example configurations of machines |
 
 The harness is not part of the package and is not built. CI runs none of
-the benchmarks, apart from the smoke test in
-`tests/python/test_benchmarks.py`, which checks that every reader and every
-scratch delivers the same batches and that every record follows its schema.
+the benchmarks, apart from two smoke tests: `tests/python/test_benchmarks.py`
+checks that every reader and every scratch delivers the same batches and
+that every record follows its schema, and the C++ benchmark runs each of its
+benchmarks for a moment.
 
 ## Getting started
 
@@ -232,9 +234,41 @@ the defaults do not account for.
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,
 C2 and C4; `epochs` C3, C7 and the loader side of A6; `ceiling` its storage
-ceilings. Among the sweeps, `readers` covers the baselines of C1, `workers`
+ceilings; the engine's benchmark in C++ the first half of C0. Among the sweeps, `readers` covers the baselines of C1, `workers`
 C1 and the ablation of F1, `cache` C2 (F2), `dtype` C4 (F5), `scratch`,
 `run_length` and `larger_than_ram` C3 (F7), and `overlap` C7 (F3).
+
+## The engine, in C++
+
+`cpp/strided_transfer.cpp` measures the engine of
+`src/formats/strided_transfer/` on its own: no file is opened and no thread
+started, so what it measures is the copy and the conversion of elements,
+which bound a read once its pages are in memory. The images of a batch of 64
+are drawn at random from a buffer larger than the processor's caches (256
+MiB, or `VITRIO_BENCH_FILE_BYTES`), at sides of 64, 128, 256 and 512.
+
+| Benchmarks | What |
+|---|---|
+| `read/stack/<file>/<array>` | Whole images of a stack, from what particles are stored as to float32, and to themselves |
+| `read/swapped/...` | A file in the other byte order |
+| `read/patches/...` | Strided on the file's side: patches cropped out of micrographs of 4096² |
+| `read/padded/...` | Strided on the array's side: rows padded |
+| `write/stack/<array>/<file>` | float32 written as float32, float16 and int16 |
+| `memcpy/stack/float32` | The ceiling: a std::memcpy of the same images |
+| `walk/stack`, `walk/patches` | What working out the walk of a batch costs, which every read pays first |
+
+```sh
+cmake --preset release -DVITRIO_BUILD_BENCHMARKS=ON
+cmake --build --preset release --target vitrio-benchmark-strided-transfer
+build/release/benchmarks/cpp/vitrio-benchmark-strided-transfer \
+	--benchmark_filter='read/stack/float16' --benchmark_repetitions=3
+```
+
+The ReFrame test `strided_transfer` runs it from the build tree that
+`-S build_tree=...` names, keeps Google Benchmark's JSON next to the results
+file, and makes the median throughput of each benchmark a performance
+variable. Two runs, such as two builds, compare with Google Benchmark's
+`tools/compare.py`.
 
 ## Records
 
