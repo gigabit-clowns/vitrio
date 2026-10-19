@@ -93,15 +93,20 @@ def make_loader(reader: Reader) -> tuple[Any, list[Any]]:
 	)
 	return loader, locations
 
+def _disk_bytes(path: Path) -> int:
+	# Windows counts no blocks, and keeps no file sparse unless asked to,
+	# so there a file takes its size.
+	status = path.stat()
+	blocks = getattr(status, 'st_blocks', None)
+	return status.st_size if blocks is None else blocks * 512
+
 def scratch_bytes(reader: Reader) -> int | None:
 	"""The bytes the files of a reader's scratch take on disk."""
 	if reader.params['scratch'] not in ('mapped', 'directory'):
 		return None
 	path = scratch_path(reader)
 	paths = path.rglob('*') if path.is_dir() else [path]
-	return sum(
-		item.stat().st_blocks * 512 for item in paths if item.is_file()
-	)
+	return sum(_disk_bytes(item) for item in paths if item.is_file())
 
 def remove_scratch(reader: Reader) -> None:
 	"""Remove the files of a reader's scratch, once nothing holds it."""

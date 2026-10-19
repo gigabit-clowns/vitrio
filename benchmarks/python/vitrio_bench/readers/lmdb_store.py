@@ -102,10 +102,14 @@ class LmdbStore(Reader):
 		if self._converted:
 			self._convert(path)
 		self._convert_s = time.perf_counter() - begin
-		self._bytes = (path / 'data.mdb').stat().st_blocks * 512
 		self._env = lmdb.open(
 			str(path), readonly=True, lock=False,
 			readahead=bool(self.params['readahead']), meminit=False
+		)
+		# The pages the database uses, rather than the size of its file,
+		# which Windows grows to the whole map.
+		self._bytes = (
+			(self._env.info()['last_pgno'] + 1) * self._env.stat()['psize']
 		)
 		self._shape = (self.dataset.box, self.dataset.box)
 
