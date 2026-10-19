@@ -19,9 +19,7 @@ micrograph = vio.read("/path/to/micrograph.mrc")
 movie = vio.read("/path/to/movie.tif")
 ```
 
-vitrio is young. It grew out of the image I/O of
-[rexlib](https://github.com/gigabit-clowns/rexlib), and its API may still
-change before 1.0.
+vitrio is young and its API and ABI are subject to change.
 
 ## What it does
 
