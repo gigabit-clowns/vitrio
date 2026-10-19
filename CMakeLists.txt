@@ -85,10 +85,6 @@ cmake_dependent_option(
 	"VITRIO_BUILD_DEPENDENCIES" OFF
 )
 cmake_dependent_option(
-	VITRIO_BUILD_HALF "Fetch half and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
-)
-cmake_dependent_option(
 	VITRIO_BUILD_SPDLOG "Fetch spdlog and build it with vitrio" ON
 	"VITRIO_BUILD_DEPENDENCIES" OFF
 )
@@ -124,16 +120,6 @@ if(VITRIO_BUILD_BOOST)
 	)
 else()
 	find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
-endif()
-
-if(VITRIO_BUILD_HALF)
-	include(vitrio_fetch_half)
-	vitrio_fetch_half(
-		VERSION 2.2.1
-		SHA256 76ddbf406e9d9b772ec73af2bf925b38b290b4390cc4064720a08d4b4bca0aa9
-	)
-else()
-	find_package(half REQUIRED)
 endif()
 
 if(VITRIO_BUILD_SPDLOG)

@@ -120,10 +120,9 @@ jobs:
   # not fail it: before 1.0 a release may break the ABI, and this tells
   # which kind of release the next one has to be.
   #
-  # Both are built against the packages of the distribution, which a release
-  # that predates the VITRIO_BUILD_* toggles can only find. No distribution
-  # package carries half, so this tree, built first, fetches it and the
-  # release finds that copy.
+  # Both are built against the packages of the distribution. None carries
+  # half, which releases up to 0.1.4 need, so such a release fetches its
+  # own, as its VITRIO_BUILD_HALF does by default.
   abi:
     name: ABI since the last release
     runs-on: ubuntu-latest
@@ -154,8 +153,7 @@ jobs:
             cmake -S "$tree" --preset debug \
               -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF \
               -DVITRIO_BUILD_BOOST=OFF -DVITRIO_BUILD_SPDLOG=OFF \
-              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF \
-              -Dhalf_INCLUDE_DIR="$GITHUB_WORKSPACE/build/debug/_deps/half-src/include"
+              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF
             cmake --build "$tree/build/debug" --parallel 4
           done
 
@@ -191,9 +189,8 @@ jobs:
 
   # The presets need CMake 3.24, so this is the one job that does without
   # them, and the one that holds cmake_minimum_required to its word. It is
-  # also the one that finds the dependencies installed, as a distribution
-  # builds vitrio. No distribution package carries half, so half alone is
-  # fetched, which CMake 3.18 does as well.
+  # also the one that finds every dependency installed, as a distribution
+  # builds vitrio.
   minimum-cmake:
     name: CMake 3.18
     runs-on: ubuntu-latest
@@ -233,12 +230,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug
           -DVITRIO_CHECK_HEADERS=ON
           -DVITRIO_BUILD_PYTHON=ON
-          -DVITRIO_BUILD_BOOST=OFF
-          -DVITRIO_BUILD_SPDLOG=OFF
-          -DVITRIO_BUILD_ZLIB=OFF
-          -DVITRIO_BUILD_TIFF=OFF
-          -DVITRIO_BUILD_CATCH2=OFF
-          -DVITRIO_BUILD_TROMPELOEIL=OFF
+          -DVITRIO_BUILD_DEPENDENCIES=OFF
 
       - name: Build
         run: >-
