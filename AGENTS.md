@@ -26,7 +26,7 @@ in the same commit that causes it.
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
-| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, the cast between two of them, their byte order |
+| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
@@ -160,15 +160,11 @@ released on GitHub or GitLab is pinned by the commit of its release tag,
 `COMMIT <sha>) # <tag>`, as the actions of the workflows are. Boost is
 pinned by its tag and the SHA256 of the archive it attaches to the release,
 since the archive of a commit lacks its libraries, which are submodules.
-half, released on SourceForge alone, is pinned by its version and SHA256:
-Renovate bumps the version, and the hash is then filled in by hand, from
-the one CMake reports when it does not match.
 
 | Dependency | Needed by |
 |---|---|
 | Threads | The library, privately |
 | Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
-| half | The library, privately, for half precision numbers. It ships no CMake of its own: `vitrio_fetch_half()` defines the target of a fetched one, and `cmake/modules/Findhalf.cmake` finds an installed one. No distribution but Fedora packages it |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
 | libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
@@ -230,12 +226,22 @@ the one CMake reports when it does not match.
   trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
   fake. A mock is added with the first test that uses it.
 - **Private headers use their dependencies openly.** A header under `src/`
-  includes what it needs and names its types as they are: `float16_t` is
-  `half_float::half`, not a class wrapped around it. Hiding a dependency is
-  for public headers only.
+  includes what it needs and names its types as they are: a mapping of a
+  file is a `boost::interprocess::mapped_region`, not a class wrapped around
+  it. Hiding a dependency is for public headers only.
 - **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
   element as `static_cast` does. Any type is produced from any other, except
   that a complex number is only produced into another complex type.
+- **Half precision.** `float16_t`, in `src/array/float16_t.hpp`, is a class
+  of vitrio's own, which converts and does no arithmetic. Its conversions
+  are bit arithmetic without a branch, and no intrinsic, so that a compiler
+  vectorizes the loops of the strided transfer that call them for every
+  element. A choice among cases is made with a mask, since GCC keeps a
+  branch around a floating point operation, and a loop with a branch is not
+  vectorized. It is converted to a float exactly, and from a float and from
+  a double each rounded once. Every other type goes through a float, which
+  holds every half precision number and every integer half precision does
+  not round to an infinity.
 - **Keys and files.** A provider (`image_reader_provider`,
   `image_writer_provider`) is asked with a key, and what a key means is the
   provider's business. An `image_location` is a key and an index in a stack,
@@ -349,14 +355,14 @@ package too and run its suite, one of them with the oldest Python the
 package supports.
 
 Those jobs fetch the dependencies, except the one with CMake 3.18. That one
-finds them installed from the packages of Ubuntu, as a distribution builds
-vitrio, and fetches only half, which Ubuntu does not package.
+finds them all installed from the packages of Ubuntu, as a distribution
+builds vitrio.
 
 One more job builds the last release beside the tree and has libabigail
 say what changed in the ABI between the two. A change does not fail it:
 before 1.0 a release may break the ABI, and the report tells which kind of
 release the next one has to be. Both are built against the packages of
-Ubuntu, and the release finds the half this tree fetched.
+Ubuntu.
 
 `.github/workflows/documentation.yml` builds the documentation of the C++ API
 and of the Python package, puts them side by side and publishes them to

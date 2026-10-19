@@ -52,7 +52,6 @@ target_link_libraries(
 		Threads::Threads
 		Boost::filesystem
 		Boost::headers
-		half::half
 		spdlog::spdlog_header_only
 )
 
