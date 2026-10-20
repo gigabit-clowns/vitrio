@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "memory_range.hpp"
-
+#include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
 namespace vitrio

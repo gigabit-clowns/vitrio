@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <vitrio/export.hpp>
+
 #include <cstddef>
 
 namespace vitrio
@@ -9,8 +11,11 @@ namespace vitrio
 
 /**
  * @brief A stretch of memory: where it starts and how many bytes it covers.
+ *
+ * It names where something lies in the address space, not elements to be
+ * accessed, which is what a @ref span is for.
  */
-class memory_range
+class VITRIO_API memory_range
 {
 public:
 	/**

@@ -222,6 +222,9 @@ since the archive of a commit lacks its libraries, which are submodules.
   never an alias of `std::span`, so that the ABI does not depend on the
   standard a consumer compiles with. `vitrio::byte` is `unsigned char`, the
   type C++14 lets the memory of any object be accessed through.
+  `vitrio::memory_range` is a stretch of the address space, such as one to
+  be advised, and not elements to be accessed, even though a span of bytes
+  is built the same way.
 - **Arrays.** Four classes with one job each: `array` and `const_array` keep
   their memory alive, `array_ref` and `const_array_ref` do not, and the
   `const` ones cannot be written through. A reference is two pointers, as

@@ -1,11 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-target_sources(
-	vitrio-obj
-	PRIVATE
-		memory_range.cpp
-)
-
 # What is asked of the operating system has one source file per family of
 # systems, and the build takes the one that applies.
 if(WIN32)

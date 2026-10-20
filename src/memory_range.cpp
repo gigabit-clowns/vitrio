@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "memory_range.hpp"
+#include <vitrio/memory_range.hpp>
 
 namespace vitrio
 {

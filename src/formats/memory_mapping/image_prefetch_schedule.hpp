@@ -6,9 +6,8 @@
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
+#include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
-
-#include <system/memory_range.hpp>
 
 #include <cstddef>
 #include <vector>
