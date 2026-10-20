@@ -4,11 +4,8 @@
 
 #include "image_file_layout.hpp"
 #include "image_file_mapping.hpp"
-#include "image_prefetch_schedule.hpp"
 
-#include <formats/strided_transfer/image_region_read_walk.hpp>
-
-#include <vitrio/array/numerical_type.hpp>
+#include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 
@@ -28,8 +25,8 @@ namespace vitrio
  * state a read touches, and the latter is not shared across calls.
  *
  * A read asks for the stretches it is about to touch before it touches them,
- * a step ahead of the one it is walking. See @ref image_prefetch_schedule,
- * which works out what those stretches and steps are.
+ * a step ahead of the one it is walking, as @ref read_prefetched_regions
+ * describes.
  */
 class mapped_image_reader final
 	: public image_reader
@@ -63,51 +60,12 @@ public:
 	) const override;
 
 private:
-	/**
-	 * @brief Resolve the regions of a plan between the file and an array.
-	 *
-	 * @param destination The array the regions land in.
-	 * @param regions The regions to read.
-	 * @return image_region_read_walk The regions, bounds checked and ready
-	 * to be walked.
-	 */
-	image_region_read_walk resolve_regions(
-		array_ref destination,
-		const image_transfer_plan &regions
-	) const;
-
-	/**
-	 * @brief Work out the stretches of the mapping resolved regions reach,
-	 * and the steps they are asked for in.
-	 *
-	 * @param regions The regions to read.
-	 * @param walk What @ref resolve_regions made of them.
-	 * @return image_prefetch_schedule The stretches and their steps.
-	 */
-	image_prefetch_schedule schedule_prefetch(
-		const image_transfer_plan &regions,
-		const image_region_read_walk &walk
-	) const;
-
-	/**
-	 * @brief Move the regions a step at a time, asking for each step before
-	 * the one ahead of it is walked.
-	 *
-	 * @param walk The resolved regions.
-	 * @param schedule The steps to move them in.
-	 * @param array_data First element of the array.
-	 * @param array_type Data type of the array.
-	 */
-	void move_regions(
-		const image_region_read_walk &walk,
-		const image_prefetch_schedule &schedule,
-		void *array_data,
-		numerical_type array_type
-	) const;
-
 	image_file_mapping m_mapping;
 	image_file_layout m_layout;
 	image_metadata m_metadata;
+
+	/// The values of the file, as an array over the mapping reads them.
+	array_descriptor m_values;
 };
 
 } // namespace vitrio
