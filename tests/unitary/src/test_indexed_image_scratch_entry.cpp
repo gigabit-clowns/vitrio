@@ -8,14 +8,20 @@
 #include "fixtures/counting_image_file.hpp"
 #include <vitrio/tests/scoped_path.hpp>
 #include "mock/mock_image_reader.hpp"
+#include "mock/mock_image_scratch_storage.hpp"
 
 #include <vitrio/array/array.hpp>
+#include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/host_image_scratch_storage.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_scratch_open_mode.hpp>
+#include <vitrio/image_scratch_storage.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <algorithm>
 #include <array>
@@ -68,20 +74,94 @@ private:
 // When the stack was last modified, as far as the entries are told.
 const std::uint64_t stack_time = 1700000000;
 
-// One flag per run, every one set to `value`.
-array make_flags(std::size_t run_count, std::uint64_t value = 0)
-{
-	return make_host_array<std::uint64_t>(
-		{run_count},
-		numerical_type::uint64,
-		value
-	);
-}
-
 std::size_t count_runs(std::size_t index_count, std::size_t run_length)
 {
 	return index_count == 0 ? 0 : (index_count - 1) / run_length + 1;
 }
+
+// Where the values of an entry begin, after a flag per run.
+std::size_t locate_values(std::size_t run_count)
+{
+	return (run_count * sizeof(std::uint64_t) + 63) / 64 * 64;
+}
+
+// Storage laid out as a scratch lays out an entry: a flag per run, then the
+// images the entry holds. Every flag starts as `flag`, and every value as
+// `value`.
+class entry_storage
+{
+public:
+	entry_storage(
+		std::size_t index_count,
+		std::size_t run_count,
+		float value = 0.0F,
+		std::uint64_t flag = 0
+	)
+		: m_storage(
+			create_host_image_scratch_storage(
+				locate_values(run_count) +
+				std::max<std::size_t>(index_count, 1) *
+					image_size * sizeof(float)
+			)
+		)
+		, m_flags({run_count}, {1}, 0, numerical_type::uint64)
+		, m_values(
+			{index_count, 2, 2},
+			{4, 2, 1},
+			static_cast<std::ptrdiff_t>(
+				locate_values(run_count) / sizeof(float)
+			),
+			numerical_type::float32
+		)
+	{
+		auto *flags = reinterpret_cast<std::uint64_t*>(m_storage->get_data());
+		std::fill(flags, flags + run_count, flag);
+
+		auto values = view(m_values);
+		auto *first = reinterpret_cast<float*>(values.get_data()) +
+			m_values.get_offset();
+		std::fill(first, first + index_count * image_size, value);
+	}
+
+	std::shared_ptr<image_scratch_storage> get_storage() const noexcept
+	{
+		return m_storage;
+	}
+
+	const array_descriptor& get_flags() const noexcept
+	{
+		return m_flags;
+	}
+
+	const array_descriptor& get_values() const noexcept
+	{
+		return m_values;
+	}
+
+	std::vector<std::uint64_t> read_flags() const
+	{
+		return test::get_values<std::uint64_t>(view(m_flags));
+	}
+
+	void write_flag(std::size_t run, std::uint64_t value) noexcept
+	{
+		reinterpret_cast<std::uint64_t*>(m_storage->get_data())[run] = value;
+	}
+
+private:
+	array view(const array_descriptor &descriptor) const
+	{
+		return array(
+			make_span(m_storage->get_data(), m_storage->get_size()),
+			m_storage,
+			descriptor
+		);
+	}
+
+	std::shared_ptr<image_scratch_storage> m_storage;
+	array_descriptor m_flags;
+	array_descriptor m_values;
+};
 
 // An entry that holds some images of the stack, with nothing loaded.
 std::shared_ptr<indexed_image_scratch_entry> make_entry(
@@ -89,13 +169,16 @@ std::shared_ptr<indexed_image_scratch_entry> make_entry(
 	std::size_t run_length
 )
 {
-	const std::vector<std::size_t> extents = {indices.size(), 2, 2};
-	const auto run_count = count_runs(indices.size(), run_length);
+	const entry_storage storage(
+		indices.size(),
+		count_runs(indices.size(), run_length)
+	);
 
 	return std::make_shared<indexed_image_scratch_entry>(
 		std::move(indices),
-		make_host_array<float>(extents, numerical_type::float32, 0.0F),
-		make_flags(run_count),
+		storage.get_storage(),
+		storage.get_values(),
+		storage.get_flags(),
 		stack_time,
 		run_length,
 		image_scratch_open_mode::empty
@@ -103,21 +186,41 @@ std::shared_ptr<indexed_image_scratch_entry> make_entry(
 }
 
 // An entry that holds the first four images of the stack in runs of two,
-// over values and flags that the caller keeps.
+// over storage that the caller keeps.
 std::shared_ptr<indexed_image_scratch_entry> make_entry_over(
-	array &values,
-	array &flags,
+	const entry_storage &storage,
 	std::uint64_t modification_time,
 	image_scratch_open_mode mode
 )
 {
 	return std::make_shared<indexed_image_scratch_entry>(
 		std::vector<std::size_t>({0, 1, 2, 3}),
-		values.share(),
-		flags.share(),
+		storage.get_storage(),
+		storage.get_values(),
+		storage.get_flags(),
 		modification_time,
 		2,
 		mode
+	);
+}
+
+// An entry of some indices, over `storage` as `values` and `flags` read it.
+std::shared_ptr<indexed_image_scratch_entry> make_entry_of(
+	std::vector<std::size_t> indices,
+	std::shared_ptr<image_scratch_storage> storage,
+	array_descriptor values,
+	array_descriptor flags,
+	std::size_t run_length = 1
+)
+{
+	return std::make_shared<indexed_image_scratch_entry>(
+		std::move(indices),
+		std::move(storage),
+		std::move(values),
+		std::move(flags),
+		stack_time,
+		run_length,
+		image_scratch_open_mode::empty
 	);
 }
 
@@ -192,6 +295,25 @@ std::vector<float> values_of_images(const std::vector<std::size_t> &indices)
 	return values;
 }
 
+// Whether some of `ranges` holds every byte from `first` to `first + size`.
+bool covers(
+	span<const memory_range> ranges,
+	const vitrio::byte *first,
+	std::size_t size
+)
+{
+	return std::any_of(
+		ranges.begin(),
+		ranges.end(),
+		[&](const memory_range &range)
+		{
+			const auto *begin =
+				static_cast<const vitrio::byte*>(range.get_address());
+			return first >= begin && first + size <= begin + range.get_size();
+		}
+	);
+}
+
 using index_list = std::vector<std::size_t>;
 
 } // anonymous namespace
@@ -201,16 +323,16 @@ TEST_CASE(
 	"[indexed_image_scratch_entry]"
 )
 {
+	const entry_storage storage(3, 3);
+
 	SECTION( "indices that descend are refused" )
 	{
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({4, 1, 5}),
-				make_batch(3),
-				make_flags(3),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				storage.get_flags()
 			),
 			std::invalid_argument
 		);
@@ -219,17 +341,33 @@ TEST_CASE(
 	SECTION( "an index given twice is refused" )
 	{
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 4}),
-				make_batch(3),
-				make_flags(3),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				storage.get_flags()
 			),
 			std::invalid_argument
 		);
 	}
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry needs a storage",
+	"[indexed_image_scratch_entry]"
+)
+{
+	const entry_storage storage(3, 3);
+
+	REQUIRE_THROWS_AS(
+		make_entry_of(
+			index_list({1, 4, 5}),
+			nullptr,
+			storage.get_values(),
+			storage.get_flags()
+		),
+		std::invalid_argument
+	);
 }
 
 TEST_CASE(
@@ -239,14 +377,14 @@ TEST_CASE(
 {
 	SECTION( "values of another number of indices are refused" )
 	{
+		const entry_storage storage(2, 3);
+
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 5}),
-				make_batch(2),
-				make_flags(3),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				storage.get_flags()
 			),
 			std::invalid_argument
 		);
@@ -254,16 +392,59 @@ TEST_CASE(
 
 	SECTION( "values that are not initialized are refused" )
 	{
+		const entry_storage storage(3, 3);
+
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 5}),
-				array(),
-				make_flags(3),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				array_descriptor(),
+				storage.get_flags()
 			),
 			std::invalid_argument
+		);
+	}
+
+	SECTION( "values with a negative stride are refused" )
+	{
+		const entry_storage storage(3, 3);
+		const auto &values = storage.get_values();
+		const auto last_image =
+			values.get_offset() + 2 * static_cast<std::ptrdiff_t>(image_size);
+
+		REQUIRE_THROWS_AS(
+			make_entry_of(
+				index_list({1, 4, 5}),
+				storage.get_storage(),
+				array_descriptor(
+					{3, 2, 2},
+					{-4, 2, 1},
+					last_image,
+					numerical_type::float32
+				),
+				storage.get_flags()
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "values outside the storage are refused" )
+	{
+		const entry_storage storage(3, 3);
+
+		REQUIRE_THROWS_AS(
+			make_entry_of(
+				index_list({1, 4, 5}),
+				storage.get_storage(),
+				array_descriptor(
+					{3, 2, 2},
+					{4, 2, 1},
+					storage.get_values().get_offset() + 1,
+					numerical_type::float32
+				),
+				storage.get_flags()
+			),
+			std::out_of_range
 		);
 	}
 }
@@ -273,14 +454,15 @@ TEST_CASE(
 	"[indexed_image_scratch_entry]"
 )
 {
+	const entry_storage storage(3, 3);
+
 	REQUIRE_THROWS_AS(
-		indexed_image_scratch_entry(
+		make_entry_of(
 			index_list({1, 4, 5}),
-			make_batch(3),
-			make_flags(3),
-			stack_time,
-			0,
-			image_scratch_open_mode::empty
+			storage.get_storage(),
+			storage.get_values(),
+			storage.get_flags(),
+			0
 		),
 		std::invalid_argument
 	);
@@ -293,14 +475,14 @@ TEST_CASE(
 {
 	SECTION( "flags of another number of runs are refused" )
 	{
+		const entry_storage storage(3, 2);
+
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 5}),
-				make_batch(3),
-				make_flags(2),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				storage.get_flags()
 			),
 			std::invalid_argument
 		);
@@ -308,14 +490,14 @@ TEST_CASE(
 
 	SECTION( "flags of another data type are refused" )
 	{
+		const entry_storage storage(3, 3);
+
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 5}),
-				make_batch(3),
-				make_host_array<float>({3}, numerical_type::float32, 0.0F),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				array_descriptor({3}, {1}, 0, numerical_type::float32)
 			),
 			std::invalid_argument
 		);
@@ -323,14 +505,14 @@ TEST_CASE(
 
 	SECTION( "flags that are not initialized are refused" )
 	{
+		const entry_storage storage(3, 3);
+
 		REQUIRE_THROWS_AS(
-			indexed_image_scratch_entry(
+			make_entry_of(
 				index_list({1, 4, 5}),
-				make_batch(3),
-				array(),
-				stack_time,
-				1,
-				image_scratch_open_mode::empty
+				storage.get_storage(),
+				storage.get_values(),
+				array_descriptor()
 			),
 			std::invalid_argument
 		);
@@ -344,12 +526,9 @@ TEST_CASE(
 )
 {
 	const stack_file stack("indexed_scratch_entry_flags.raw");
-	auto values =
-		make_host_array<float>({4, 2, 2}, numerical_type::float32, 0.0F);
-	auto flags = make_flags(2);
+	const entry_storage storage(4, 2);
 	const auto entry = make_entry_over(
-		values,
-		flags,
+		storage,
 		stack_time,
 		image_scratch_open_mode::empty
 	);
@@ -357,7 +536,7 @@ TEST_CASE(
 	entry->store(stack.get_reader(), images({3}));
 
 	// The second run holds image 3, and the first is not loaded.
-	CHECK( get_values<std::uint64_t>(flags) ==
+	CHECK( storage.read_flags() ==
 		std::vector<std::uint64_t>({0, stack_time}) );
 }
 
@@ -366,12 +545,9 @@ TEST_CASE(
 	"[indexed_image_scratch_entry]"
 )
 {
-	auto values =
-		make_host_array<float>({4, 2, 2}, numerical_type::float32, 7.0F);
-	auto flags = make_flags(2, stack_time);
+	const entry_storage storage(4, 2, 7.0F, stack_time);
 	const auto entry = make_entry_over(
-		values,
-		flags,
+		storage,
 		stack_time,
 		image_scratch_open_mode::empty
 	);
@@ -380,8 +556,7 @@ TEST_CASE(
 	const auto missing = entry->read(array_ref(destination), images({0}));
 
 	CHECK( missing.get_region_count() == 1 );
-	CHECK( get_values<std::uint64_t>(flags) ==
-		std::vector<std::uint64_t>({0, 0}) );
+	CHECK( storage.read_flags() == std::vector<std::uint64_t>({0, 0}) );
 }
 
 TEST_CASE(
@@ -392,18 +567,14 @@ TEST_CASE(
 {
 	// What an earlier entry left: the first run loaded, the second loaded
 	// from an older version of the file.
-	auto values =
-		make_host_array<float>({4, 2, 2}, numerical_type::float32, 7.0F);
-	auto flags = make_flags(2);
-	auto *flag_values = reinterpret_cast<std::uint64_t*>(flags.get_data());
-	flag_values[0] = stack_time;
-	flag_values[1] = stack_time - 1;
+	entry_storage storage(4, 2, 7.0F);
+	storage.write_flag(0, stack_time);
+	storage.write_flag(1, stack_time - 1);
 
 	SECTION( "a run flagged with that time is read without being loaded" )
 	{
 		const auto entry = make_entry_over(
-			values,
-			flags,
+			storage,
 			stack_time,
 			image_scratch_open_mode::resumed
 		);
@@ -419,8 +590,7 @@ TEST_CASE(
 	SECTION( "a run flagged with another time is not loaded" )
 	{
 		const auto entry = make_entry_over(
-			values,
-			flags,
+			storage,
 			stack_time,
 			image_scratch_open_mode::resumed
 		);
@@ -434,23 +604,21 @@ TEST_CASE(
 	SECTION( "the flags are left as they were" )
 	{
 		const auto entry = make_entry_over(
-			values,
-			flags,
+			storage,
 			stack_time,
 			image_scratch_open_mode::resumed
 		);
 
-		CHECK( get_values<std::uint64_t>(flags) ==
+		CHECK( storage.read_flags() ==
 			std::vector<std::uint64_t>({stack_time, stack_time - 1}) );
 	}
 
 	SECTION( "no run is loaded when the time of the file is not known" )
 	{
-		flag_values[0] = 0;
-		flag_values[1] = 0;
+		storage.write_flag(0, 0);
+		storage.write_flag(1, 0);
 		const auto entry = make_entry_over(
-			values,
-			flags,
+			storage,
 			0,
 			image_scratch_open_mode::resumed
 		);
@@ -468,12 +636,9 @@ TEST_CASE(
 	"[indexed_image_scratch_entry]"
 )
 {
-	auto values =
-		make_host_array<float>({4, 2, 2}, numerical_type::float32, 7.0F);
-	auto flags = make_flags(2, stack_time);
+	const entry_storage storage(4, 2, 7.0F, stack_time);
 	const auto entry = make_entry_over(
-		values,
-		flags,
+		storage,
 		stack_time,
 		image_scratch_open_mode::resumed
 	);
@@ -483,8 +648,7 @@ TEST_CASE(
 	const auto missing = entry->read(array_ref(destination), images({1}));
 
 	CHECK( missing.get_region_count() == 1 );
-	CHECK( get_values<std::uint64_t>(flags) ==
-		std::vector<std::uint64_t>({0, 0}) );
+	CHECK( storage.read_flags() == std::vector<std::uint64_t>({0, 0}) );
 }
 
 TEST_CASE(
@@ -981,5 +1145,77 @@ TEST_CASE(
 			entry->read(array_ref(destination), images({0, 1})),
 			std::out_of_range
 		);
+	}
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry asks its storage for what a read copies, "
+	"before copying it",
+	"[indexed_image_scratch_entry]"
+)
+{
+	const stack_file stack("indexed_scratch_entry_prefetch.raw");
+
+	// The storage of the entry is a mock over storage in memory, so that
+	// what it is asked for can be seen.
+	const entry_storage backing(4, 2);
+	const std::shared_ptr<const image_scratch_storage> memory =
+		backing.get_storage();
+	const auto storage = std::make_shared<mock_image_scratch_storage>();
+	const mock_image_scratch_storage &const_storage = *storage;
+	auto *data = backing.get_storage()->get_data();
+	ALLOW_CALL(*storage, get_data()).LR_RETURN(data);
+	ALLOW_CALL(const_storage, get_data()).LR_RETURN(memory->get_data());
+	ALLOW_CALL(*storage, get_size()).LR_RETURN(memory->get_size());
+
+	const auto entry = std::make_shared<indexed_image_scratch_entry>(
+		index_list({0, 1, 2, 3}),
+		storage,
+		backing.get_values(),
+		backing.get_flags(),
+		stack_time,
+		2,
+		image_scratch_open_mode::empty
+	);
+	auto destination = make_batch(2);
+	const auto *batch = reinterpret_cast<const float*>(destination.get_data());
+
+	const auto image_bytes = image_size * sizeof(float);
+	const auto *values = memory->get_data() + locate_values(2);
+
+	SECTION( "nothing is asked for while nothing a read names is held" )
+	{
+		FORBID_CALL(const_storage, prefetch(trompeloeil::_));
+
+		const auto missing =
+			entry->read(array_ref(destination), images({3, 1}));
+
+		CHECK( missing.get_region_count() == 2 );
+	}
+
+	SECTION( "the images a read copies are asked for before any of them is" )
+	{
+		entry->store(stack.get_reader(), images({0, 1, 2, 3}));
+
+		bool asked_before_copying = false;
+		REQUIRE_CALL(const_storage, prefetch(trompeloeil::_))
+			.WITH(
+				covers(_1, values + image_bytes, image_bytes) &&
+				covers(_1, values + 3 * image_bytes, image_bytes)
+			)
+			.LR_SIDE_EFFECT(
+				asked_before_copying = std::all_of(
+					batch,
+					batch + 2 * image_size,
+					[](float value) { return value == untouched; }
+				)
+			);
+
+		const auto missing =
+			entry->read(array_ref(destination), images({3, 1}));
+
+		CHECK( missing.get_region_count() == 0 );
+		CHECK( asked_before_copying );
+		CHECK( get_values<float>(destination) == values_of_images({3, 1}) );
 	}
 }

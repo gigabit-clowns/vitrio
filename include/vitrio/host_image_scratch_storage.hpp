@@ -17,6 +17,7 @@ class image_scratch_storage;
  *
  * The memory is aligned to the page size of the system, and is released
  * when the storage is destroyed. Its contents are not defined at first.
+ * Its bytes are always at hand, so prefetching them does nothing.
  *
  * @param size Size of the storage in bytes.
  * @return std::shared_ptr<image_scratch_storage> The storage, of @p size

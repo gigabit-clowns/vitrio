@@ -24,7 +24,8 @@ class image_scratch_storage;
  * The contents of the storage live in the file, which lets it hold more
  * than the main memory does. Writes reach the file when the operating
  * system flushes them. The file is not removed when the storage is
- * destroyed.
+ * destroyed. Stretches it is asked to prefetch are asked of the operating
+ * system, which reads them in meanwhile.
  *
  * @param path Path of the file.
  * @param size Size of the file in bytes.

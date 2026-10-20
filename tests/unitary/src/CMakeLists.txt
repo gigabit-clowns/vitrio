@@ -51,6 +51,7 @@ target_sources(
 		test_library_version.cpp
 		test_logger.cpp
 		test_mapped_file_image_scratch_storage.cpp
+		test_memory_range.cpp
 		test_scratch_image_reader.cpp
 		test_scratch_image_reader_provider.cpp
 		test_span.cpp

@@ -57,16 +57,17 @@ memory_range make_range(std::uintptr_t begin, std::uintptr_t end) noexcept
 }
 
 // The stretch one region occupies: grown back to the page its first byte
-// falls in, and cut short where the mapping ends.
+// falls in, and cut short where the mapping begins and where it ends.
 memory_range locate_region(
 	std::uintptr_t begin,
 	std::size_t region_span,
+	std::uintptr_t mapping_begin,
 	std::uintptr_t mapping_end,
 	std::size_t page_size
 ) noexcept
 {
 	return make_range(
-		begin - (begin % page_size),
+		std::max(begin - (begin % page_size), mapping_begin),
 		std::min(begin + region_span, mapping_end)
 	);
 }
@@ -110,7 +111,7 @@ image_prefetch_schedule::image_prefetch_schedule(
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
 	span<const std::ptrdiff_t> file_offsets,
-	span<byte> mapping,
+	span<const byte> mapping,
 	std::size_t data_offset,
 	const image_prefetch_policy &policy
 )
@@ -150,7 +151,7 @@ std::vector<std::size_t> image_prefetch_schedule::gather_ranges(
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
 	span<const std::ptrdiff_t> file_offsets,
-	span<byte> mapping,
+	span<const byte> mapping,
 	std::size_t data_offset,
 	const image_prefetch_policy &policy
 )
@@ -179,18 +180,22 @@ std::vector<std::size_t> image_prefetch_schedule::gather_ranges(
 			continue;
 		}
 
-		const auto stretch = locate_region(
-			begin, region_span, mapping_end, policy.get_page_size()
+		const auto region = locate_region(
+			begin,
+			region_span,
+			mapping_begin,
+			mapping_end,
+			policy.get_page_size()
 		);
 
-		if (!m_ranges.empty() && joins(m_ranges.back(), stretch, policy))
+		if (!m_ranges.empty() && joins(m_ranges.back(), region, policy))
 		{
-			m_ranges.back() = merge(m_ranges.back(), stretch);
+			m_ranges.back() = merge(m_ranges.back(), region);
 			++regions_per_range.back();
 		}
 		else
 		{
-			m_ranges.push_back(stretch);
+			m_ranges.push_back(region);
 			regions_per_range.push_back(1);
 		}
 	}

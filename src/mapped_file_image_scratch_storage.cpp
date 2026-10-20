@@ -6,6 +6,7 @@
 #include <vitrio/image_scratch_storage.hpp>
 
 #include <formats/memory_mapping/image_file_mapping.hpp>
+#include <system/page_prefetch.hpp>
 
 #include <boost/filesystem/operations.hpp>
 
@@ -81,6 +82,11 @@ public:
 	std::size_t get_size() const noexcept override
 	{
 		return m_mapping.get_size();
+	}
+
+	void prefetch(span<const memory_range> ranges) const noexcept override
+	{
+		prefetch_pages(ranges);
 	}
 
 private:

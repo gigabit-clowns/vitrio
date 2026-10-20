@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <system/memory_range.hpp>
+#include <vitrio/memory_range.hpp>
 
 #include <array>
 

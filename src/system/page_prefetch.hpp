@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "memory_range.hpp"
-
+#include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
 namespace vitrio
@@ -12,13 +11,13 @@ namespace vitrio
 /**
  * @brief Ask for stretches of mapped memory to be paged in.
  *
- * This is advice and nothing more. It never fails, and a stretch that was
- * advised may still have to be faulted in when it is read.
+ * This is advice and nothing more. It never fails, it changes no byte, and a
+ * stretch that was advised may still have to be faulted in when it is read.
  *
- * Every stretch must start at the first byte of a page and lie within memory
- * that is mapped. Advice is taken in whole pages, so a stretch that started
- * inside a page would reach the bytes before it anyway. @ref get_page_size
- * is what the boundary is measured in.
+ * Advice is taken in whole pages, so a stretch is widened to the pages it
+ * touches: one that starts inside a page is advised from the first byte of
+ * that page. Every stretch must lie within memory that is mapped, and so do
+ * the pages it touches.
  *
  * A whole batch is taken at once because the Windows call serves every
  * stretch in one call. The stretches of one batch need not belong to the

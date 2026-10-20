@@ -117,6 +117,7 @@ target_sources(
 		library_version.cpp
 		logger.cpp
 		mapped_file_image_scratch_storage.cpp
+		memory_range.cpp
 		scratch_image_reader.cpp
 		scratch_image_reader_provider.cpp
 		strict_image_transfer_sanitizer.cpp

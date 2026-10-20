@@ -245,7 +245,7 @@ the defaults do not account for.
 | `dtype` | `read_batches` | Reading fewer bytes: float16 or int16 on disk, delivered as float32 |
 | `scratch` | `epochs` | **H2**: a scratch is opened through the file it copies, so without a cache every batch still opens its files. **H5**: a scratch takes in the runs of a file one after another, so filling it from one stack is serial |
 | `run_length` | `epochs` | How many particles of a file a scratch should take in together |
-| `larger_than_ram` | `epochs` | **H6**: past the memory, a mapped scratch is read without the advice vitrio gives the pages of a stack, and should fault one page at a time |
+| `larger_than_ram` | `epochs` | **H6**: past the memory, a mapped scratch is read with the advice vitrio gives the pages of a stack. Does it read no more than reading the stack does? |
 | `overlap` | `epochs` | How many batches to read ahead, against the length of a step |
 | `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |

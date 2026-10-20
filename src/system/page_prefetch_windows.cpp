@@ -2,9 +2,12 @@
 
 #include "page_prefetch.hpp"
 
+#include "page_size.hpp"
+
 #include <windows.h>
 
 #include <array>
+#include <cstdint>
 
 namespace vitrio
 {
@@ -55,6 +58,8 @@ void prefetch_pages(span<const memory_range> ranges) noexcept
 		return;
 	}
 
+	const auto page_size = get_page_size();
+
 	// Gathered a fixed batch at a time rather than into one allocation, so
 	// that advising cannot throw where it is only a hint.
 	constexpr std::size_t batch_size = 64;
@@ -63,8 +68,13 @@ void prefetch_pages(span<const memory_range> ranges) noexcept
 
 	for (const auto &range : ranges)
 	{
-		entries[count].address = range.get_address();
-		entries[count].size = static_cast<SIZE_T>(range.get_size());
+		// Widened to the page it starts in, as the POSIX call needs, so that
+		// a stretch is advised alike everywhere.
+		const auto first =
+			reinterpret_cast<std::uintptr_t>(range.get_address());
+		const auto lead = first % page_size;
+		entries[count].address = reinterpret_cast<void*>(first - lead);
+		entries[count].size = static_cast<SIZE_T>(range.get_size() + lead);
 		++count;
 
 		if (count == batch_size)

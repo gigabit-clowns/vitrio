@@ -18,6 +18,11 @@ public:
 	MAKE_MOCK0(get_data, byte*(), noexcept override);
 	MAKE_CONST_MOCK0(get_data, const byte*(), noexcept override);
 	MAKE_CONST_MOCK0(get_size, std::size_t(), noexcept override);
+	MAKE_CONST_MOCK1(
+		prefetch,
+		void(span<const memory_range>),
+		noexcept override
+	);
 };
 
 } // namespace vitrio

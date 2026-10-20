@@ -2,18 +2,21 @@
 
 #include "indexed_image_scratch_entry.hpp"
 
-#include <formats/strided_transfer/image_region_copy.hpp>
+#include <formats/memory_mapping/image_prefetched_read.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
-#include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_reader.hpp>
+#include <vitrio/image_scratch_storage.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <array/array_data.hpp>
 #include <assert.hpp>
+#include <memory/byte_order.hpp>
 
 #include <algorithm>
 #include <functional>
@@ -46,6 +49,31 @@ compute_run_count(std::size_t slot_count, std::size_t run_length)
 	return (slot_count - 1) / run_length + 1;
 }
 
+std::shared_ptr<image_scratch_storage>
+check_storage(std::shared_ptr<image_scratch_storage> storage)
+{
+	if (!storage)
+	{
+		throw std::invalid_argument(
+			"indexed_image_scratch_entry: The storage must not be null."
+		);
+	}
+
+	return storage;
+}
+
+array place(
+	const std::shared_ptr<image_scratch_storage> &storage,
+	array_descriptor descriptor
+)
+{
+	return array(
+		make_span(storage->get_data(), storage->get_size()),
+		storage,
+		std::move(descriptor)
+	);
+}
+
 // A range that reaches past the largest index ends at it, which is an index
 // that no file has.
 std::size_t
@@ -59,8 +87,9 @@ compute_end_index(std::size_t first_index, std::size_t index_count) noexcept
 
 indexed_image_scratch_entry::indexed_image_scratch_entry(
 	std::vector<std::size_t> indices,
-	array values,
-	array flags,
+	std::shared_ptr<image_scratch_storage> storage,
+	array_descriptor values,
+	array_descriptor flags,
 	std::uint64_t modification_time,
 	std::size_t run_length,
 	image_scratch_open_mode mode
@@ -68,8 +97,9 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 	: m_indices(std::move(indices))
 	, m_run_length(run_length)
 	, m_loaded(compute_run_count(m_indices.size(), run_length))
-	, m_values(std::move(values))
-	, m_flags(std::move(flags))
+	, m_storage(check_storage(std::move(storage)))
+	, m_values(place(m_storage, std::move(values)))
+	, m_flags(place(m_storage, std::move(flags)))
 	, m_modification_time(modification_time)
 {
 	const auto unordered = std::adjacent_find(
@@ -85,9 +115,21 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 		);
 	}
 
-	get_array_data(const_array_ref(m_values));
+	const auto &values_descriptor = m_values.get_descriptor();
+	const auto strides = values_descriptor.get_strides();
+	const auto descends = std::any_of(
+		strides.begin(),
+		strides.end(),
+		[](std::ptrdiff_t stride) { return stride < 0; }
+	);
+	if (descends)
+	{
+		throw std::invalid_argument(
+			"indexed_image_scratch_entry: The values have a negative stride."
+		);
+	}
 
-	const auto extents = m_values.get_descriptor().get_extents();
+	const auto extents = values_descriptor.get_extents();
 	if (extents.empty() || extents.front() != m_indices.size())
 	{
 		throw std::invalid_argument(
@@ -95,8 +137,6 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 			"not the number of indices."
 		);
 	}
-
-	get_array_data(const_array_ref(m_flags));
 
 	const auto &flags_descriptor = m_flags.get_descriptor();
 	const auto flag_extents = flags_descriptor.get_extents();
@@ -172,7 +212,23 @@ image_transfer_plan indexed_image_scratch_entry::read(
 		loaded.add(make_span(slot_offset), array_offset);
 	}
 
-	copy_regions(const_array_ref(m_values), destination, loaded);
+	if (loaded.get_region_count() == 0)
+	{
+		return missing;
+	}
+
+	const image_scratch_storage &storage = *m_storage;
+	read_prefetched_regions(
+		make_span(storage.get_data(), storage.get_size()),
+		m_values.get_descriptor(),
+		get_system_byte_order(),
+		destination,
+		loaded,
+		[&storage](span<const memory_range> ranges)
+		{
+			storage.prefetch(ranges);
+		}
+	);
 
 	return missing;
 }

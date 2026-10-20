@@ -4,6 +4,8 @@
 
 #include <vitrio/byte.hpp>
 #include <vitrio/export.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <cstddef>
 
@@ -54,6 +56,18 @@ public:
 	 * @return std::size_t The number of bytes, which does not change.
 	 */
 	virtual std::size_t get_size() const noexcept = 0;
+
+	/**
+	 * @brief Ask for stretches of the block to be at hand before they are
+	 * read.
+	 *
+	 * This is advice and nothing more. It never fails and it changes no
+	 * byte, and a stretch that was asked for may still have to be waited
+	 * for when it is read.
+	 *
+	 * @param ranges Stretches of the block, each within it.
+	 */
+	virtual void prefetch(span<const memory_range> ranges) const noexcept = 0;
 };
 
 } // namespace vitrio
