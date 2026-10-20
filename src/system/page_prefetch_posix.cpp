@@ -2,7 +2,11 @@
 
 #include "page_prefetch.hpp"
 
+#include "page_size.hpp"
+
 #include <sys/mman.h>
+
+#include <cstdint>
 
 namespace vitrio
 {
@@ -40,9 +44,17 @@ namespace
 
 void prefetch_pages(span<const memory_range> ranges) noexcept
 {
+	const auto page_size = get_page_size();
 	for (const auto &range : ranges)
 	{
-		advise_will_need(range.get_address(), range.get_size());
+		// The call takes a stretch that starts on a page.
+		const auto first =
+			reinterpret_cast<std::uintptr_t>(range.get_address());
+		const auto lead = first % page_size;
+		advise_will_need(
+			reinterpret_cast<void*>(first - lead),
+			range.get_size() + lead
+		);
 	}
 }
 

@@ -48,8 +48,10 @@ std::size_t compute_region_span(
  * where a stretch would grow past the budget of a step, so a long run of
  * consecutive regions is advised a step at a time rather than all at once.
  *
- * Every stretch starts on a page boundary and ends within the mapping, so it
- * can be advised as it is.
+ * Every stretch starts on the page its first region starts in, so that two
+ * regions in the same page are never advised as two stretches, and lies
+ * within the mapping: it is cut short where the mapping ends, and where it
+ * begins when the mapping does not begin on a page.
  *
  * The merged stretches are grouped into steps of a bounded number of bytes,
  * so that one step can be advised while the one before it is walked.
@@ -79,7 +81,7 @@ public:
 	 * @param file_offsets Where each region starts in the file, in elements,
 	 * ascending.
 	 * @param mapping The bytes the file is mapped at, from its first one,
-	 * which no stretch reaches past.
+	 * which no stretch reaches outside of.
 	 * @param data_offset Where the values of the file begin in @p mapping,
 	 * in bytes.
 	 * @param policy How the regions are advised.
@@ -89,7 +91,7 @@ public:
 		span<const std::ptrdiff_t> file_strides,
 		numerical_type data_type,
 		span<const std::ptrdiff_t> file_offsets,
-		span<byte> mapping,
+		span<const byte> mapping,
 		std::size_t data_offset,
 		const image_prefetch_policy &policy
 	);
@@ -159,7 +161,7 @@ private:
 		span<const std::ptrdiff_t> file_strides,
 		numerical_type data_type,
 		span<const std::ptrdiff_t> file_offsets,
-		span<byte> mapping,
+		span<const byte> mapping,
 		std::size_t data_offset,
 		const image_prefetch_policy &policy
 	);

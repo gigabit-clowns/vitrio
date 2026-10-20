@@ -5,6 +5,7 @@
 #include <system/page_prefetch.hpp>
 
 #include <vitrio/byte.hpp>
+#include <vitrio/memory_range.hpp>
 
 #include <system/page_size.hpp>
 
@@ -25,7 +26,7 @@ TEST_CASE(
 
 	// Advice leaves nothing a test can observe, so what is asserted is that
 	// memory survives being advised what the contract allows: stretches that
-	// start on a page and stay within what is mapped.
+	// stay within what is mapped, and whose pages do.
 	SECTION( "a batch of no stretch is advised" )
 	{
 		const std::vector<memory_range> ranges;
@@ -43,6 +44,13 @@ TEST_CASE(
 	SECTION( "a stretch of less than a page is advised" )
 	{
 		const std::vector<memory_range> ranges = {{first, 8}};
+
+		REQUIRE_NOTHROW( prefetch_pages(make_span(ranges)) );
+	}
+
+	SECTION( "a stretch that starts inside a page is advised" )
+	{
+		const std::vector<memory_range> ranges = {{first + 8, page}};
 
 		REQUIRE_NOTHROW( prefetch_pages(make_span(ranges)) );
 	}

@@ -84,7 +84,7 @@ std::size_t span_of(const image_transfer_plan &regions)
 image_prefetch_schedule advise(
 	const image_transfer_plan &regions,
 	const std::vector<std::ptrdiff_t> &file_offsets,
-	span<vitrio::byte> mapping,
+	span<const vitrio::byte> mapping,
 	const image_prefetch_policy &policy
 )
 {
@@ -269,7 +269,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 	}
 }
 
-TEST_CASE( "every stretch starts on a page and stays within the mapping",
+TEST_CASE( "every stretch starts on the page of its region within the mapping",
 	"[image_prefetch_schedule]" )
 {
 	const auto values = values_offset;
@@ -306,6 +306,30 @@ TEST_CASE( "every stretch starts on a page and stays within the mapping",
 		REQUIRE( advice.get_ranges().size() == 1 );
 		const auto range = advice.get_ranges()[0];
 		CHECK( offset_in(range, file) + range.get_size() == end );
+	}
+
+	SECTION( "a stretch is cut short where a mapping inside a page begins" )
+	{
+		// The mapping begins 8 bytes into a page of 32 and the first plane 8
+		// bytes after that, so the page the plane starts in begins before
+		// the mapping does.
+		image_transfer_plan first(image_transfer_shape(plane, 3, 3));
+		add_plane(first, 0);
+		const auto offsets = plane_offsets({0});
+		const image_prefetch_schedule advice(
+			first,
+			make_span(stack_strides),
+			numerical_type::float32,
+			make_span(offsets),
+			make_span(file.get() + 8, whole_file - 8),
+			8,
+			make_policy(0, default_prefetch_budget, 32)
+		);
+
+		REQUIRE( advice.get_ranges().size() == 1 );
+		const auto range = advice.get_ranges()[0];
+		CHECK( offset_in(range, file) == 8 );
+		CHECK( range.get_size() == 8 + plane_bytes );
 	}
 
 	SECTION( "a region starting past the mapping is asked for nothing" )
