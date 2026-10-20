@@ -5,7 +5,6 @@ target_sources(
 	PRIVATE
 		image_page_regions.cpp
 		image_region_bounds.cpp
-		image_region_copy.cpp
 		image_region_layout.cpp
 		image_region_offsets.cpp
 		image_region_read_walk.cpp

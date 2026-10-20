@@ -6,12 +6,15 @@
 
 #include <memory/align.hpp>
 #include <vitrio/image_scratch_storage.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 using namespace vitrio;
 
@@ -50,6 +53,24 @@ TEST_CASE(
 
 		const auto *data = const_storage.get_data() + 1001 - text.size();
 		CHECK( std::memcmp(data, text.data(), text.size()) == 0 );
+	}
+
+	SECTION( "prefetching it leaves what it holds as it was" )
+	{
+		const std::string text = "what a scratch holds";
+		std::memcpy(storage->get_data() + 100, text.data(), text.size());
+		const std::vector<memory_range> ranges = {
+			{storage->get_data(), 1001},
+			{storage->get_data() + 100, text.size()}
+		};
+
+		storage->prefetch(make_span(ranges));
+
+		CHECK( std::memcmp(
+			storage->get_data() + 100,
+			text.data(),
+			text.size()
+		) == 0 );
 	}
 }
 

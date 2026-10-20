@@ -10,6 +10,8 @@
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_scratch_storage.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <cstddef>
@@ -17,6 +19,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <vector>
 
 using namespace vitrio;
 
@@ -102,6 +105,28 @@ TEST_CASE(
 		REQUIRE( boost::filesystem::exists(path.get()) );
 		CHECK( read_file(path.get()) == text );
 	}
+}
+
+TEST_CASE(
+	"prefetching a mapped file scratch storage leaves what it holds as it was",
+	"[mapped_file_image_scratch_storage]"
+)
+{
+	const scoped_path path("mapped_file_scratch_storage_prefetch.mapped");
+	const std::string text(10000, 'x');
+	write_file(path.get(), text);
+	const auto storage =
+		create_mapped_file_image_scratch_storage(path.get(), text.size());
+
+	// The whole file, and a stretch that starts inside a page.
+	const std::vector<memory_range> ranges = {
+		{storage->get_data(), text.size()},
+		{storage->get_data() + 100, 5000}
+	};
+	storage->prefetch(make_span(ranges));
+
+	CHECK( read_storage(*storage) == text );
+	CHECK( read_file(path.get()) == text );
 }
 
 TEST_CASE(

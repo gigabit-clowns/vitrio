@@ -66,6 +66,11 @@ public:
 		return m_size;
 	}
 
+	void prefetch(span<const memory_range>) const noexcept override
+	{
+		// Assume already faulted in memory.
+	}
+
 private:
 	byte *m_data;
 	std::size_t m_size;

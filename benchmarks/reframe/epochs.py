@@ -49,9 +49,9 @@ class larger_than_ram(Epochs):
 
 	The dataset takes 2.6 GB, and the memory of the run, page cache
 	included, is limited. Past the limit every epoch reads from storage.
-	A mapped scratch on the same storage holds the same bytes, but is read
-	without the advice vitrio gives the pages of a stack, so what sets the
-	two apart is that advice.
+	A mapped scratch on the same storage holds the same bytes, and is read
+	with the same advice vitrio gives the pages of a stack, so past the
+	limit it should read no more than the stack does.
 	"""
 
 	count = 40000

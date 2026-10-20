@@ -5,7 +5,6 @@
 #include "image_scratch_directory.hpp"
 #include "indexed_image_scratch_entry.hpp"
 
-#include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
@@ -479,7 +478,6 @@ indexed_image_scratch::indexed_image_scratch(
 	check_run_length(run_length);
 
 	const auto group_count = locations.get_group_count();
-	const auto memory = make_span(storage->get_data(), storage->get_size());
 
 	std::vector<std::shared_ptr<indexed_image_scratch_entry>> entries;
 	storage_cursor cursor(storage->get_size(), run_length);
@@ -508,8 +506,9 @@ indexed_image_scratch::indexed_image_scratch(
 			entries.push_back(
 				std::make_shared<indexed_image_scratch_entry>(
 					std::move(indices),
-					array(memory, storage, cursor.get_values()),
-					array(memory, storage, cursor.get_flags()),
+					storage,
+					cursor.get_values(),
+					cursor.get_flags(),
 					get_modification_time(key),
 					run_length,
 					mode
