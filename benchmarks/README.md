@@ -195,7 +195,7 @@ image by image, in the order extraction reads them. Its workload is that of
 `read_batches`, and `patch`, the side of a patch (128), and `patches`, how
 many each image has (100). The readers that crop patches are
 `vitrio-loader`, with one `read_patches_async` per image of a batch, and
-`mrcfile-open`, `mrcfile-per-read` and `numpy-memmap`, one patch at a time.
+the readers of mrcfile, numpy and Python's files, one patch at a time.
 
 ### `ceiling`
 
@@ -212,9 +212,11 @@ and random reads of a particle's size at queue depths 1, 4, 16 and 64. Its
 | `vitrio-loader` | `vio.loader` and `read_batch_async`: each batch in one call, batches read ahead | the loader's, and `in_flight` |
 | `vitrio-per-item` | The ablation of `vitrio-loader`: the same loader, one particle per call, each waited for. The gap between the two is what batching and reading ahead are worth | the loader's |
 | `vitrio-data` | `vio.data.DataLoader`, as users write it. Left at its defaults it reads through the loader `vio.data` shares | the loader's, and `prefetch` |
-| `mrcfile-per-read` | `mrcfile.mmap` opened for every particle, as cryoSTAR and DynaMight read | |
-| `mrcfile-open` | Every stack kept open with mrcfile, one particle at a time | |
-| `numpy-memmap` | Every stack mapped with `np.memmap`, a batch gathered from each stack with one fancy index | |
+| `mrcfile-mmap-per-read` | `mrcfile.mmap` opened for every particle, as cryoSTAR and DynaMight read | |
+| `mrcfile-mmap-kept` | Every stack kept mapped with `mrcfile.mmap`, one particle at a time | |
+| `mrcfile-open-last` | `mrcfile.open`, which reads a whole file into memory without mapping it, as extraction scripts do. The last file is kept, so that the rows of one file in a row read it once | |
+| `numpy-memmap-kept` | Every stack mapped with `np.memmap`, a batch gathered from each stack with one fancy index | `advice`: `normal`, or `random`, which maps with `MADV_RANDOM` so that a fault reads nothing around it |
+| `python-read-kept` | Every stack kept open with Python's `open`, and only what a row needs read with `seek` and `readinto`: a particle in one read, a patch one row at a time | |
 | `torch-dataloader` | PyTorch's DataLoader over a dataset of one particle per item, read with mrcfile | `num_workers`, `persistent_workers`, `prefetch_factor` |
 | `preload` | Everything read into memory first: the upper bound, and where it stops fitting | |
 | `lmdb` | **Convert first**: every particle written once into an LMDB database in the scratch directory, then read from it, as cryodata does for Cryo-IEF, without its resizing. Conversion time and size are reported | `reuse`: read an earlier run's conversion, as a rerun does; `readahead`: let the kernel read ahead, which LSUN's loader turns off |
@@ -228,6 +230,10 @@ The loader's parameters, shared by vitrio's readers:
 | `scratch` | `none` | Copies of what has been read: `host` memory, a `mapped` file, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
 | `run_length` | 64 | Particles of a file a scratch takes in together |
 | `budget` | what the dataset takes, and a margin | Bytes a directory scratch may take |
+
+The readers that read files themselves are named
+`<library>-<call>-<how long a file stays open>`: `per-read` opens it for
+each read, `kept` keeps every file open, and `last` the last one.
 
 Every reader takes `dtype`, the data type it delivers, `float32` by
 default.
@@ -323,4 +329,7 @@ beside it), and the metrics. The machine is described once, in
 `machines/<name>.json` next to the results, and records name it.
 
 Results are never committed here, and neither is their analysis. The schema
-is the contract with whoever analyses them.
+is the contract with whoever analyses them. Schema 2 renamed the readers
+that read files themselves: `mrcfile-per-read` became
+`mrcfile-mmap-per-read`, `mrcfile-open` `mrcfile-mmap-kept`, and
+`numpy-memmap` `numpy-memmap-kept`.

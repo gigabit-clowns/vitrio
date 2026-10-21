@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""mrcfile with every stack kept open: the best a loop over particles can do
+"""mrcfile with every stack kept mapped: the best a loop over particles can do
 without changing how it reads."""
 
 from __future__ import annotations
@@ -12,13 +12,13 @@ import numpy as np
 from ..datasets import Picks
 from . import Reader
 
-class MrcfileOpen(Reader):
+class MrcfileMmapKept(Reader):
 	"""
 	Maps each stack with `mrcfile.mmap` the first time it is read, keeps it
 	mapped, and copies the particles out one at a time.
 	"""
 
-	name = 'mrcfile-open'
+	name = 'mrcfile-mmap-kept'
 	requires = ('mrcfile',)
 	reads_patches = True
 

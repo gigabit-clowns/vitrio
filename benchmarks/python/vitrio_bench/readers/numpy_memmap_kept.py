@@ -5,24 +5,39 @@ gathered from each stack with one fancy index."""
 
 from __future__ import annotations
 
+import mmap
 from collections.abc import Iterable, Iterator
 
 import numpy as np
 
 from ..datasets import Picks
-from . import Reader
+from . import Reader, Skip
 from ._mrc import layout
 
-class NumpyMemmap(Reader):
+ADVICE = {'normal': None, 'random': getattr(mmap, 'MADV_RANDOM', None)}
+
+class NumpyMemmapKept(Reader):
 	"""
 	Maps each stack with `np.memmap` the first time it is read, and copies
 	a batch's particles of each stack out at once.
+
+	Parameters:
+		advice: `normal` leaves the kernel to read around each fault, as it
+			does for any map. `random` maps with `MADV_RANDOM`, so that a
+			fault reads its page and nothing around it.
 	"""
 
-	name = 'numpy-memmap'
+	name = 'numpy-memmap-kept'
+	defaults = {'advice': 'normal'}
 	reads_patches = True
 
 	def open(self) -> None:
+		advice = self.params['advice']
+		if advice not in ADVICE:
+			raise ValueError(f"advice is one of {sorted(ADVICE)}, not {advice!r}.")
+		if advice != 'normal' and ADVICE[advice] is None:
+			raise Skip(f"This system has no MADV_{advice.upper()}.")
+		self._advice = ADVICE[advice]
 		self._paths = list(self.dataset.stacks)
 		self._maps = {}
 
@@ -34,6 +49,9 @@ class NumpyMemmap(Reader):
 				self._paths[stack], dtype=dtype, mode='r', offset=offset,
 				shape=shape
 			)
+			if self._advice is not None:
+				# numpy keeps the map it reads through as `_mmap`.
+				mapped._mmap.madvise(self._advice)
 			self._maps[stack] = mapped
 		return mapped
 

@@ -25,8 +25,9 @@ class readers(ReadBatches):
 	layout = parameter(['single-stack', 'per-micrograph:100'], type=str)
 	reader = parameter(
 		[
-			'vitrio-loader', 'vitrio-per-item', 'mrcfile-per-read',
-			'mrcfile-open', 'numpy-memmap', 'preload',
+			'vitrio-loader', 'vitrio-per-item', 'mrcfile-mmap-per-read',
+			'mrcfile-mmap-kept', 'mrcfile-open-last', 'numpy-memmap-kept',
+			'python-read-kept', 'preload',
 		],
 		type=str
 	)
@@ -73,7 +74,7 @@ class dtype(ReadBatches):
 
 	dtype = parameter(['float32', 'float16', 'int16'], type=str)
 	reader = parameter(
-		['vitrio-loader', 'numpy-memmap', 'mrcfile-open'], type=str
+		['vitrio-loader', 'numpy-memmap-kept', 'mrcfile-mmap-kept'], type=str
 	)
 	cache = parameter([4096], type=int)
 

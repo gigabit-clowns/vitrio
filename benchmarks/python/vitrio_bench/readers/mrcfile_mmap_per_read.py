@@ -12,13 +12,13 @@ import numpy as np
 from ..datasets import Picks
 from . import Reader
 
-class MrcfilePerRead(Reader):
+class MrcfileMmapPerRead(Reader):
 	"""
 	Opens the stack of each particle with `mrcfile.mmap`, copies the
 	particle out, and closes it.
 	"""
 
-	name = 'mrcfile-per-read'
+	name = 'mrcfile-mmap-per-read'
 	requires = ('mrcfile',)
 	reads_patches = True
 

@@ -177,10 +177,12 @@ def default_workers() -> int:
 	return os.cpu_count() or 1
 
 from .lmdb_store import LmdbStore    # noqa: E402
-from .mrcfile_open import MrcfileOpen    # noqa: E402
-from .mrcfile_per_read import MrcfilePerRead    # noqa: E402
-from .numpy_memmap import NumpyMemmap    # noqa: E402
+from .mrcfile_mmap_kept import MrcfileMmapKept    # noqa: E402
+from .mrcfile_mmap_per_read import MrcfileMmapPerRead    # noqa: E402
+from .mrcfile_open_last import MrcfileOpenLast    # noqa: E402
+from .numpy_memmap_kept import NumpyMemmapKept    # noqa: E402
 from .preload import Preload    # noqa: E402
+from .python_read_kept import PythonReadKept    # noqa: E402
 from .torch_dataloader import TorchDataloader    # noqa: E402
 from .vitrio_data import VitrioData    # noqa: E402
 from .vitrio_loader import VitrioLoader    # noqa: E402
@@ -189,8 +191,9 @@ from .vitrio_per_item import VitrioPerItem    # noqa: E402
 READERS: dict[str, type[Reader]] = {
 	reader.name: reader
 	for reader in (
-		VitrioLoader, VitrioPerItem, VitrioData, MrcfilePerRead, MrcfileOpen,
-		NumpyMemmap, TorchDataloader, Preload, LmdbStore,
+		VitrioLoader, VitrioPerItem, VitrioData, MrcfileMmapPerRead,
+		MrcfileMmapKept, MrcfileOpenLast, NumpyMemmapKept, PythonReadKept,
+		TorchDataloader, Preload, LmdbStore,
 	)
 }
 
