@@ -15,8 +15,7 @@
 #include <formats/memory_mapping/image_file_access.hpp>
 #include <formats/memory_mapping/image_file_layout.hpp>
 #include <formats/memory_mapping/image_file_mapping.hpp>
-#include <formats/memory_mapping/mapped_image_reader.hpp>
-#include <formats/memory_mapping/unaligned_mapped_image_reader.hpp>
+#include <formats/open_raw_image_reader.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -83,22 +82,11 @@ dm_file_read_format::open(const image_file_probe &probe) const
 {
 	const auto location = locate_file_image(probe.get_path());
 	const auto &descriptor = location.get_descriptor();
-	const auto element_size = get_size(descriptor.get_data_type());
-
-	if (location.get_data_offset() % element_size != 0)
-	{
-		return std::make_shared<unaligned_mapped_image_reader>(
-			probe.get_path(),
-			descriptor,
-			location.get_data_offset(),
-			location.get_byte_order(),
-			image_metadata()
-		);
-	}
 
 	// The extents fit in the values the tags hold, so their strides do not
-	// overflow.
-	return std::make_shared<mapped_image_reader>(
+	// overflow. DigitalMicrograph places the values wherever the tags before
+	// them end, aligned or not, which the reader opened suits.
+	return open_raw_image_reader(
 		probe.get_path(),
 		image_file_layout(
 			descriptor,

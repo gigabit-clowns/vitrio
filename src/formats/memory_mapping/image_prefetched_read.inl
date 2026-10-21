@@ -4,9 +4,8 @@
 
 #include "image_prefetched_read.hpp"
 
-#include "image_prefetch_policy.hpp"
-#include "image_prefetch_schedule.hpp"
-
+#include <formats/read_planning/image_read_policy.hpp>
+#include <formats/read_planning/image_read_schedule.hpp>
 #include <formats/strided_transfer/image_region_read_walk.hpp>
 #include <formats/strided_transfer/image_region_transfer.hpp>
 
@@ -18,6 +17,7 @@
 #include <assert.hpp>
 
 #include <cstddef>
+#include <vector>
 
 namespace vitrio
 {
@@ -49,22 +49,38 @@ inline void read_prefetched_regions(
 		target.get_offset()
 	);
 
-	const image_prefetch_schedule schedule(
+	const image_read_schedule schedule(
 		regions,
 		values.get_strides(),
 		data_type,
 		walk.get_offsets().get_file(),
-		memory,
 		data_offset,
+		memory.size(),
 		make_prefetch_policy(
 			compute_region_span(regions, values.get_strides(), data_type)
 		)
 	);
 
+	// The schedule names stretches of the file, which lie at the same
+	// offsets in the memory that holds it.
+	std::vector<memory_range> stretches;
+	const auto ask_for = [&](std::size_t step)
+	{
+		stretches.clear();
+		for (const auto &range : schedule.get_step_ranges(step))
+		{
+			stretches.emplace_back(
+				const_cast<byte*>(memory.data()) + range.get_offset(),
+				range.get_size()
+			);
+		}
+		prefetch(make_span(stretches.data(), stretches.size()));
+	};
+
 	const auto step_count = schedule.get_step_count();
 	if (step_count > 0)
 	{
-		prefetch(schedule.get_step_ranges(0));
+		ask_for(0);
 	}
 
 	for (std::size_t step = 0; step < step_count; ++step)
@@ -74,7 +90,7 @@ inline void read_prefetched_regions(
 		const auto next_step = step + 1;
 		if (next_step < step_count)
 		{
-			prefetch(schedule.get_step_ranges(next_step));
+			ask_for(next_step);
 		}
 
 		read_regions(
@@ -84,6 +100,7 @@ inline void read_prefetched_regions(
 			array_data,
 			target.get_data_type(),
 			memory.data() + data_offset,
+			0,
 			data_type,
 			order
 		);

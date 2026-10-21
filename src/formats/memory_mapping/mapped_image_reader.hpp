@@ -36,11 +36,12 @@ public:
 	 * @brief Map a file for reading.
 	 *
 	 * @param path Path to the file.
-	 * @param layout Where and how the file holds its values.
+	 * @param layout Where and how the file holds its values, which must be
+	 * aligned for their data type: a mapping addresses them where they lie.
 	 * @param metadata What the file states beyond its shape and data type.
 	 * @throws image_file_error If the file can not be mapped.
-	 * @throws image_file_format_error If the file is shorter than @p layout
-	 * says it is.
+	 * @throws image_file_format_error If the values of @p layout are not
+	 * aligned, or if the file is shorter than @p layout says it is.
 	 */
 	mapped_image_reader(
 		const std::string &path,

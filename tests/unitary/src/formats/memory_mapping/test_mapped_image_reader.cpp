@@ -537,4 +537,21 @@ TEST_CASE(
 			names_the_file
 		);
 	}
+
+	SECTION( "one whose values are not aligned for their data type" )
+	{
+		write_file(path.get(), counting(24));
+		const image_file_layout unaligned(
+			image_descriptor(make_span(extents), 2, numerical_type::float32),
+			contiguous_strides(extents),
+			preamble_size + 2,
+			get_system_byte_order()
+		);
+
+		REQUIRE_THROWS_MATCHES(
+			mapped_image_reader(path.get(), unaligned, image_metadata()),
+			image_file_format_error,
+			names_the_file
+		);
+	}
 }

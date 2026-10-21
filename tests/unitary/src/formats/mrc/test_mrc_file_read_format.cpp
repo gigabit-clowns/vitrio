@@ -145,6 +145,38 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 
 		REQUIRE( std::vector<float>(data, data + values.size()) == values );
 	}
+
+	SECTION( "values an extended header leaves unaligned are read" )
+	{
+		// Two bytes of extended header, which NSYMBT states, put the values
+		// half way into a float.
+		const auto values = counting(24);
+		auto raw = make_file(4, 3, 2, 0, 2, values);
+		raw.insert(raw.begin() + mrc::header_size, 2, 'x');
+		put_int32(raw, 92, 2);
+		write_file(path.get(), raw);
+
+		const auto reader = format.open(image_file_probe(path.get()));
+
+		const std::vector<std::size_t> extents = {2, 3, 4};
+		auto destination = make_array(
+			make_contiguous_array_descriptor(
+				make_span(extents),
+				numerical_type::float32
+			)
+		);
+
+		image_transfer_plan regions(image_transfer_shape(extents, 3, 3));
+		const std::vector<std::size_t> origin(3, 0);
+		regions.add(make_span(origin), make_span(origin));
+
+		reader->read(array_ref(destination), regions);
+
+		const auto *data =
+			reinterpret_cast<const float*>(destination.get_data());
+
+		REQUIRE( std::vector<float>(data, data + values.size()) == values );
+	}
 }
 
 TEST_CASE( "the MRC read format refuses a file that contradicts its header",

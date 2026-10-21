@@ -65,6 +65,7 @@ void read_regions(
 		array_data,
 		array_type,
 		file_data,
+		0,
 		file_type,
 		file_order
 	);
@@ -77,6 +78,7 @@ void read_regions(
 	void *array_data,
 	numerical_type array_type,
 	const byte *file_data,
+	std::ptrdiff_t file_origin,
 	numerical_type file_type,
 	byte_order file_order
 )
@@ -94,6 +96,7 @@ void read_regions(
 				array_data, \
 				array_type, \
 				reinterpret_cast<const __VA_ARGS__*>(file_data), \
+				file_origin, \
 				swapped \
 			); \
 			break

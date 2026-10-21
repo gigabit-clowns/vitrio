@@ -356,7 +356,7 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 		read_regions(
 			plan, 1, 1,
 			array.data(), numerical_type::float32,
-			as_file(file), numerical_type::float32,
+			as_file(file), 0, numerical_type::float32,
 			get_system_byte_order()
 		);
 
@@ -373,7 +373,7 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 		read_regions(
 			plan, 0, 3,
 			array.data(), numerical_type::float32,
-			as_file(file), numerical_type::float32,
+			as_file(file), 0, numerical_type::float32,
 			get_system_byte_order()
 		);
 
@@ -388,12 +388,31 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 			read_regions(
 				plan, first, 1,
 				array.data(), numerical_type::float32,
-				as_file(file), numerical_type::float32,
+				as_file(file), 0, numerical_type::float32,
 				get_system_byte_order()
 			);
 		}
 
 		REQUIRE( array == file );
+	}
+
+	SECTION( "a run is moved out of a buffer that holds only its stretch" )
+	{
+		// The second image of the file alone, which starts at element 4.
+		const std::vector<float32_t> stretch(file.begin() + 4, file.begin() + 8);
+		std::vector<float32_t> array(12, -1.0F);
+		read_regions(
+			plan, 1, 1,
+			array.data(), numerical_type::float32,
+			as_file(stretch), 4, numerical_type::float32,
+			get_system_byte_order()
+		);
+
+		const std::vector<float32_t> expected = {
+			-1, -1, -1, -1, 4, 5, 6, 7, -1, -1, -1, -1
+		};
+
+		REQUIRE( array == expected );
 	}
 
 	SECTION( "a run of no region moves nothing" )
@@ -402,7 +421,7 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 		read_regions(
 			plan, 1, 0,
 			array.data(), numerical_type::float32,
-			as_file(file), numerical_type::float32,
+			as_file(file), 0, numerical_type::float32,
 			get_system_byte_order()
 		);
 

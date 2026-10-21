@@ -5,13 +5,13 @@
 #include <formats/memory_mapping/image_file_layout.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 
 #include <memory/byte_order.hpp>
 
 #include <cstddef>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 using namespace vitrio;
@@ -100,45 +100,67 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_file_layout refuses values that could not be addressed where "
+	"an image_file_layout tells whether its values can be addressed where "
 	"they begin",
 	"[image_file_layout]"
 )
 {
-	SECTION( "an offset that misaligns them is refused" )
+	SECTION( "an offset that misaligns them is not aligned" )
 	{
-		REQUIRE_THROWS_AS(
-			image_file_layout(
-				make_descriptor(),
-				stack_strides,
-				1026,
-				byte_order::little_endian
-			),
-			image_file_format_error
-		);
+		CHECK_FALSE( image_file_layout(
+			make_descriptor(),
+			stack_strides,
+			1026,
+			byte_order::little_endian
+		).is_aligned() );
 	}
 
-	SECTION( "one that keeps them aligned is not" )
+	SECTION( "one that keeps them aligned is" )
 	{
-		REQUIRE_NOTHROW(
-			image_file_layout(
-				make_descriptor(),
-				stack_strides,
-				1028,
-				byte_order::little_endian
-			)
-		);
+		CHECK( image_file_layout(
+			make_descriptor(),
+			stack_strides,
+			1028,
+			byte_order::little_endian
+		).is_aligned() );
 	}
 
 	SECTION( "a narrower element tolerates a smaller multiple" )
 	{
-		REQUIRE_NOTHROW(
-			image_file_layout(
-				make_descriptor(numerical_type::int8),
-				stack_strides,
-				1027,
-				byte_order::little_endian
-			)
-		);
+		CHECK( image_file_layout(
+			make_descriptor(numerical_type::int8),
+			stack_strides,
+			1027,
+			byte_order::little_endian
+		).is_aligned() );
+	}
+}
+
+TEST_CASE(
+	"an image_file_layout tells whether its values lie one after another",
+	"[image_file_layout]"
+)
+{
+	SECTION( "the strides of a contiguous stack are" )
+	{
+		CHECK( image_file_layout(
+			make_descriptor(),
+			stack_strides,
+			1024,
+			byte_order::little_endian
+		).is_contiguous() );
+	}
+
+	SECTION( "axes out of order are not" )
+	{
+		auto swapped = stack_strides;
+		std::swap(swapped[1], swapped[2]);
+
+		CHECK_FALSE( image_file_layout(
+			make_descriptor(),
+			swapped,
+			1024,
+			byte_order::little_endian
+		).is_contiguous() );
 	}
 }

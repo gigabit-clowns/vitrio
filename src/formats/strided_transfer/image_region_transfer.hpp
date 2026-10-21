@@ -45,7 +45,7 @@ void read_regions(
  *
  * The regions of a walk are held in ascending file order, so a run of them is
  * a stretch of the file, which can be walked while the stretch after it is
- * advised.
+ * advised, or out of a buffer that holds just that stretch.
  *
  * @param walk The regions and the space they are walked in.
  * @param first_region Index of the first region to move, among those @p walk
@@ -54,7 +54,10 @@ void read_regions(
  * reach past what @p walk holds.
  * @param array_data First element of the array.
  * @param array_type Data type of the array.
- * @param file_data First element of the values of the file.
+ * @param file_data The values of the file, from the element at
+ * @p file_origin on. Every element the run reaches lies at or after it.
+ * @param file_origin Which element of the file @p file_data starts at, 0
+ * when it holds the values from their first.
  * @param file_type Data type of the file.
  * @param file_order Byte order the file states its values in.
  * @throws unsupported_operation_error If @p array_type can not be produced from
@@ -68,6 +71,7 @@ void read_regions(
 	void *array_data,
 	numerical_type array_type,
 	const byte *file_data,
+	std::ptrdiff_t file_origin,
 	numerical_type file_type,
 	byte_order file_order
 );
@@ -110,9 +114,13 @@ void write_regions(
  *
  * @tparam Q Element type of the file.
  * @param walk The regions and the space they are walked in.
+ * @param first_region Index of the first region to move.
+ * @param region_count How many regions to move from there.
  * @param array_data First element of the array.
  * @param array_type Data type of the array.
- * @param file_data First element of the values of the file.
+ * @param file_data The values of the file, from the element at
+ * @p file_origin on.
+ * @param file_origin Which element of the file @p file_data starts at.
  * @param swapped Whether the file states its values in the other byte order.
  * @throws unsupported_operation_error If @p array_type can not be produced from
  * @p Q.
@@ -125,6 +133,7 @@ void read_regions_as(
 	void *array_data,
 	numerical_type array_type,
 	const Q *file_data,
+	std::ptrdiff_t file_origin,
 	bool swapped
 );
 

@@ -19,8 +19,9 @@ in the same commit that causes it.
 | `include/vitrio/concurrency/` | Executors, the tasks they run and the completions that report them |
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
-| `src/formats/` | The image formats and what they are built with. Each format has a directory and a namespace of its own, such as `vitrio::mrc` |
+| `src/formats/` | The image formats and what they are built with. Each format has a directory and a namespace of its own, such as `vitrio::mrc`. A format whose values lie in the file as they are opens its reader with `open_raw_image_reader`, which picks the reader that suits them |
 | `src/formats/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements |
+| `src/formats/read_planning/` | Gathers the regions of a read into the stretches of the file they reach, merged across small gaps and grouped into steps of a bounded number of bytes, on a grid of pages or of elements |
 | `src/formats/memory_mapping/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead, and a scratch reads its copies the same way. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
 | `src/formats/dm/` | The DigitalMicrograph format, versions 3 and 4, read only: its header, the tree of tags it is parsed into, how the size of a value follows from its encoding, how the image is found among the tags, and the format that registers itself |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |

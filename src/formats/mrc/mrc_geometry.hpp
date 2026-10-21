@@ -44,9 +44,7 @@ namespace mrc
  * section in the image space group.
  * @return image_file_layout The layout, in the byte order of the header.
  * @throws image_file_format_error If the axis correspondence of the header
- * names anything but the three axes of space, one each, without being unset,
- * or if the values of the file would not begin at an offset its elements can
- * be addressed at.
+ * names anything but the three axes of space, one each, without being unset.
  */
 image_file_layout derive_file_layout(
 	const mrc_header &header,

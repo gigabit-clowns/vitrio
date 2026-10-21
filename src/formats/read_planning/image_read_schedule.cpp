@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "image_prefetch_schedule.hpp"
+#include "image_read_schedule.hpp"
 
 #include <vitrio/image_transfer_plan.hpp>
 
 #include <assert.hpp>
 
 #include <algorithm>
-#include <cstdint>
 
 namespace vitrio
 {
@@ -41,59 +40,49 @@ std::size_t compute_region_span(
 namespace
 {
 
-std::uintptr_t begin_of(const memory_range &range) noexcept
+file_range make_range(std::size_t begin, std::size_t end) noexcept
 {
-	return reinterpret_cast<std::uintptr_t>(range.get_address());
+	return file_range(begin, end - begin);
 }
 
-std::uintptr_t end_of(const memory_range &range) noexcept
-{
-	return begin_of(range) + range.get_size();
-}
-
-memory_range make_range(std::uintptr_t begin, std::uintptr_t end) noexcept
-{
-	return memory_range(reinterpret_cast<void*>(begin), end - begin);
-}
-
-// The stretch one region occupies: grown back to the page its first byte
-// falls in, and cut short where the mapping begins and where it ends.
-memory_range locate_region(
-	std::uintptr_t begin,
+// The stretch one region occupies: grown back to the line of the grid its
+// first byte falls on or after, and cut short where the file ends.
+file_range locate_region(
+	std::size_t begin,
 	std::size_t region_span,
-	std::uintptr_t mapping_begin,
-	std::uintptr_t mapping_end,
-	std::size_t page_size
+	std::size_t file_size,
+	const image_read_policy &policy
 ) noexcept
 {
+	const auto alignment = policy.get_alignment();
+	const auto origin = policy.get_alignment_origin();
+	VITRIO_ASSERT(begin >= origin);
+
 	return make_range(
-		std::max(begin - (begin % page_size), mapping_begin),
-		std::min(begin + region_span, mapping_end)
+		begin - (begin - origin) % alignment,
+		std::min(begin + region_span, file_size)
 	);
 }
 
-memory_range merge(
-	const memory_range &previous,
-	const memory_range &next
-) noexcept
+file_range merge(const file_range &previous, const file_range &next) noexcept
 {
 	return make_range(
-		begin_of(previous),
-		std::max(end_of(previous), end_of(next))
+		previous.get_offset(),
+		std::max(previous.get_end(), next.get_end())
 	);
 }
 
-// Whether a stretch is asked for together with the one before it: it starts
+// Whether a stretch is taken together with the one before it: it starts
 // within the tolerance of where that one ends, and taking it in does not grow
 // that one past the budget of a step. One already past the budget, a single
 // region wider than it, still takes in what lies within it.
 bool joins(
-	const memory_range &previous,
-	const memory_range &next,
-	const image_prefetch_policy &policy
+	const file_range &previous,
+	const file_range &next,
+	const image_read_policy &policy
 ) noexcept
 {
-	if (begin_of(next) > end_of(previous) + policy.get_gap_tolerance())
+	if (next.get_offset() > previous.get_end() + policy.get_gap_tolerance())
 	{
 		return false;
 	}
@@ -106,17 +95,18 @@ bool joins(
 
 } // anonymous namespace
 
-image_prefetch_schedule::image_prefetch_schedule(
+image_read_schedule::image_read_schedule(
 	const image_transfer_plan &regions,
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
 	span<const std::ptrdiff_t> file_offsets,
-	span<const byte> mapping,
 	std::size_t data_offset,
-	const image_prefetch_policy &policy
+	std::size_t file_size,
+	const image_read_policy &policy
 )
 {
-	VITRIO_ASSERT(policy.get_page_size() > 0);
+	VITRIO_ASSERT(policy.get_alignment() > 0);
+	VITRIO_ASSERT(policy.get_alignment_origin() < policy.get_alignment());
 	VITRIO_ASSERT(
 		std::is_sorted(file_offsets.begin(), file_offsets.end())
 	);
@@ -129,82 +119,64 @@ image_prefetch_schedule::image_prefetch_schedule(
 		return;
 	}
 
-	const auto regions_per_range = gather_ranges(
+	gather_ranges(
 		regions,
 		file_strides,
 		data_type,
 		file_offsets,
-		mapping,
 		data_offset,
+		file_size,
 		policy
 	);
 
-	gather_steps(
-		make_span(regions_per_range),
-		file_offsets.size(),
-		policy.get_byte_budget()
-	);
+	gather_steps(file_offsets.size(), policy.get_byte_budget());
 }
 
-std::vector<std::size_t> image_prefetch_schedule::gather_ranges(
+void image_read_schedule::gather_ranges(
 	const image_transfer_plan &regions,
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
 	span<const std::ptrdiff_t> file_offsets,
-	span<const byte> mapping,
 	std::size_t data_offset,
-	const image_prefetch_policy &policy
+	std::size_t file_size,
+	const image_read_policy &policy
 )
 {
-	std::vector<std::size_t> regions_per_range;
-
 	const auto region_span =
 		compute_region_span(regions, file_strides, data_type);
 	if (region_span == 0)
 	{
-		return regions_per_range;
+		return;
 	}
 
 	const auto element_size = get_size(data_type);
-	const auto mapping_begin = reinterpret_cast<std::uintptr_t>(mapping.data());
-	const auto mapping_end = mapping_begin + mapping.size();
-	const auto values = mapping_begin + data_offset;
-
 	for (const auto offset : file_offsets)
 	{
 		VITRIO_ASSERT(offset >= 0);
 		const auto begin =
-			values + static_cast<std::size_t>(offset) * element_size;
-		if (begin >= mapping_end)
+			data_offset + static_cast<std::size_t>(offset) * element_size;
+		if (begin >= file_size)
 		{
 			continue;
 		}
 
-		const auto region = locate_region(
-			begin,
-			region_span,
-			mapping_begin,
-			mapping_end,
-			policy.get_page_size()
-		);
+		const auto region =
+			locate_region(begin, region_span, file_size, policy);
 
 		if (!m_ranges.empty() && joins(m_ranges.back(), region, policy))
 		{
 			m_ranges.back() = merge(m_ranges.back(), region);
-			++regions_per_range.back();
+			++m_regions_per_range.back();
 		}
 		else
 		{
 			m_ranges.push_back(region);
-			regions_per_range.push_back(1);
+			m_regions_per_range.push_back(1);
 		}
 	}
-
-	return regions_per_range;
 }
 
-void image_prefetch_schedule::gather_steps(
-	span<const std::size_t> regions_per_range,
+void image_read_schedule::gather_steps(
 	std::size_t region_count,
 	std::size_t byte_budget
 )
@@ -223,28 +195,27 @@ void image_prefetch_schedule::gather_steps(
 		}
 
 		step_bytes += size;
-		regions_seen += regions_per_range[i];
+		regions_seen += m_regions_per_range[i];
 	}
 
 	// The last step takes every region the stretches left out, which is what
-	// makes the steps tile the regions however little there was to ask for.
+	// makes the steps tile the regions however little there was to take.
 	m_step_first_range.push_back(m_ranges.size());
 	m_step_first_region.push_back(region_count);
 }
 
-std::size_t image_prefetch_schedule::get_step_count() const noexcept
+std::size_t image_read_schedule::get_step_count() const noexcept
 {
 	return m_step_first_range.size() - 1;
 }
 
-span<const memory_range>
-image_prefetch_schedule::get_ranges() const noexcept
+span<const file_range> image_read_schedule::get_ranges() const noexcept
 {
 	return make_span(m_ranges.data(), m_ranges.size());
 }
 
-span<const memory_range>
-image_prefetch_schedule::get_step_ranges(std::size_t step) const noexcept
+span<const file_range>
+image_read_schedule::get_step_ranges(std::size_t step) const noexcept
 {
 	VITRIO_ASSERT(step < get_step_count());
 
@@ -257,9 +228,15 @@ image_prefetch_schedule::get_step_ranges(std::size_t step) const noexcept
 }
 
 std::size_t
-image_prefetch_schedule::get_step_first_region(
-	std::size_t step
-) const noexcept
+image_read_schedule::get_step_first_range(std::size_t step) const noexcept
+{
+	VITRIO_ASSERT(step < get_step_count());
+
+	return m_step_first_range[step];
+}
+
+std::size_t
+image_read_schedule::get_step_first_region(std::size_t step) const noexcept
 {
 	VITRIO_ASSERT(step < get_step_count());
 
@@ -267,13 +244,17 @@ image_prefetch_schedule::get_step_first_region(
 }
 
 std::size_t
-image_prefetch_schedule::get_step_region_count(
-	std::size_t step
-) const noexcept
+image_read_schedule::get_step_region_count(std::size_t step) const noexcept
 {
 	VITRIO_ASSERT(step < get_step_count());
 
 	return m_step_first_region[step + 1] - m_step_first_region[step];
+}
+
+span<const std::size_t>
+image_read_schedule::get_regions_per_range() const noexcept
+{
+	return make_span(m_regions_per_range.data(), m_regions_per_range.size());
 }
 
 } // namespace vitrio

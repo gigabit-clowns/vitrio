@@ -3,7 +3,6 @@
 #include "image_file_layout.hpp"
 
 #include <vitrio/array/numerical_type.hpp>
-#include <vitrio/exceptions/image_file_format_error.hpp>
 
 #include <functional>
 #include <numeric>
@@ -29,15 +28,6 @@ image_file_layout::image_file_layout(
 		throw std::invalid_argument(
 			"image_file_layout: The strides do not have the rank of the "
 			"extents."
-		);
-	}
-
-	const auto element_size = get_size(m_descriptor.get_data_type());
-	if (element_size == 0 || m_data_offset % element_size != 0)
-	{
-		throw image_file_format_error(
-			"image_file_layout: The values of the file do not begin at an "
-			"offset their data type can be addressed at."
 		);
 	}
 }
@@ -73,6 +63,27 @@ std::size_t image_file_layout::get_data_size() const noexcept
 byte_order image_file_layout::get_byte_order() const noexcept
 {
 	return m_byte_order;
+}
+
+bool image_file_layout::is_aligned() const noexcept
+{
+	return m_data_offset % get_size(m_descriptor.get_data_type()) == 0;
+}
+
+bool image_file_layout::is_contiguous() const noexcept
+{
+	const auto extents = m_descriptor.get_extents();
+	std::ptrdiff_t stride = 1;
+	for (auto axis = extents.size(); axis > 0; --axis)
+	{
+		if (m_strides[axis - 1] != stride)
+		{
+			return false;
+		}
+		stride *= static_cast<std::ptrdiff_t>(extents[axis - 1]);
+	}
+
+	return true;
 }
 
 } // namespace vitrio

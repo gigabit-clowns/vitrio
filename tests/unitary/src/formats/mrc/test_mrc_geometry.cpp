@@ -422,26 +422,25 @@ TEST_CASE( "an MRC file reports where and how much of it holds values",
 	}
 }
 
-TEST_CASE( "values that could not be addressed where they begin are refused",
+TEST_CASE( "the values begin after the extended header, aligned or not",
 	"[mrc_geometry]" )
 {
-	SECTION( "an extended header that misaligns them is refused" )
+	SECTION( "an extended header that misaligns them leaves them unaligned" )
 	{
 		auto header = make_header_of(4, 3, 1, 1, 0);
 		header.set_extended_header_size(2);
+		const auto layout = derive_file_layout(header);
 
-		REQUIRE_THROWS_AS(
-			derive_file_layout(header),
-			image_file_format_error
-		);
+		CHECK( layout.get_data_offset() == header_size + 2 );
+		CHECK_FALSE( layout.is_aligned() );
 	}
 
-	SECTION( "one that keeps them aligned is not" )
+	SECTION( "one that keeps them aligned does" )
 	{
 		auto header = make_header_of(4, 3, 1, 1, 0);
 		header.set_extended_header_size(4);
 
-		REQUIRE_NOTHROW( derive_file_layout(header) );
+		CHECK( derive_file_layout(header).is_aligned() );
 	}
 
 	SECTION( "a narrower element tolerates a smaller multiple" )
@@ -449,7 +448,7 @@ TEST_CASE( "values that could not be addressed where they begin are refused",
 		auto header = make_header_of(4, 3, 1, 1, 0, mrc_mode::int8);
 		header.set_extended_header_size(3);
 
-		REQUIRE_NOTHROW( derive_file_layout(header) );
+		CHECK( derive_file_layout(header).is_aligned() );
 	}
 }
 

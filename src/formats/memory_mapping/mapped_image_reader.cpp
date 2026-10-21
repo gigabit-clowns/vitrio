@@ -23,6 +23,20 @@ namespace vitrio
 namespace
 {
 
+image_file_layout
+check_aligned(image_file_layout layout, const std::string &path)
+{
+	if (!layout.is_aligned())
+	{
+		throw image_file_format_error(
+			path + ": mapped_image_reader: The values of the file do not "
+			"begin at an offset their data type can be addressed at."
+		);
+	}
+
+	return layout;
+}
+
 array_descriptor describe_values(const image_file_layout &layout)
 {
 	const auto &descriptor = layout.get_descriptor();
@@ -49,7 +63,7 @@ mapped_image_reader::mapped_image_reader(
 	image_metadata metadata
 )
 	: m_mapping(path, image_file_access::read_only)
-	, m_layout(std::move(layout))
+	, m_layout(check_aligned(std::move(layout), path))
 	, m_metadata(std::move(metadata))
 	, m_values(describe_values(m_layout))
 {

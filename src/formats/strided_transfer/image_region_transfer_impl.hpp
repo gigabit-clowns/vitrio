@@ -121,6 +121,10 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
  * inner loop is chosen once too, before the first region, as the strides of
  * the innermost axis are the same for all of them.
  *
+ * The source may hold its elements from @p source_origin on rather than
+ * from its first, as a buffer holding a stretch of a file does, and its
+ * offsets are then taken from there.
+ *
  * The destination comes first, as it does in the layout.
  */
 template <
@@ -134,7 +138,8 @@ void run_regions(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
-	SourcePointer source_data
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
 )
 {
 	dispatch_region_inner_strides(
@@ -149,7 +154,7 @@ void run_regions(
 					destination_stride,
 					source_stride,
 					destination_data + destination_offsets[i],
-					source_data + source_offsets[i]
+					source_data + (source_offsets[i] - source_origin)
 				);
 			}
 		}
@@ -168,7 +173,8 @@ void run_supported_regions(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
-	SourcePointer source_data
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
 )
 {
 	run_regions(
@@ -177,7 +183,8 @@ void run_supported_regions(
 		destination_offsets,
 		source_offsets,
 		destination_data,
-		source_data
+		source_data,
+		source_origin
 	);
 }
 
@@ -196,7 +203,8 @@ void run_supported_regions(
 	span<const std::ptrdiff_t>,
 	span<const std::ptrdiff_t>,
 	DestinationPointer,
-	SourcePointer
+	SourcePointer,
+	std::ptrdiff_t
 )
 {
 	throw unsupported_operation_error(
@@ -227,7 +235,8 @@ void run_regions_in_byte_order(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
-	SourcePointer source_data
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
 )
 {
 	if (swapped)
@@ -239,7 +248,8 @@ void run_regions_in_byte_order(
 			destination_offsets,
 			source_offsets,
 			destination_data,
-			source_data
+			source_data,
+			source_origin
 		);
 	}
 	else
@@ -251,7 +261,8 @@ void run_regions_in_byte_order(
 			destination_offsets,
 			source_offsets,
 			destination_data,
-			source_data
+			source_data,
+			source_origin
 		);
 	}
 }
@@ -264,6 +275,7 @@ void read_regions_as(
 	void *array_data,
 	numerical_type array_type,
 	const Q *file_data,
+	std::ptrdiff_t file_origin,
 	bool swapped
 )
 {
@@ -278,7 +290,10 @@ void read_regions_as(
 		make_span(offsets.get_file().data() + first_region, region_count);
 
 	dispatch_numerical_type(
-		[&walk, array_offsets, file_offsets, array_data, file_data, swapped]
+		[
+			&walk, array_offsets, file_offsets, array_data, file_data,
+			file_origin, swapped
+		]
 		(auto array_tag)
 		{
 			using T = typename decltype(array_tag)::type;
@@ -295,7 +310,8 @@ void read_regions_as(
 				array_offsets,
 				file_offsets,
 				array,
-				file_data
+				file_data,
+				file_origin
 			);
 		},
 		array_type
@@ -330,7 +346,8 @@ void write_regions_as(
 				offsets.get_file(),
 				offsets.get_array(),
 				file_data,
-				array
+				array,
+				0
 			);
 		},
 		array_type
@@ -352,6 +369,7 @@ void write_regions_as(
 		void*, \
 		numerical_type, \
 		const __VA_ARGS__*, \
+		std::ptrdiff_t, \
 		bool \
 	); \
 	template void write_regions_as<__VA_ARGS__>( \

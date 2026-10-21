@@ -11,7 +11,7 @@
 #include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
-#include <formats/memory_mapping/mapped_image_reader.hpp>
+#include <formats/open_raw_image_reader.hpp>
 
 namespace vitrio
 {
@@ -45,7 +45,7 @@ mrc_file_read_format::open(const image_file_probe &probe) const
 {
 	const auto header = parse_header(probe.get_leading_bytes());
 
-	return std::make_shared<mapped_image_reader>(
+	return open_raw_image_reader(
 		probe.get_path(),
 		derive_file_layout(
 			header,

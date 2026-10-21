@@ -39,8 +39,6 @@ public:
 	 * @param order Byte order the values are stated in.
 	 * @throws std::invalid_argument If @p strides do not have the rank of
 	 * the extents of @p descriptor.
-	 * @throws image_file_format_error If @p data_offset is not a multiple of
-	 * the size of one element, where its values could not be addressed.
 	 */
 	image_file_layout(
 		image_descriptor descriptor,
@@ -92,6 +90,28 @@ public:
 	 * @return byte_order The byte order.
 	 */
 	byte_order get_byte_order() const noexcept;
+
+	/**
+	 * @brief Tell whether the values begin where their data type can be
+	 * addressed in place, at a multiple of the size of one of them.
+	 *
+	 * Values that do not have to be copied before they are read, as a
+	 * format that places them wherever the bytes before them end may lay
+	 * them.
+	 *
+	 * @return true They begin at a multiple of their size.
+	 * @return false They do not.
+	 */
+	bool is_aligned() const noexcept;
+
+	/**
+	 * @brief Tell whether the values lie one after another, the last axis
+	 * changing fastest.
+	 *
+	 * @return true Each stride is what the axes after it hold.
+	 * @return false An axis is laid out otherwise.
+	 */
+	bool is_contiguous() const noexcept;
 
 private:
 	image_descriptor m_descriptor;
