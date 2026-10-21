@@ -42,7 +42,11 @@ namespace
 
 } // anonymous namespace
 
-void prefetch_pages(span<const memory_range> ranges) noexcept
+void prefetch_pages(
+	file_handle_t,
+	span<const byte>,
+	span<const memory_range> ranges
+) noexcept
 {
 	const auto page_size = get_page_size();
 	for (const auto &range : ranges)

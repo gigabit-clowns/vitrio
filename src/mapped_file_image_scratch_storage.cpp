@@ -86,7 +86,11 @@ public:
 
 	void prefetch(span<const memory_range> ranges) const noexcept override
 	{
-		prefetch_pages(ranges);
+		prefetch_pages(
+			m_mapping.get_file(),
+			make_span(m_mapping.get_data(), m_mapping.get_size()),
+			ranges
+		);
 	}
 
 private:

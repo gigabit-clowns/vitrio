@@ -6,6 +6,8 @@
 
 #include <vitrio/byte.hpp>
 
+#include <system/file_handle.hpp>
+
 #include <boost/interprocess/file_mapping.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 
@@ -63,6 +65,14 @@ public:
 	 * @return std::size_t The size of the file.
 	 */
 	std::size_t get_size() const noexcept;
+
+	/**
+	 * @brief Get the file that is mapped.
+	 *
+	 * @return file_handle_t The file, as the operating system names it. It
+	 * stays open for as long as the mapping lives.
+	 */
+	file_handle_t get_file() const noexcept;
 
 	/**
 	 * @brief Make everything written through the mapping reach the storage.

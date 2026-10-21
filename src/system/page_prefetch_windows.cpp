@@ -50,7 +50,11 @@ prefetch_virtual_memory_function get_prefetch_virtual_memory() noexcept
 
 } // anonymous namespace
 
-void prefetch_pages(span<const memory_range> ranges) noexcept
+void prefetch_pages(
+	file_handle_t,
+	span<const byte>,
+	span<const memory_range> ranges
+) noexcept
 {
 	const auto prefetch = get_prefetch_virtual_memory();
 	if (prefetch == nullptr)

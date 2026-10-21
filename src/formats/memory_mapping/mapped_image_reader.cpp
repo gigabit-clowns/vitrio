@@ -8,6 +8,8 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_transfer_plan.hpp>
+#include <vitrio/memory_range.hpp>
+#include <vitrio/span.hpp>
 
 #include <system/page_prefetch.hpp>
 
@@ -77,13 +79,18 @@ void mapped_image_reader::read(
 	const image_transfer_plan &regions
 ) const
 {
+	const auto mapping = make_span(m_mapping.get_data(), m_mapping.get_size());
+	const auto file = m_mapping.get_file();
 	read_prefetched_regions(
-		make_span(m_mapping.get_data(), m_mapping.get_size()),
+		mapping,
 		m_values,
 		m_layout.get_byte_order(),
 		destination,
 		regions,
-		prefetch_pages
+		[file, mapping](span<const memory_range> ranges)
+		{
+			prefetch_pages(file, mapping, ranges);
+		}
 	);
 }
 

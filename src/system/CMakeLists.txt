@@ -9,6 +9,13 @@ if(WIN32)
 			page_prefetch_windows.cpp
 			page_size_windows.cpp
 	)
+elseif(APPLE)
+	target_sources(
+		vitrio-obj
+		PRIVATE
+			page_prefetch_darwin.cpp
+			page_size_posix.cpp
+	)
 elseif(UNIX)
 	target_sources(
 		vitrio-obj

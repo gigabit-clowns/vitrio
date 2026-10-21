@@ -91,6 +91,11 @@ std::size_t image_file_mapping::get_size() const noexcept
 	return m_region.get_size();
 }
 
+file_handle_t image_file_mapping::get_file() const noexcept
+{
+	return m_mapping.get_mapping_handle().handle;
+}
+
 void image_file_mapping::flush()
 {
 	if (!m_region.flush())
