@@ -6,6 +6,8 @@
 
 #include <assert.hpp>
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -28,6 +30,7 @@ namespace
 
 io_uring_file_read_queue::io_uring_file_read_queue(std::size_t capacity)
 	: m_requests(capacity)
+	, m_process(0)
 {
 	VITRIO_ASSERT(capacity > 0);
 
@@ -37,19 +40,16 @@ io_uring_file_read_queue::io_uring_file_read_queue(std::size_t capacity)
 		m_free_requests.push_back(&request);
 	}
 
-	// The ring has an entry for each request, and twice as many for
-	// completions, so that neither ever fills.
-	const auto status =
-		io_uring_queue_init(static_cast<unsigned>(capacity), &m_ring, 0);
-	if (status < 0)
-	{
-		throw_system_error(status, "io_uring_queue_init");
-	}
+	open_ring();
 }
 
 io_uring_file_read_queue::~io_uring_file_read_queue()
 {
-	while (m_free_requests.size() < m_requests.size())
+	// Only the process that opened the ring has reads in it to wait for.
+	while (
+		m_process == ::getpid() &&
+		m_free_requests.size() < m_requests.size()
+	)
 	{
 		try
 		{
@@ -71,7 +71,7 @@ io_uring_file_read_queue::~io_uring_file_read_queue()
 		}
 	}
 
-	io_uring_queue_exit(&m_ring);
+	close_ring();
 }
 
 void io_uring_file_read_queue::queue(
@@ -81,6 +81,16 @@ void io_uring_file_read_queue::queue(
 	std::uint64_t tag
 )
 {
+	// The child of a fork shares the memory of an inherited ring with its
+	// parent. Closing its copy leaves the parent's open.
+	if (m_process != ::getpid())
+	{
+		VITRIO_ASSERT(m_free_requests.size() == m_requests.size());
+		VITRIO_ASSERT(m_completions.empty());
+		close_ring();
+		open_ring();
+	}
+
 	if (m_free_requests.empty())
 	{
 		m_completions.push_back(receive());
@@ -224,6 +234,32 @@ void io_uring_file_read_queue::submit()
 	if (status < 0)
 	{
 		throw_system_error(status, "io_uring_submit");
+	}
+}
+
+void io_uring_file_read_queue::open_ring()
+{
+	// The ring has an entry for each request, and twice as many for
+	// completions, so that neither ever fills.
+	const auto status = io_uring_queue_init(
+		static_cast<unsigned>(m_requests.size()),
+		&m_ring,
+		0
+	);
+	if (status < 0)
+	{
+		throw_system_error(status, "io_uring_queue_init");
+	}
+
+	m_process = ::getpid();
+}
+
+void io_uring_file_read_queue::close_ring() noexcept
+{
+	if (m_process != 0)
+	{
+		io_uring_queue_exit(&m_ring);
+		m_process = 0;
 	}
 }
 

@@ -6,6 +6,7 @@
 
 #include <liburing.h>
 
+#include <sys/types.h>
 #include <sys/uio.h>
 
 #include <cstddef>
@@ -18,6 +19,9 @@ namespace vitrio
 /**
  * @brief A queue that hands its reads to the kernel through an io_uring,
  * which carries them out while the thread goes on.
+ *
+ * A queue the child of a fork inherits, with no read outstanding, opens a
+ * ring of its own there before it takes a read, and leaves its parent's be.
  */
 class io_uring_file_read_queue final
 	: public file_read_queue
@@ -68,6 +72,10 @@ private:
 
 	void submit();
 
+	void open_ring();
+
+	void close_ring() noexcept;
+
 	std::vector<request> m_requests;
 	std::vector<request*> m_free_requests;
 
@@ -75,6 +83,9 @@ private:
 	std::deque<file_read_completion> m_completions;
 
 	io_uring m_ring;
+
+	// The process the ring was opened in, and none while it is closed.
+	pid_t m_process;
 };
 
 } // namespace vitrio

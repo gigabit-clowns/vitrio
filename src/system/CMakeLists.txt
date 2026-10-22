@@ -3,9 +3,11 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
+		asynchronous_file_read_queue_pool.cpp
 		blocking_file_read_queue.cpp
 		file_read_completion.cpp
 		file_read_queue.cpp
+		file_read_queue_pool.cpp
 )
 
 # What is asked of the operating system has one source file per family of
@@ -41,11 +43,17 @@ else()
 endif()
 
 # Reads are queued with the kernel through io_uring only where the build has
-# liburing.
+# liburing, which the pool of asynchronous queues is told of.
 if(VITRIO_ENABLE_IO_URING)
 	target_sources(
 		vitrio-obj
 		PRIVATE
 			io_uring_file_read_queue.cpp
+	)
+
+	target_compile_definitions(
+		vitrio-obj
+		PRIVATE
+			VITRIO_ENABLE_IO_URING
 	)
 endif()

@@ -33,3 +33,13 @@
 #ifndef VITRIO_PREFETCH_BYTE_BUDGET
 	#define VITRIO_PREFETCH_BYTE_BUDGET (4UL<<24)
 #endif
+
+// Reads of files the kernel carries out at once for one asynchronous queue.
+//
+// A read of scattered regions has this many stretches of the file in flight:
+// enough for a solid-state drive to serve them in parallel, and for the
+// scheduler of a disk to order them along its way. Past it, queueing a read
+// waits for an earlier one.
+#ifndef VITRIO_FILE_READ_QUEUE_CAPACITY
+	#define VITRIO_FILE_READ_QUEUE_CAPACITY 64
+#endif
