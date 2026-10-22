@@ -2,6 +2,9 @@
 
 #include "image_queued_read.hpp"
 
+#include "file_read_plan.hpp"
+#include "file_read_plan_execution.hpp"
+
 #include <formats/read_planning/image_read_policy.hpp>
 #include <formats/read_planning/image_read_schedule.hpp>
 #include <formats/strided_transfer/image_region_read_walk.hpp>
@@ -12,20 +15,16 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
-#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
 #include <array/array_data.hpp>
 #include <memory/byte_order.hpp>
-#include <system/file_read_completion.hpp>
 #include <system/file_read_queue.hpp>
 
 #include <algorithm>
 #include <cstddef>
-#include <exception>
-#include <memory>
 #include <system_error>
 #include <vector>
 
@@ -34,6 +33,18 @@ namespace vitrio
 
 namespace
 {
+
+// Where staged stretches start, so that the values of every data type land
+// aligned in them.
+constexpr std::size_t staging_alignment = 64;
+
+// Where each stretch of a schedule is staged, within the half of the staging
+// memory its step takes, and how many bytes a half takes.
+struct staging_layout
+{
+	std::vector<std::size_t> offsets;
+	std::size_t half;
+};
 
 // Whether the regions lie in the file as they are to lie in the array: one
 // value after another on both sides, in the data type and byte order the
@@ -69,53 +80,184 @@ bool lie_as_they_land(
 	}
 }
 
-// Fails unless a read got every byte it was asked for.
-void check_read(
-	const std::string &path,
-	const file_read_completion &completion,
-	std::size_t size
-)
+// The end of the run of regions from `first` on that follow one another in
+// the file.
+std::size_t find_run_end(
+	span<const std::ptrdiff_t> file_offsets,
+	std::size_t first,
+	std::size_t element_count
+) noexcept
 {
-	if (completion.get_error())
+	const auto region_length = static_cast<std::ptrdiff_t>(element_count);
+
+	auto last = first + 1;
+	while (
+		last < file_offsets.size() &&
+		file_offsets[last] == file_offsets[last - 1] + region_length
+	)
 	{
-		throw std::system_error(completion.get_error());
+		++last;
 	}
 
-	if (completion.get_size() < size)
-	{
-		throw image_file_format_error(
-			path + ": read_queued_regions: The file ends before the values "
-			"it is said to hold."
-		);
-	}
+	return last;
 }
 
-// Waits for the reads a read leaves outstanding as it throws, discarding how
-// they end: the memory they read into must outlive them.
-void wait_out(file_read_queue &queue, std::size_t outstanding) noexcept
+// The reads of regions that lie as they land: straight into the array, the
+// regions that follow one another in the file as one read, all in one step.
+file_read_plan plan_direct_reads(
+	const raw_image_layout &layout,
+	const image_region_read_walk &walk,
+	byte *array_data
+)
 {
-	while (outstanding > 0)
+	const auto element_size =
+		get_size(layout.get_descriptor().get_data_type());
+	const auto element_count = walk.get_layout().compute_element_count();
+	const auto region_size = element_count * element_size;
+
+	const auto &offsets = walk.get_offsets();
+	const auto file_offsets = offsets.get_file();
+	const auto array_offsets = offsets.get_array();
+
+	file_read_plan plan;
+	std::vector<memory_range> buffers;
+	for (std::size_t first = 0; first < file_offsets.size();)
 	{
-		try
+		const auto last = find_run_end(file_offsets, first, element_count);
+
+		buffers.clear();
+		for (auto region = first; region < last; ++region)
 		{
-			queue.wait();
-			--outstanding;
+			const auto array_offset = array_offsets[region] *
+				static_cast<std::ptrdiff_t>(element_size);
+			buffers.emplace_back(array_data + array_offset, region_size);
 		}
-		catch (const std::system_error &error)
+
+		const auto file_offset =
+			static_cast<std::size_t>(file_offsets[first]) * element_size;
+		plan.add_read(
+			0,
+			layout.get_data_offset() + file_offset,
+			make_span(buffers)
+		);
+
+		first = last;
+	}
+
+	return plan;
+}
+
+// The stretches of the file the regions reach, merged across the gaps that
+// are narrower than a region, on the grid of the elements of the values.
+image_read_schedule schedule_staged_stretches(
+	const image_transfer_plan &regions,
+	const image_region_read_walk &walk,
+	const raw_image_layout &layout,
+	std::size_t file_size,
+	std::size_t byte_budget
+)
+{
+	const auto data_type = layout.get_descriptor().get_data_type();
+	const auto element_size = get_size(data_type);
+	const auto data_offset = layout.get_data_offset();
+	const auto strides = layout.get_strides();
+	const auto region_span = compute_region_span(regions, strides, data_type);
+
+	return image_read_schedule(
+		regions,
+		strides,
+		data_type,
+		walk.get_offsets().get_file(),
+		data_offset,
+		file_size,
+		image_read_policy(
+			std::min(region_span, default_prefetch_gap_cap),
+			byte_budget,
+			element_size,
+			data_offset % element_size
+		)
+	);
+}
+
+// The first region of each stretch: the regions of a stretch follow those of
+// the one before it.
+std::vector<std::size_t>
+find_first_regions(const image_read_schedule &schedule)
+{
+	const auto regions_per_range = schedule.get_regions_per_range();
+
+	std::vector<std::size_t> first_regions(regions_per_range.size());
+	std::size_t region = 0;
+	for (std::size_t range = 0; range < first_regions.size(); ++range)
+	{
+		first_regions[range] = region;
+		region += regions_per_range[range];
+	}
+
+	return first_regions;
+}
+
+staging_layout lay_out_staging(const image_read_schedule &schedule)
+{
+	const auto ranges = schedule.get_ranges();
+
+	staging_layout layout{std::vector<std::size_t>(ranges.size()), 0};
+	for (std::size_t step = 0; step < schedule.get_step_count(); ++step)
+	{
+		const auto first = schedule.get_step_first_range(step);
+		const auto count = schedule.get_step_ranges(step).size();
+
+		std::size_t offset = 0;
+		for (auto range = first; range < first + count; ++range)
 		{
-			// The system is short of memory for the reads that are queued,
-			// and may have it later. Failing otherwise, it could still write
-			// into their buffers, which nothing could then release safely.
-			const auto code = error.code();
-			if (
-				code != std::errc::resource_unavailable_try_again &&
-				code != std::errc::device_or_resource_busy
-			)
-			{
-				std::terminate();
-			}
+			layout.offsets[range] = offset;
+			const auto size = ranges[range].get_size();
+			offset += (size + staging_alignment - 1) / staging_alignment *
+				staging_alignment;
+		}
+
+		layout.half = std::max(layout.half, offset);
+	}
+
+	return layout;
+}
+
+// The reads of the stretches of a schedule into staging memory, one read a
+// stretch. A step is read while the one before it is moved, so the steps
+// take turns at two halves of the memory, which this sizes.
+file_read_plan plan_staged_reads(
+	const image_read_schedule &schedule,
+	std::vector<byte> &staging
+)
+{
+	const auto ranges = schedule.get_ranges();
+	const auto step_count = schedule.get_step_count();
+	const auto layout = lay_out_staging(schedule);
+
+	staging.resize(layout.half * std::min<std::size_t>(step_count, 2));
+
+	file_read_plan plan;
+	for (std::size_t step = 0; step < step_count; ++step)
+	{
+		const auto first = schedule.get_step_first_range(step);
+		const auto count = schedule.get_step_ranges(step).size();
+		auto *half = staging.data() + (step % 2) * layout.half;
+
+		for (auto range = first; range < first + count; ++range)
+		{
+			const memory_range buffer(
+				half + layout.offsets[range],
+				ranges[range].get_size()
+			);
+			plan.add_read(
+				step,
+				ranges[range].get_offset(),
+				make_span(&buffer, 1)
+			);
 		}
 	}
+
+	return plan;
 }
 
 void read_directly(
@@ -127,62 +269,13 @@ void read_directly(
 	file_read_queue &queue
 )
 {
-	const auto element_size =
-		get_size(layout.get_descriptor().get_data_type());
-	const auto element_count = walk.get_layout().compute_element_count();
-	const auto region_size = element_count * element_size;
+	const auto plan = plan_direct_reads(layout, walk, array_data);
 
-	const auto &offsets = walk.get_offsets();
-	const auto file_offsets = offsets.get_file();
-	const auto array_offsets = offsets.get_array();
-	const auto region_count = offsets.get_region_count();
-
-	std::vector<std::size_t> run_sizes;
-	std::vector<memory_range> buffers;
-	std::size_t outstanding = 0;
-	try
+	file_read_plan_execution execution(path, file, plan, queue);
+	std::size_t read = 0;
+	while (execution.take_next(read))
 	{
-		for (std::size_t first = 0; first < region_count;)
-		{
-			auto last = first + 1;
-			while (
-				last < region_count &&
-				file_offsets[last] == file_offsets[last - 1] +
-					static_cast<std::ptrdiff_t>(element_count)
-			)
-			{
-				++last;
-			}
-
-			buffers.clear();
-			for (auto region = first; region < last; ++region)
-			{
-				buffers.emplace_back(
-					array_data + array_offsets[region] *
-						static_cast<std::ptrdiff_t>(element_size),
-					region_size
-				);
-			}
-
-			const auto offset = layout.get_data_offset() +
-				static_cast<std::size_t>(file_offsets[first]) * element_size;
-			queue.queue(file, offset, make_span(buffers), run_sizes.size());
-			++outstanding;
-			run_sizes.push_back((last - first) * region_size);
-			first = last;
-		}
-
-		while (outstanding > 0)
-		{
-			const auto completion = queue.wait();
-			--outstanding;
-			check_read(path, completion, run_sizes[completion.get_tag()]);
-		}
-	}
-	catch (...)
-	{
-		wait_out(queue, outstanding);
-		throw;
+		// The values of the stretch landed where they belong.
 	}
 }
 
@@ -202,116 +295,42 @@ void read_staged(
 	const auto data_type = layout.get_descriptor().get_data_type();
 	const auto element_size = get_size(data_type);
 	const auto data_offset = layout.get_data_offset();
-	const auto strides = layout.get_strides();
 
-	// A gap wider than the regions on either side of it is not worth reading
-	// to save a read.
-	const auto region_span = compute_region_span(regions, strides, data_type);
-	const image_read_schedule schedule(
+	const auto schedule = schedule_staged_stretches(
 		regions,
-		strides,
-		data_type,
-		walk.get_offsets().get_file(),
-		data_offset,
+		walk,
+		layout,
 		file_size,
-		image_read_policy(
-			std::min(region_span, default_prefetch_gap_cap),
-			byte_budget,
-			element_size,
-			data_offset % element_size
-		)
+		byte_budget
 	);
-
-	const auto ranges = schedule.get_ranges();
+	const auto first_regions = find_first_regions(schedule);
 	const auto regions_per_range = schedule.get_regions_per_range();
-	const auto step_count = schedule.get_step_count();
 
-	// The first region of each stretch, and the step it falls in.
-	std::vector<std::size_t> first_regions(ranges.size());
-	std::vector<std::size_t> range_steps(ranges.size());
-	std::size_t region = 0;
-	for (std::size_t range = 0; range < ranges.size(); ++range)
+	std::vector<byte> staging;
+	const auto plan = plan_staged_reads(schedule, staging);
+
+	// One read a stretch, so a read and its stretch share their index.
+	file_read_plan_execution execution(path, file, plan, queue);
+	std::size_t range = 0;
+	while (execution.take_next(range))
 	{
-		first_regions[range] = region;
-		region += regions_per_range[range];
-	}
-	for (std::size_t step = 0; step < step_count; ++step)
-	{
-		const auto first = schedule.get_step_first_range(step);
-		const auto count = schedule.get_step_ranges(step).size();
-		std::fill_n(range_steps.begin() + first, count, step);
-	}
+		const auto *staged = static_cast<const byte*>(
+			plan.get_buffers(range)[0].get_address()
+		);
+		const auto origin =
+			(plan.get_offset(range) - data_offset) / element_size;
 
-	std::vector<std::unique_ptr<byte[]>> buffers(ranges.size());
-	std::vector<std::size_t> unmoved(step_count, 0);
-	std::size_t outstanding = 0;
-
-	const auto read_step = [&](std::size_t step)
-	{
-		const auto first = schedule.get_step_first_range(step);
-		const auto count = schedule.get_step_ranges(step).size();
-		for (auto range = first; range < first + count; ++range)
-		{
-			const auto size = ranges[range].get_size();
-			buffers[range].reset(new byte[size]);
-			const memory_range buffer(buffers[range].get(), size);
-			queue.queue(
-				file,
-				ranges[range].get_offset(),
-				make_span(&buffer, 1),
-				range
-			);
-			++outstanding;
-			++unmoved[step];
-		}
-	};
-
-	// The memory the reads go into outlives them, also when a read throws.
-	try
-	{
-		std::size_t read = 0;
-		std::size_t moved = 0;
-		while (moved < step_count)
-		{
-			// The step after the one being moved is on its way meanwhile.
-			while (read < step_count && read < moved + 2)
-			{
-				read_step(read++);
-			}
-
-			if (unmoved[moved] == 0)
-			{
-				++moved;
-				continue;
-			}
-
-			const auto completion = queue.wait();
-			--outstanding;
-			const auto range = static_cast<std::size_t>(completion.get_tag());
-			check_read(path, completion, ranges[range].get_size());
-
-			const auto origin =
-				(ranges[range].get_offset() - data_offset) / element_size;
-			read_regions(
-				walk,
-				first_regions[range],
-				regions_per_range[range],
-				array_data,
-				array_type,
-				buffers[range].get(),
-				static_cast<std::ptrdiff_t>(origin),
-				data_type,
-				layout.get_byte_order()
-			);
-
-			buffers[range].reset();
-			--unmoved[range_steps[range]];
-		}
-	}
-	catch (...)
-	{
-		wait_out(queue, outstanding);
-		throw;
+		read_regions(
+			walk,
+			first_regions[range],
+			regions_per_range[range],
+			array_data,
+			array_type,
+			staged,
+			static_cast<std::ptrdiff_t>(origin),
+			data_type,
+			layout.get_byte_order()
+		);
 	}
 }
 

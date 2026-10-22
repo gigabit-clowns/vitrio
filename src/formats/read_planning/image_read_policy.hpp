@@ -29,6 +29,15 @@ constexpr std::size_t default_prefetch_budget =
 	VITRIO_PREFETCH_BYTE_BUDGET;
 
 /**
+ * @brief Bytes a step stages in memory of its own, where its values are
+ * converted on their way to the array.
+ *
+ * See config.hpp, which is where the number comes from and where it may be
+ * overridden.
+ */
+constexpr std::size_t default_staging_budget = VITRIO_STAGING_BYTE_BUDGET;
+
+/**
  * @brief How the regions of a read are gathered into stretches of the file:
  * which gaps between them are bridged, how many bytes one step takes, and
  * the grid every stretch starts on.

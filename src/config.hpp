@@ -34,6 +34,15 @@
 	#define VITRIO_PREFETCH_BYTE_BUDGET (4UL<<24)
 #endif
 
+// Bytes one step of a read stages in memory of its own, where its values have
+// to be converted on their way to the array.
+//
+// A step is read while the one before it is moved, so a read holds two steps
+// of this at most, unless a single stretch is wider than a step.
+#ifndef VITRIO_STAGING_BYTE_BUDGET
+	#define VITRIO_STAGING_BYTE_BUDGET (1UL<<23)
+#endif
+
 // Reads of files the kernel carries out at once for one asynchronous queue.
 //
 // A read of scattered regions has this many stretches of the file in flight:

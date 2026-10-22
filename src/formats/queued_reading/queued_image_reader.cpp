@@ -108,7 +108,7 @@ void queued_image_reader::read(
 		destination,
 		regions,
 		m_queues->get_queue(),
-		default_prefetch_budget
+		default_staging_budget
 	);
 }
 
