@@ -127,6 +127,10 @@ if(VITRIO_ENABLE_TIFF)
 	target_link_libraries(vitrio-obj PUBLIC TIFF::TIFF)
 endif()
 
+if(VITRIO_ENABLE_IO_URING)
+	target_link_libraries(vitrio-obj PUBLIC liburing::liburing)
+endif()
+
 add_subdirectory(array)
 add_subdirectory(concurrency)
 add_subdirectory(formats)

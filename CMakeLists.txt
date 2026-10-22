@@ -39,6 +39,13 @@ option(
 	"Read and write TIFF and EER files, which needs libtiff"
 	ON
 )
+cmake_dependent_option(
+	VITRIO_ENABLE_IO_URING
+	"Read the values of raw image files through io_uring where the kernel \
+offers it, which needs liburing"
+	ON
+	"CMAKE_SYSTEM_NAME STREQUAL Linux" OFF
+)
 option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
 option(
 	VITRIO_PYTHON_STABLE_ABI
@@ -106,6 +113,10 @@ cmake_dependent_option(
 	VITRIO_BUILD_TIFF "Fetch libtiff and build it with vitrio" ON
 	"VITRIO_BUILD_DEPENDENCIES" OFF
 )
+cmake_dependent_option(
+	VITRIO_BUILD_LIBURING "Fetch liburing and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
 
 # The library and its public headers are C++14. The standard is required
 # rather than preferred, so that nothing newer gets in unnoticed.
@@ -162,6 +173,18 @@ if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_TIFF)
 	) # v4.7.2
 elseif(VITRIO_ENABLE_TIFF)
 	find_package(TIFF 4.5 REQUIRED)
+endif()
+
+# liburing installs a file for pkg-config rather than a CMake package.
+if(VITRIO_ENABLE_IO_URING AND VITRIO_BUILD_LIBURING)
+	include(vitrio_fetch_liburing)
+	vitrio_fetch_liburing(
+		COMMIT d41bf9220ec39277ff235379e9089d9e0fd6c2a5
+	) # liburing-2.15
+elseif(VITRIO_ENABLE_IO_URING)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing>=2.0)
+	add_library(liburing::liburing ALIAS PkgConfig::liburing)
 endif()
 
 # nanobind ships its CMake package inside its Python package, so the

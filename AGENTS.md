@@ -28,7 +28,7 @@ in the same commit that causes it.
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
-| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies |
+| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, and one that reads as it is asked |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
@@ -183,6 +183,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
 | libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
+| liburing 2.0 or newer | The library, privately and on Linux only, for the queue of file reads through io_uring. Not needed with `-DVITRIO_ENABLE_IO_URING=OFF`. It installs no CMake package, so it is found with pkg-config. It has no CMake build either: built, its own configure script is run into the build tree, which needs a POSIX shell and make |
 | zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
