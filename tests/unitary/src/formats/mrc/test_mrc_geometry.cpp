@@ -5,9 +5,9 @@
 
 #include <formats/mrc/mrc_geometry.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
 #include <formats/mrc/mrc_header.hpp>
 #include <formats/mrc/mrc_mode.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
@@ -64,13 +64,13 @@ mrc_header with_axes(
 	return header;
 }
 
-std::vector<std::size_t> extents_of(const image_file_layout &layout)
+std::vector<std::size_t> extents_of(const raw_image_layout &layout)
 {
 	const auto extents = layout.get_descriptor().get_extents();
 	return std::vector<std::size_t>(extents.begin(), extents.end());
 }
 
-std::vector<std::ptrdiff_t> strides_of(const image_file_layout &layout)
+std::vector<std::ptrdiff_t> strides_of(const raw_image_layout &layout)
 {
 	const auto strides = layout.get_strides();
 	return std::vector<std::ptrdiff_t>(strides.begin(), strides.end());

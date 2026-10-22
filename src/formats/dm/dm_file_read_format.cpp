@@ -13,9 +13,9 @@
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <formats/memory_mapping/image_file_access.hpp>
-#include <formats/memory_mapping/image_file_layout.hpp>
 #include <formats/memory_mapping/image_file_mapping.hpp>
 #include <formats/open_raw_image_reader.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -88,7 +88,7 @@ dm_file_read_format::open(const image_file_probe &probe) const
 	// them end, aligned or not, which the reader opened suits.
 	return open_raw_image_reader(
 		probe.get_path(),
-		image_file_layout(
+		raw_image_layout(
 			descriptor,
 			contiguous_strides(descriptor.get_extents()),
 			location.get_data_offset(),

@@ -6,6 +6,8 @@
 
 #include <formats/memory_mapping/unaligned_mapped_image_reader.hpp>
 
+#include <formats/raw_image_layout.hpp>
+
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -392,4 +394,37 @@ TEST_CASE(
 			std::out_of_range
 		);
 	}
+}
+
+TEST_CASE(
+	"an unaligned_mapped_image_reader supports images and stacks of them "
+	"laid out one value after another",
+	"[unaligned_mapped_image_reader]"
+)
+{
+	const auto layout_of = [](
+		std::vector<std::size_t> extents,
+		std::vector<std::ptrdiff_t> strides
+	)
+	{
+		return raw_image_layout(
+			image_descriptor(make_span(extents), 2, numerical_type::float32),
+			std::move(strides),
+			18,
+			get_system_byte_order()
+		);
+	};
+
+	CHECK( unaligned_mapped_image_reader::supports(
+		layout_of({3, 4}, {4, 1})
+	) );
+	CHECK( unaligned_mapped_image_reader::supports(
+		layout_of({2, 3, 4}, {12, 4, 1})
+	) );
+	CHECK_FALSE( unaligned_mapped_image_reader::supports(
+		layout_of({2, 3, 4}, {12, 1, 3})
+	) );
+	CHECK_FALSE( unaligned_mapped_image_reader::supports(
+		layout_of({2, 2, 3, 4}, {24, 12, 4, 1})
+	) );
 }

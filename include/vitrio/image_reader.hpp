@@ -117,6 +117,8 @@ public:
 	 * can not be produced from the one of the file.
 	 * @throws image_file_format_error If the file turns out to be malformed
 	 * or truncated where a region is read.
+	 * @throws image_file_error If the file can not be read where a region is
+	 * read.
 	 */
 	virtual void read(
 		array_ref destination,

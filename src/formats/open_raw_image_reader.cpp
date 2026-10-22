@@ -4,10 +4,14 @@
 
 #include <formats/memory_mapping/mapped_image_reader.hpp>
 #include <formats/memory_mapping/unaligned_mapped_image_reader.hpp>
+#include <formats/queued_reading/queued_image_reader.hpp>
 
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_reader.hpp>
 
+#include <system/asynchronous_file_read_queue_pool.hpp>
+
+#include <memory>
 #include <utility>
 
 namespace vitrio
@@ -16,23 +20,34 @@ namespace vitrio
 namespace
 {
 
-// What a reader of unaligned values can follow: an image or a stack of them,
-// one value after another.
-bool is_page_copyable(const image_file_layout &layout) noexcept
+// The queues every queued reader takes, made the first time one is opened.
+const std::shared_ptr<file_read_queue_pool>& get_asynchronous_queue_pool()
 {
-	const auto rank = layout.get_descriptor().get_extents().size();
-	return layout.is_contiguous() && (rank == 2 || rank == 3);
+	static const std::shared_ptr<file_read_queue_pool> queues =
+		std::make_shared<asynchronous_file_read_queue_pool>();
+
+	return queues;
 }
 
 } // anonymous namespace
 
 std::shared_ptr<image_reader> open_raw_image_reader(
 	const std::string &path,
-	image_file_layout layout,
+	raw_image_layout layout,
 	image_metadata metadata
 )
 {
-	if (layout.is_aligned())
+	if (asynchronous_file_read_queue_pool::is_supported())
+	{
+		return std::make_shared<queued_image_reader>(
+			path,
+			std::move(layout),
+			std::move(metadata),
+			get_asynchronous_queue_pool()
+		);
+	}
+
+	if (mapped_image_reader::supports(layout))
 	{
 		return std::make_shared<mapped_image_reader>(
 			path,
@@ -41,7 +56,7 @@ std::shared_ptr<image_reader> open_raw_image_reader(
 		);
 	}
 
-	if (is_page_copyable(layout))
+	if (unaligned_mapped_image_reader::supports(layout))
 	{
 		return std::make_shared<unaligned_mapped_image_reader>(
 			path,

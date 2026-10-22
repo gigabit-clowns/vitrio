@@ -6,7 +6,7 @@
 
 #include <formats/memory_mapping/mapped_image_reader.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -103,12 +103,12 @@ contiguous_strides(const std::vector<std::size_t> &extents)
 
 // A file of float32 values in the byte order of the host, laid out
 // contiguously behind the preamble.
-image_file_layout make_layout(
+raw_image_layout make_layout(
 	const std::vector<std::size_t> &extents,
 	std::size_t core_rank
 )
 {
-	return image_file_layout(
+	return raw_image_layout(
 		image_descriptor(
 			make_span(extents),
 			core_rank,
@@ -319,7 +319,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			image_file_layout(
+			raw_image_layout(
 				image_descriptor(
 					make_span(extents),
 					2,
@@ -371,7 +371,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			image_file_layout(
+			raw_image_layout(
 				image_descriptor(
 					make_span(extents),
 					2,
@@ -400,7 +400,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			image_file_layout(
+			raw_image_layout(
 				image_descriptor(
 					make_span(extents),
 					2,
@@ -476,7 +476,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			image_file_layout(
+			raw_image_layout(
 				image_descriptor(
 					make_span(extents),
 					2,
@@ -541,7 +541,7 @@ TEST_CASE(
 	SECTION( "one whose values are not aligned for their data type" )
 	{
 		write_file(path.get(), counting(24));
-		const image_file_layout unaligned(
+		const raw_image_layout unaligned(
 			image_descriptor(make_span(extents), 2, numerical_type::float32),
 			contiguous_strides(extents),
 			preamble_size + 2,
@@ -554,4 +554,24 @@ TEST_CASE(
 			names_the_file
 		);
 	}
+}
+
+TEST_CASE(
+	"a mapped_image_reader supports the layouts whose values are aligned",
+	"[mapped_image_reader]"
+)
+{
+	const std::vector<std::size_t> extents = {2, 3, 4};
+	const auto layout_at = [&](std::size_t data_offset)
+	{
+		return raw_image_layout(
+			image_descriptor(make_span(extents), 2, numerical_type::float32),
+			contiguous_strides(extents),
+			data_offset,
+			get_system_byte_order()
+		);
+	};
+
+	CHECK( mapped_image_reader::supports(layout_at(preamble_size)) );
+	CHECK_FALSE( mapped_image_reader::supports(layout_at(preamble_size + 2)) );
 }

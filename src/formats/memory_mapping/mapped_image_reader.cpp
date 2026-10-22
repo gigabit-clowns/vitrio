@@ -23,10 +23,10 @@ namespace vitrio
 namespace
 {
 
-image_file_layout
-check_aligned(image_file_layout layout, const std::string &path)
+raw_image_layout
+check_aligned(raw_image_layout layout, const std::string &path)
 {
-	if (!layout.is_aligned())
+	if (!mapped_image_reader::supports(layout))
 	{
 		throw image_file_format_error(
 			path + ": mapped_image_reader: The values of the file do not "
@@ -37,7 +37,7 @@ check_aligned(image_file_layout layout, const std::string &path)
 	return layout;
 }
 
-array_descriptor describe_values(const image_file_layout &layout)
+array_descriptor describe_values(const raw_image_layout &layout)
 {
 	const auto &descriptor = layout.get_descriptor();
 	const auto extents = descriptor.get_extents();
@@ -59,7 +59,7 @@ array_descriptor describe_values(const image_file_layout &layout)
 
 mapped_image_reader::mapped_image_reader(
 	const std::string &path,
-	image_file_layout layout,
+	raw_image_layout layout,
 	image_metadata metadata
 )
 	: m_mapping(path, image_file_access::read_only)
@@ -76,6 +76,12 @@ mapped_image_reader::mapped_image_reader(
 			"values it is said to hold."
 		);
 	}
+}
+
+bool mapped_image_reader::supports(const raw_image_layout &layout) noexcept
+{
+	// A mapping addresses the values where they lie.
+	return layout.is_aligned();
 }
 
 const image_descriptor& mapped_image_reader::get_descriptor() const noexcept

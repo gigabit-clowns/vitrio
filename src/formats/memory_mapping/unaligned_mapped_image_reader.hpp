@@ -4,6 +4,8 @@
 
 #include "image_file_mapping.hpp"
 
+#include <formats/raw_image_layout.hpp>
+
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
@@ -22,10 +24,10 @@ namespace vitrio
  *
  * A format that places its values wherever the bytes before them end, as
  * DigitalMicrograph does, can not have them addressed where they lie, which
- * is what @ref mapped_image_reader does and what @ref image_file_layout
- * refuses. This reader copies them first: a read moves the rows its regions
- * reach out of the mapping a page at a time, into a page of its own that is
- * aligned, and moves the regions out of that. The copy is of bytes, so the
+ * is what @ref mapped_image_reader does, and why it refuses them. This
+ * reader copies them first: a read moves the rows its regions reach out of
+ * the mapping a page at a time, into a page of its own that is aligned, and
+ * moves the regions out of that. The copy is of bytes, so the
  * values keep the byte order of the file until they are converted.
  *
  * Each read has a page of its own, so @ref read can be called concurrently,
@@ -61,6 +63,16 @@ public:
 	);
 
 	~unaligned_mapped_image_reader() override = default;
+
+	/**
+	 * @brief Tell whether the reader can read values laid out as a layout
+	 * states: an image, or a stack of them, laid out one value after
+	 * another, the columns changing fastest.
+	 *
+	 * @param layout The layout.
+	 * @return bool Whether it can.
+	 */
+	static bool supports(const raw_image_layout &layout) noexcept;
 
 	const image_descriptor& get_descriptor() const noexcept override;
 

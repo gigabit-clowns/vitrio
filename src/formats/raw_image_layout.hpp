@@ -14,7 +14,7 @@ namespace vitrio
 {
 
 /**
- * @brief Where and how a file holds its values.
+ * @brief Where and how a file holds its values, as they are.
  *
  * What the file holds, the distance between consecutive elements along each
  * of its axes, the byte its values begin at and the byte order they are
@@ -25,7 +25,7 @@ namespace vitrio
  * a file that stores its axes in another order than it reports them states
  * so through them.
  */
-class image_file_layout
+class raw_image_layout
 {
 public:
 	/**
@@ -40,20 +40,20 @@ public:
 	 * @throws std::invalid_argument If @p strides do not have the rank of
 	 * the extents of @p descriptor.
 	 */
-	image_file_layout(
+	raw_image_layout(
 		image_descriptor descriptor,
 		std::vector<std::ptrdiff_t> strides,
 		std::size_t data_offset,
 		byte_order order
 	);
 
-	image_file_layout(const image_file_layout &other) = default;
-	image_file_layout(image_file_layout &&other) noexcept = default;
-	~image_file_layout() = default;
+	raw_image_layout(const raw_image_layout &other) = default;
+	raw_image_layout(raw_image_layout &&other) noexcept = default;
+	~raw_image_layout() = default;
 
-	image_file_layout& operator=(const image_file_layout &other) = default;
-	image_file_layout&
-	operator=(image_file_layout &&other) noexcept = default;
+	raw_image_layout& operator=(const raw_image_layout &other) = default;
+	raw_image_layout&
+	operator=(raw_image_layout &&other) noexcept = default;
 
 	/**
 	 * @brief Get the shape and data type of the values of the file.

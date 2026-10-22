@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -32,11 +32,11 @@ image_descriptor make_descriptor(
 } // anonymous namespace
 
 TEST_CASE(
-	"an image_file_layout holds what it was constructed with",
-	"[image_file_layout]"
+	"a raw_image_layout holds what it was constructed with",
+	"[raw_image_layout]"
 )
 {
-	const image_file_layout layout(
+	const raw_image_layout layout(
 		make_descriptor(),
 		stack_strides,
 		1024,
@@ -53,13 +53,13 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_file_layout reports how many bytes its values occupy",
-	"[image_file_layout]"
+	"a raw_image_layout reports how many bytes its values occupy",
+	"[raw_image_layout]"
 )
 {
 	SECTION( "elements of four bytes" )
 	{
-		const image_file_layout layout(
+		const raw_image_layout layout(
 			make_descriptor(),
 			stack_strides,
 			0,
@@ -71,7 +71,7 @@ TEST_CASE(
 
 	SECTION( "elements of one byte" )
 	{
-		const image_file_layout layout(
+		const raw_image_layout layout(
 			make_descriptor(numerical_type::uint8),
 			stack_strides,
 			0,
@@ -83,13 +83,13 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_file_layout refuses strides that do not have the rank of its "
+	"a raw_image_layout refuses strides that do not have the rank of its "
 	"extents",
-	"[image_file_layout]"
+	"[raw_image_layout]"
 )
 {
 	REQUIRE_THROWS_AS(
-		image_file_layout(
+		raw_image_layout(
 			make_descriptor(),
 			std::vector<std::ptrdiff_t>{4, 1},
 			0,
@@ -100,14 +100,14 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_file_layout tells whether its values can be addressed where "
+	"a raw_image_layout tells whether its values can be addressed where "
 	"they begin",
-	"[image_file_layout]"
+	"[raw_image_layout]"
 )
 {
 	SECTION( "an offset that misaligns them is not aligned" )
 	{
-		CHECK_FALSE( image_file_layout(
+		CHECK_FALSE( raw_image_layout(
 			make_descriptor(),
 			stack_strides,
 			1026,
@@ -117,7 +117,7 @@ TEST_CASE(
 
 	SECTION( "one that keeps them aligned is" )
 	{
-		CHECK( image_file_layout(
+		CHECK( raw_image_layout(
 			make_descriptor(),
 			stack_strides,
 			1028,
@@ -127,7 +127,7 @@ TEST_CASE(
 
 	SECTION( "a narrower element tolerates a smaller multiple" )
 	{
-		CHECK( image_file_layout(
+		CHECK( raw_image_layout(
 			make_descriptor(numerical_type::int8),
 			stack_strides,
 			1027,
@@ -137,13 +137,13 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_file_layout tells whether its values lie one after another",
-	"[image_file_layout]"
+	"a raw_image_layout tells whether its values lie one after another",
+	"[raw_image_layout]"
 )
 {
 	SECTION( "the strides of a contiguous stack are" )
 	{
-		CHECK( image_file_layout(
+		CHECK( raw_image_layout(
 			make_descriptor(),
 			stack_strides,
 			1024,
@@ -156,7 +156,7 @@ TEST_CASE(
 		auto swapped = stack_strides;
 		std::swap(swapped[1], swapped[2]);
 
-		CHECK_FALSE( image_file_layout(
+		CHECK_FALSE( raw_image_layout(
 			make_descriptor(),
 			swapped,
 			1024,

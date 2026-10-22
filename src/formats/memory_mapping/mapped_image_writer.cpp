@@ -26,7 +26,7 @@ namespace
 
 image_file_mapping lay_out_file(
 	const std::string &path,
-	const image_file_layout &layout,
+	const raw_image_layout &layout,
 	span<const byte> preamble
 )
 {
@@ -53,7 +53,7 @@ image_file_mapping lay_out_file(
 
 mapped_image_writer::mapped_image_writer(
 	const std::string &path,
-	image_file_layout layout,
+	raw_image_layout layout,
 	span<const byte> preamble
 )
 	: m_layout(std::move(layout))

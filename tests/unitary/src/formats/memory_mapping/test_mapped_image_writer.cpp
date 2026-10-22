@@ -4,7 +4,7 @@
 
 #include <formats/memory_mapping/mapped_image_writer.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -76,12 +76,12 @@ image_descriptor make_descriptor(
 
 // A file of float32 values in the byte order of the host, laid out
 // contiguously behind the preamble.
-image_file_layout make_layout(
+raw_image_layout make_layout(
 	const std::vector<std::size_t> &extents,
 	std::size_t core_rank
 )
 {
-	return image_file_layout(
+	return raw_image_layout(
 		make_descriptor(extents, core_rank),
 		contiguous_strides(extents),
 		preamble.size(),
@@ -365,7 +365,7 @@ TEST_CASE(
 		{
 			mapped_image_writer writer(
 				path.get(),
-				image_file_layout(
+				raw_image_layout(
 					make_descriptor(extents, 2),
 					std::vector<std::ptrdiff_t>{1, 3},
 					preamble.size(),
@@ -400,7 +400,7 @@ TEST_CASE(
 		{
 			mapped_image_writer writer(
 				path.get(),
-				image_file_layout(
+				raw_image_layout(
 					make_descriptor(extents, 2),
 					contiguous_strides(extents),
 					preamble.size(),
@@ -434,7 +434,7 @@ TEST_CASE(
 		{
 			mapped_image_writer writer(
 				path.get(),
-				image_file_layout(
+				raw_image_layout(
 					make_descriptor(square, 2, numerical_type::int16),
 					contiguous_strides(square),
 					preamble.size(),

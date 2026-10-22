@@ -84,6 +84,16 @@ bool reaches_past(
 
 } // anonymous namespace
 
+bool unaligned_mapped_image_reader::supports(
+	const raw_image_layout &layout
+) noexcept
+{
+	const auto rank = layout.get_descriptor().get_extents().size();
+	return
+		layout.is_contiguous() &&
+		(rank == page_rank || rank == page_rank + 1);
+}
+
 unaligned_mapped_image_reader::unaligned_mapped_image_reader(
 	const std::string &path,
 	image_descriptor descriptor,

@@ -3,7 +3,6 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
-		image_file_layout.cpp
 		image_file_mapping.cpp
 		mapped_image_reader.cpp
 		mapped_image_writer.cpp

@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "image_file_layout.hpp"
 #include "image_file_mapping.hpp"
+
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/byte.hpp>
 #include <vitrio/image_writer.hpp>
@@ -15,8 +16,8 @@ namespace vitrio
 {
 
 /**
- * @brief Creates a file whose values are laid out as an
- * @ref image_file_layout states, and writes it through a mapping of it.
+ * @brief Creates a file whose values are laid out as a
+ * @ref raw_image_layout states, and writes it through a mapping of it.
  *
  * The layout is complete when a writer is constructed, so the file is laid
  * out in full there and then: sized, and what precedes its values written.
@@ -48,7 +49,7 @@ public:
 	 */
 	mapped_image_writer(
 		const std::string &path,
-		image_file_layout layout,
+		raw_image_layout layout,
 		span<const byte> preamble
 	);
 
@@ -64,7 +65,7 @@ public:
 	void flush() override;
 
 private:
-	image_file_layout m_layout;
+	raw_image_layout m_layout;
 	image_file_mapping m_mapping;
 };
 

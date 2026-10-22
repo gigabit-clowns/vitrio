@@ -6,7 +6,7 @@
 
 #include <formats/open_raw_image_reader.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -20,6 +20,7 @@
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <memory/byte_order.hpp>
+#include <system/asynchronous_file_read_queue_pool.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -63,12 +64,12 @@ void write_file(
 	output.write(raw.data(), static_cast<std::streamsize>(raw.size()));
 }
 
-image_file_layout make_layout(
+raw_image_layout make_layout(
 	std::size_t preamble,
 	std::vector<std::ptrdiff_t> strides = {12, 4, 1}
 )
 {
-	return image_file_layout(
+	return raw_image_layout(
 		image_descriptor(
 			make_span(stack_extents),
 			2,
@@ -82,7 +83,7 @@ image_file_layout make_layout(
 
 // Every value of the file, read through the reader the factory opens.
 std::vector<float>
-read_all(const std::string &path, const image_file_layout &layout)
+read_all(const std::string &path, const raw_image_layout &layout)
 {
 	const auto reader =
 		open_raw_image_reader(path, layout, image_metadata());
@@ -123,6 +124,36 @@ TEST_CASE(
 }
 
 TEST_CASE(
+	"open_raw_image_reader reads unaligned values whose axes are out of "
+	"order where it queues reads",
+	"[open_raw_image_reader]"
+)
+{
+	if (!asynchronous_file_read_queue_pool::is_supported())
+	{
+		SKIP( "The process can not have asynchronous queues here." );
+	}
+
+	const scoped_path path("open_raw_image_reader_out_of_order.raw");
+	write_file(path.get(), 18, 24);
+
+	// The element at (i, j, k) is the value at 12 i + j + 3 k.
+	std::vector<float> expected;
+	for (std::size_t i = 0; i < 2; ++i)
+	{
+		for (std::size_t j = 0; j < 3; ++j)
+		{
+			for (std::size_t k = 0; k < 4; ++k)
+			{
+				expected.push_back(static_cast<float>(12 * i + j + 3 * k));
+			}
+		}
+	}
+
+	CHECK( read_all(path.get(), make_layout(18, {12, 1, 3})) == expected );
+}
+
+TEST_CASE(
 	"open_raw_image_reader refuses what no reader it opens can read, naming "
 	"the file",
 	"[open_raw_image_reader]"
@@ -132,21 +163,6 @@ TEST_CASE(
 	const auto names_the_file = Catch::Matchers::MessageMatches(
 		Catch::Matchers::StartsWith(path.get() + ": ")
 	);
-
-	SECTION( "unaligned values whose axes are out of order" )
-	{
-		write_file(path.get(), 18, 24);
-
-		REQUIRE_THROWS_MATCHES(
-			open_raw_image_reader(
-				path.get(),
-				make_layout(18, {12, 1, 3}),
-				image_metadata()
-			),
-			image_file_format_error,
-			names_the_file
-		);
-	}
 
 	SECTION( "a file shorter than its values" )
 	{
@@ -162,4 +178,31 @@ TEST_CASE(
 			names_the_file
 		);
 	}
+}
+
+TEST_CASE(
+	"open_raw_image_reader refuses unaligned values whose axes are out of "
+	"order where it maps the file, naming it",
+	"[open_raw_image_reader]"
+)
+{
+	if (asynchronous_file_read_queue_pool::is_supported())
+	{
+		SKIP( "The process queues its reads here, which read any layout." );
+	}
+
+	const scoped_path path("open_raw_image_reader_refused_order.raw");
+	write_file(path.get(), 18, 24);
+
+	REQUIRE_THROWS_MATCHES(
+		open_raw_image_reader(
+			path.get(),
+			make_layout(18, {12, 1, 3}),
+			image_metadata()
+		),
+		image_file_format_error,
+		Catch::Matchers::MessageMatches(
+			Catch::Matchers::StartsWith(path.get() + ": ")
+		)
+	);
 }

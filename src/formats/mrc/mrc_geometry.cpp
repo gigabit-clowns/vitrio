@@ -249,14 +249,14 @@ std::string make_signature()
 
 } // anonymous namespace
 
-image_file_layout derive_file_layout(
+raw_image_layout derive_file_layout(
 	const mrc_header &header,
 	mrc_single_section single_section
 )
 {
 	const auto axis_order = derive_axis_order(header, single_section);
 
-	return image_file_layout(
+	return raw_image_layout(
 		derive_descriptor(header, single_section, axis_order),
 		derive_strides(header, single_section, axis_order),
 		mrc::get_data_offset(header),

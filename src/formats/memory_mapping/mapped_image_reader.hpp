@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "image_file_layout.hpp"
 #include "image_file_mapping.hpp"
+
+#include <formats/raw_image_layout.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -15,7 +16,7 @@ namespace vitrio
 {
 
 /**
- * @brief Reads a file whose values are laid out as an @ref image_file_layout
+ * @brief Reads a file whose values are laid out as a @ref raw_image_layout
  * states, through a mapping of it.
  *
  * The file is mapped when the reader is constructed, so reading a region is
@@ -45,11 +46,20 @@ public:
 	 */
 	mapped_image_reader(
 		const std::string &path,
-		image_file_layout layout,
+		raw_image_layout layout,
 		image_metadata metadata
 	);
 
 	~mapped_image_reader() override = default;
+
+	/**
+	 * @brief Tell whether the reader can read values laid out as a layout
+	 * states: whether they are aligned for their data type.
+	 *
+	 * @param layout The layout.
+	 * @return bool Whether it can.
+	 */
+	static bool supports(const raw_image_layout &layout) noexcept;
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
@@ -62,7 +72,7 @@ public:
 
 private:
 	image_file_mapping m_mapping;
-	image_file_layout m_layout;
+	raw_image_layout m_layout;
 	image_metadata m_metadata;
 
 	/// The values of the file, as an array over the mapping reads them.

@@ -4,11 +4,13 @@ target_sources(
 	vitrio-unitary-tests
 	PRIVATE
 		test_open_raw_image_reader.cpp
+		test_raw_image_layout.cpp
 )
 
 add_subdirectory(dm)
 add_subdirectory(memory_mapping)
 add_subdirectory(mrc)
+add_subdirectory(queued_reading)
 add_subdirectory(read_planning)
 add_subdirectory(strided_transfer)
 
