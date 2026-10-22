@@ -30,6 +30,10 @@ function(vitrio_fetch_liburing)
 	set(source ${liburing_SOURCE_DIR})
 	set(build ${liburing_BINARY_DIR})
 
+	# Given the sources of a directory instead of an archive, FetchContent
+	# leaves the build directory to be made.
+	file(MAKE_DIRECTORY ${build})
+
 	if(${source}/configure IS_NEWER_THAN ${build}/config-host.h)
 		execute_process(
 			COMMAND
@@ -45,7 +49,7 @@ function(vitrio_fetch_liburing)
 		if(NOT status EQUAL 0)
 			message(
 				FATAL_ERROR
-				"The configure script of liburing failed:\n${output}"
+				"The configure script of liburing failed (${status}):\n${output}"
 			)
 		endif()
 	endif()
