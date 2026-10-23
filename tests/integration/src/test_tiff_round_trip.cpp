@@ -18,6 +18,7 @@
 #include <vitrio/image_write.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <cstddef>
@@ -92,8 +93,8 @@ TEST_CASE(
 			{
 				const auto writer =
 					writers.open(path.get(), descriptor, image_metadata());
-				writer->write(const_array_ref(source), whole_of(extents));
-				writer->flush();
+				write_now(*writer, source, whole_of(extents));
+				flush_now(*writer);
 			}
 
 			const auto reader = readers.open(path.get());
@@ -102,7 +103,7 @@ TEST_CASE(
 
 			auto destination =
 				make_host_array<float>(extents, numerical_type::float32);
-			reader->read(array_ref(destination), whole_of(extents));
+			read_now(*reader, destination, whole_of(extents));
 
 			REQUIRE( get_values<float>(destination) ==
 				values );
@@ -154,8 +155,8 @@ TEST_CASE(
 				image_descriptor(make_span(extents), 2, file_type),
 				image_metadata()
 			);
-			writer->write(const_array_ref(source), whole_of(extents));
-			writer->flush();
+			write_now(*writer, source, whole_of(extents));
+			flush_now(*writer);
 		}
 
 		const auto reader = readers.open(path.get());
@@ -166,7 +167,7 @@ TEST_CASE(
 		// conversion a caller asks for rather than the one the file forces.
 		auto destination =
 			make_host_array<double>(extents, numerical_type::float64);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<double>(destination) ==
 			std::vector<double>(values.begin(), values.end()) );
@@ -209,14 +210,14 @@ TEST_CASE(
 				make_span(std::vector<std::size_t>{index, 0, 0}),
 				make_span(std::vector<std::size_t>{index, 0, 0})
 			);
-			writer->write(const_array_ref(source), regions);
+			write_now(*writer, source, regions);
 		}
 	}
 
 	const auto reader = readers.open(path.get());
 	auto destination =
 		make_host_array<std::int16_t>(extents, numerical_type::int16);
-	reader->read(array_ref(destination), whole_of(extents));
+	read_now(*reader, destination, whole_of(extents));
 
 	// The file holds integers, so the quarter every value carries is gone.
 	std::vector<std::int16_t> expected(values.size());
@@ -342,7 +343,7 @@ TEST_CASE(
 		);
 
 		REQUIRE_THROWS_AS(
-			writer->write(const_array_ref(source), regions),
+			write_now(*writer, source, regions),
 			unsupported_operation_error
 		);
 	}

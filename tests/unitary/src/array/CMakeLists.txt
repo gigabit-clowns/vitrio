@@ -9,6 +9,7 @@ target_sources(
 		test_array_implementation.cpp
 		test_array_memory.cpp
 		test_array_ref.cpp
+		test_borrowed_array.cpp
 		test_cast.cpp
 		test_checked_arithmetic.cpp
 		test_const_array.cpp

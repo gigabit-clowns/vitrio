@@ -17,6 +17,7 @@
 #include <vitrio/image_reader.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <memory/byte_order.hpp>
@@ -94,7 +95,7 @@ read_all(const std::string &path, const raw_image_layout &layout)
 		numerical_type::float32,
 		-1.0F
 	);
-	reader->read(array_ref(destination), whole_of(stack_extents));
+	read_now(*reader, destination, whole_of(stack_extents));
 
 	return get_values<float>(destination);
 }

@@ -4,6 +4,7 @@
 
 #include <formats/raw/mapped/image_prefetched_read.hpp>
 
+#include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -17,6 +18,7 @@
 #include <array/array_data.hpp>
 #include <assert.hpp>
 #include <memory/byte_order.hpp>
+#include <waiting_transfers.hpp>
 
 #include <algorithm>
 #include <functional>
@@ -329,7 +331,7 @@ void indexed_image_scratch_entry::load(
 		return;
 	}
 
-	file.read(array_ref(m_values), make_load_plan(run));
+	read_and_wait(file, m_values.share(), make_load_plan(run));
 	get_flags()[run] = m_modification_time;
 	m_loaded[run].store(true, std::memory_order_release);
 }

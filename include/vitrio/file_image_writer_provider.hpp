@@ -108,10 +108,11 @@ public:
 	 *
 	 * Flushes the writer of every file acquired so far and creates none: a
 	 * file declared and never acquired stays uncreated. Every file stays
-	 * declared and writable.
+	 * declared and writable. The writers are flushed together, and every
+	 * one of them is flushed even where another fails.
 	 *
 	 * @throws image_file_error If the pending writes could not be
-	 * completed.
+	 * completed: the first failure of the flushes.
 	 */
 	void flush();
 

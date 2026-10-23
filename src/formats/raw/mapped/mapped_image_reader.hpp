@@ -8,7 +8,7 @@
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_reader.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <string>
 
@@ -30,7 +30,7 @@ namespace vitrio
  * describes.
  */
 class mapped_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**

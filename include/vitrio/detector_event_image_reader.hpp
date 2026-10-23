@@ -4,8 +4,8 @@
 
 #include <vitrio/detector_event_fractionation.hpp>
 #include <vitrio/export.hpp>
-#include <vitrio/image_reader.hpp>
 #include <vitrio/platform.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <memory>
 
@@ -33,7 +33,7 @@ class detector_event_timeline_reader;
  * Images of rank two are rendered, as a detector gives.
  */
 class VITRIO_API detector_event_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**
@@ -67,7 +67,7 @@ public:
 	const image_metadata& get_metadata() const noexcept override;
 
 	/**
-	 * @copydoc image_reader::read
+	 * @copydoc synchronous_image_reader::read
 	 *
 	 * @throws std::out_of_range If an event lies outside the grid of the
 	 * acquisition.

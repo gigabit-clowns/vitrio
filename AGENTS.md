@@ -34,7 +34,7 @@ in the same commit that causes it.
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
-| `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region |
+| `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region, and transfers waited for |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
 | `tests/install/` | Installs the library into the build tree, then builds and runs `consumer/`, a project of its own, against what was installed |
@@ -237,6 +237,21 @@ since the archive of a commit lacks its libraries, which are submodules.
   it takes an owning class. None of them does anything with its elements.
   Memory from anywhere becomes an array through a `std::shared_ptr` that
   releases it.
+- **Transfers.** `image_reader::read_async`, `image_writer::write_async` and
+  `image_writer::flush_async` start a transfer and report it to a
+  `completion_notifier` exactly once: a failure is reported, never thrown,
+  and only a null notifier throws. A transfer keeps the owning `array` or
+  `const_array` it is given until it reports.
+  - A reader or writer that works on the calling thread derives from
+    `synchronous_image_reader` or `synchronous_image_writer` and implements
+    the plain `read`, or `write` and `flush`, which throw.
+  - Code whose own contract is to be done before it returns waits through
+    `src/waiting_transfers.hpp`. Holding only a reference, it lends it to the
+    transfer with `borrow_array`, from `src/array/borrowed_array.hpp`.
+  - Several transfers report as one through a `counting_notifier`. A task
+    that starts a transfer is submitted with a `failure_forwarding_notifier`
+    (`src/concurrency/`), so that the transfer reports its outcome and the
+    task only its failure.
 - **Sizes that come from a file.** Extents and strides may be read from a
   file, so arithmetic on them goes through `checked_add` and
   `checked_multiply` and an overflow is reported, not computed.
@@ -250,7 +265,11 @@ since the archive of a commit lacks its libraries, which are submodules.
   several cases share names its files after the running case.
 - **Mocks.** A test that needs a stand-in for an interface uses the
   trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
-  fake. A mock is added with the first test that uses it.
+  fake. A mock is added with the first test that uses it. An expectation on
+  a mocked transfer reports to its notifier, as the transfer would.
+- **Transfers in tests.** A test that reads or writes through an interface
+  waits with `read_now`, `write_now` and `flush_now`, from
+  `tests/assets/include/vitrio/tests/transfers.hpp`.
 - **Private headers use their dependencies openly.** A header under `src/`
   includes what it needs and names its types as they are: a mapping of a
   file is a `boost::interprocess::mapped_region`, not a class wrapped around

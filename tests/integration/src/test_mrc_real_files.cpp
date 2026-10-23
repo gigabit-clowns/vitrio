@@ -11,6 +11,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
 #include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/transfers.hpp>
 
 #include <array>
 #include <cstdint>
@@ -212,7 +213,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>(shape.size(), 0))
 		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto count = element_count(extents);
 		const auto expected = values_along_space_of(path);

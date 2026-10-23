@@ -155,7 +155,8 @@ TEST_CASE_METHOD(
 			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		)
 			.RETURN(writer);
-		REQUIRE_CALL(*writer, flush());
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -170,7 +171,8 @@ TEST_CASE_METHOD(
 			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		)
 			.RETURN(writer);
-		ALLOW_CALL(*writer, flush());
+		ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -207,7 +209,8 @@ TEST_CASE_METHOD(
 		)
 			.IN_SEQUENCE(order)
 			.RETURN(again);
-		ALLOW_CALL(*writer, flush());
+		ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -244,8 +247,10 @@ TEST_CASE_METHOD(
 
 	SECTION( "every writer it created is flushed" )
 	{
-		REQUIRE_CALL(*zero, flush());
-		REQUIRE_CALL(*one, flush());
+		REQUIRE_CALL(*zero, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
+		REQUIRE_CALL(*one, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.flush();
 	}
@@ -253,8 +258,10 @@ TEST_CASE_METHOD(
 	SECTION( "a declared file that was never acquired is not created" )
 	{
 		// Not even by a flush, which reaches only what it opened.
-		ALLOW_CALL(*zero, flush());
-		ALLOW_CALL(*one, flush());
+		ALLOW_CALL(*zero, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
+		ALLOW_CALL(*one, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.flush();
 

@@ -6,7 +6,7 @@
 
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_reader.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <mutex>
 #include <string>
@@ -32,7 +32,7 @@ namespace tiff
  * @ref read are serialised.
  */
 class tiff_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**

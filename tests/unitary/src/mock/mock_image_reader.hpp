@@ -4,12 +4,15 @@
 
 #include <vitrio/image_reader.hpp>
 
-#include <vitrio/array/array_ref.hpp>
+#include <vitrio/array/array.hpp>
+#include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
 #include <trompeloeil.hpp>
+
+#include <memory>
 
 namespace vitrio
 {
@@ -32,9 +35,13 @@ public:
 		noexcept override
 	);
 
-	MAKE_CONST_MOCK2(
-		read,
-		void(array_ref destination, const image_transfer_plan &regions),
+	MAKE_CONST_MOCK3(
+		read_async,
+		void(
+			array destination,
+			image_transfer_plan regions,
+			std::shared_ptr<completion_notifier> done
+		),
 		override
 	);
 };

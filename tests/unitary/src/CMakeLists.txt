@@ -56,7 +56,10 @@ target_sources(
 		test_scratch_image_reader_provider.cpp
 		test_span.cpp
 		test_strict_image_transfer_sanitizer.cpp
+		test_synchronous_image_reader.cpp
+		test_synchronous_image_writer.cpp
 		test_version.cpp
+		test_waiting_transfers.cpp
 )
 
 add_subdirectory(array)

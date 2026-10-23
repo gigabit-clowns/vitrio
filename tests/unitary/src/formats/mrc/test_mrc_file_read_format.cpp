@@ -19,6 +19,7 @@
 
 
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include "fixtures/mrc_test_file.hpp"
 
 #include <cstddef>
@@ -138,7 +139,7 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 		const std::vector<std::size_t> origin(3, 0);
 		regions.add(make_span(origin), make_span(origin));
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto *data =
 			reinterpret_cast<const float*>(destination.get_data());
@@ -170,7 +171,7 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 		const std::vector<std::size_t> origin(3, 0);
 		regions.add(make_span(origin), make_span(origin));
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto *data =
 			reinterpret_cast<const float*>(destination.get_data());

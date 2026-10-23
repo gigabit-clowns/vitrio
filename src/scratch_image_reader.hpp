@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <vitrio/image_reader.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <memory>
 
@@ -22,7 +22,7 @@ class image_scratch_entry;
  * What the reader reports is what the reader over the file reports.
  */
 class scratch_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**

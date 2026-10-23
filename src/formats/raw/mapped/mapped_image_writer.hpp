@@ -7,8 +7,8 @@
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/byte.hpp>
-#include <vitrio/image_writer.hpp>
 #include <vitrio/span.hpp>
+#include <vitrio/synchronous_image_writer.hpp>
 
 #include <string>
 
@@ -31,7 +31,7 @@ namespace vitrio
  * only be logged, so a writer whose failures matter is flushed beforehand.
  */
 class mapped_image_writer final
-	: public image_writer
+	: public synchronous_image_writer
 {
 public:
 	/**

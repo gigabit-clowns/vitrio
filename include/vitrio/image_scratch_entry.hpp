@@ -44,7 +44,7 @@ public:
 	 * @brief Read the regions of a plan that are held, and answer the rest.
 	 *
 	 * The file is the file side of the plan and @p destination its array
-	 * side, as in @ref image_reader::read, and a region that is held is read
+	 * side, as in @ref image_reader::read_async, and a region that is held is read
 	 * as that would read it: the same values land on the same elements,
 	 * converted the same way.
 	 *

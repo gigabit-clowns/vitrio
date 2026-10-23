@@ -5,7 +5,7 @@
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_reader.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <system/file_read_queue_pool.hpp>
 
@@ -28,7 +28,7 @@ namespace vitrio
  * they share the file. What a read does is @ref read_queued_regions.
  */
 class queued_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**

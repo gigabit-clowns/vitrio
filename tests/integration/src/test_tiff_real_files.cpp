@@ -12,6 +12,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
 #include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <cstddef>
@@ -96,7 +97,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			uint8_samples(144) );
@@ -115,7 +116,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<std::uint16_t>(extents, numerical_type::uint16);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint16_t>(destination) ==
 			uint16_samples(48) );
@@ -133,7 +134,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<float>(extents, numerical_type::float32);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<float>(destination) ==
 			float32_samples(960) );
@@ -151,7 +152,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<std::int16_t>(extents, numerical_type::int16);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::int16_t>(destination) ==
 			int16_samples(48) );
@@ -169,7 +170,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			uint8_samples(96) );
@@ -198,7 +199,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>{0, 0})
 		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto samples = uint8_samples(144);
 
@@ -222,7 +223,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>{0, 0})
 		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto samples = float32_samples(960);
 

@@ -20,6 +20,7 @@
 
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 #include "fixtures/tiff_test_file.hpp"
 
@@ -105,7 +106,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 			REQUIRE( writer != nullptr );
 			REQUIRE( writer->get_descriptor() == descriptor );
 
-			writer->write(const_array_ref(source), whole_of(extents));
+			write_now(*writer, source, whole_of(extents));
 		}
 
 		const tiff_image_reader reader(path.get());
@@ -128,7 +129,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 		{
 			const auto writer = format.open(
 				image_file_probe(path.get()), descriptor, image_metadata());
-			writer->write(const_array_ref(source), whole_of(extents));
+			write_now(*writer, source, whole_of(extents));
 		}
 
 		const tiff_image_reader reader(path.get());
@@ -148,7 +149,7 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 		{
 			const auto writer = format.open(
 				image_file_probe(path.get()), descriptor, image_metadata());
-			writer->write(const_array_ref(source), whole_of(extents));
+			write_now(*writer, source, whole_of(extents));
 		}
 
 		REQUIRE( tiff_image_reader(path.get()).get_descriptor() == descriptor );

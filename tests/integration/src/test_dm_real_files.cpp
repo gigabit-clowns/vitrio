@@ -12,6 +12,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
 #include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/transfers.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -81,7 +82,7 @@ std::vector<T> read_whole(
 	const std::vector<std::size_t> shape(extents.begin(), extents.end());
 
 	auto destination = make_host_array<T>(shape, data_type, T());
-	reader.read(array_ref(destination), whole_of(shape));
+	read_now(reader, destination, whole_of(shape));
 
 	return get_values<T>(destination);
 }

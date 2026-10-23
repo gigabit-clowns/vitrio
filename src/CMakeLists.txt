@@ -121,6 +121,9 @@ target_sources(
 		scratch_image_reader.cpp
 		scratch_image_reader_provider.cpp
 		strict_image_transfer_sanitizer.cpp
+		synchronous_image_reader.cpp
+		synchronous_image_writer.cpp
+		waiting_transfers.cpp
 )
 
 if(VITRIO_ENABLE_TIFF)

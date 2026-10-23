@@ -8,7 +8,7 @@
 
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
-#include <vitrio/image_reader.hpp>
+#include <vitrio/synchronous_image_reader.hpp>
 
 #include <memory/byte_order.hpp>
 
@@ -35,7 +35,7 @@ namespace vitrio
  * read reaches go, and is otherwise left as it was allocated.
  */
 class unaligned_mapped_image_reader final
-	: public image_reader
+	: public synchronous_image_reader
 {
 public:
 	/**

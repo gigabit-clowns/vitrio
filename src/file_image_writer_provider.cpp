@@ -2,13 +2,16 @@
 
 #include <vitrio/file_image_writer_provider.hpp>
 
+#include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_writer.hpp>
 
 #include <assert.hpp>
+#include <waiting_transfers.hpp>
 
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <unordered_map>
@@ -74,7 +77,7 @@ public:
 		// needs to wait for it.
 		if (writer)
 		{
-			writer->flush();
+			flush_and_wait(*writer);
 		}
 	}
 
@@ -128,10 +131,14 @@ public:
 			}
 		}
 
+		// Every flush is under way at once, and each one completes whatever
+		// another fails.
+		const auto done = std::make_shared<counting_completion>(writers.size());
 		for (const auto &writer : writers)
 		{
-			writer->flush();
+			writer->flush_async(done);
 		}
+		done->get();
 	}
 
 private:

@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -132,7 +133,10 @@ TEST_CASE(
 		.LR_WITH( same_regions(_2, regions) )
 		.LR_RETURN(nothing);
 	FORBID_CALL(*entry, store(trompeloeil::_, trompeloeil::_));
-	FORBID_CALL(*file, read(trompeloeil::_, trompeloeil::_));
+	FORBID_CALL(
+		*file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
 
 	const scratch_image_reader reader(entry, file);
 	reader.read(array_ref(destination), regions);
@@ -165,7 +169,10 @@ TEST_CASE(
 			.LR_WITH( same_regions(_2, missing) )
 			.IN_SEQUENCE(order)
 			.LR_RETURN(nothing);
-		FORBID_CALL(*file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			*file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		const scratch_image_reader reader(entry, file);
 		reader.read(array_ref(destination), regions);
@@ -179,9 +186,13 @@ TEST_CASE(
 			.LR_WITH( same_regions(_2, missing) )
 			.IN_SEQUENCE(order)
 			.LR_RETURN(unheld);
-		REQUIRE_CALL(*file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( same_regions(_2, unheld) )
-			.IN_SEQUENCE(order);
+			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() );
 
 		const scratch_image_reader reader(entry, file);
 		reader.read(array_ref(destination), regions);
@@ -209,7 +220,10 @@ TEST_CASE(
 		REQUIRE_CALL(*entry, store(trompeloeil::_, trompeloeil::_))
 			.IN_SEQUENCE(order)
 			.SIDE_EFFECT( throw std::runtime_error("from the file") );
-		FORBID_CALL(*file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			*file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		const scratch_image_reader reader(entry, file);
 
@@ -226,9 +240,14 @@ TEST_CASE(
 		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
 			.IN_SEQUENCE(order)
 			.LR_RETURN(missing);
-		REQUIRE_CALL(*file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
-			.SIDE_EFFECT( throw std::runtime_error("from the file") );
+			.SIDE_EFFECT( _3->notify_done(
+				std::make_exception_ptr(std::runtime_error("from the file"))
+			) );
 
 		const scratch_image_reader reader(entry, file);
 

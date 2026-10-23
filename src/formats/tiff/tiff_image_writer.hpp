@@ -6,7 +6,7 @@
 
 #include <vitrio/byte.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_writer.hpp>
+#include <vitrio/synchronous_image_writer.hpp>
 
 #include <cstddef>
 #include <mutex>
@@ -48,7 +48,7 @@ namespace tiff
  * for; a writer destroyed in that state logs it.
  */
 class tiff_image_writer final
-	: public image_writer
+	: public synchronous_image_writer
 {
 public:
 	/**

@@ -13,6 +13,7 @@
 
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 #include "fixtures/tiff_test_file.hpp"
 
@@ -128,7 +129,7 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			counting<std::uint8_t>(12) );

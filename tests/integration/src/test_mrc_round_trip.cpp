@@ -13,6 +13,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <array>
@@ -89,9 +90,8 @@ TEST_CASE(
 		{
 			const auto writer =
 				writers.open(path.get(), descriptor, image_metadata());
-			writer->write(
-				const_array_ref(source), whole_of(subject.extents));
-			writer->flush();
+			write_now(*writer, source, whole_of(subject.extents));
+			flush_now(*writer);
 		}
 
 		const auto reader = readers.open(path.get());
@@ -100,7 +100,7 @@ TEST_CASE(
 
 		auto destination =
 			make_host_array<float>(subject.extents, numerical_type::float32);
-		reader->read(array_ref(destination), whole_of(subject.extents));
+		read_now(*reader, destination, whole_of(subject.extents));
 
 		REQUIRE( get_values<float>(destination) == values );
 	}
@@ -141,8 +141,8 @@ TEST_CASE(
 				image_descriptor(make_span(extents), 2, file_type),
 				image_metadata()
 			);
-			writer->write(const_array_ref(source), whole_of(extents));
-			writer->flush();
+			write_now(*writer, source, whole_of(extents));
+			flush_now(*writer);
 		}
 
 		const auto reader = readers.open(path.get());
@@ -153,7 +153,7 @@ TEST_CASE(
 		// conversion a caller asks for rather than the one the file forces.
 		auto destination =
 			make_host_array<double>(extents, numerical_type::float64);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		const auto read = get_values<double>(destination);
 

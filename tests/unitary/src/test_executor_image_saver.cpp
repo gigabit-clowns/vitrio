@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -165,10 +166,18 @@ TEST_CASE(
 		.RETURN(std::ref(stack_descriptor));
 	ALLOW_CALL(*writer_one, get_descriptor())
 		.RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*writer_zero, write(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_region_count() == 3 );
-	REQUIRE_CALL(*writer_one, write(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_region_count() == 1 );
+	REQUIRE_CALL(
+		*writer_zero,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_region_count() == 3 )
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*writer_one,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_region_count() == 1 )
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_saver saver(
 		writers,
@@ -198,7 +207,11 @@ TEST_CASE(
 
 	REQUIRE_CALL(*writers, acquire("stack_0.mrcs")).RETURN(writer);
 	ALLOW_CALL(*writer, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 	// No expectation for "stack_1.mrcs": acquiring it would violate.
 
 	executor_image_saver saver(
@@ -237,7 +250,8 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"executor_image_saver's completion reports what a writer threw",
+	"executor_image_saver's completion reports the failure a writer "
+	"reports",
 	"[executor_image_saver]"
 )
 {
@@ -253,8 +267,13 @@ TEST_CASE(
 
 	REQUIRE_CALL(*writers, acquire("stack_0.mrcs")).RETURN(writer);
 	ALLOW_CALL(*writer, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
-		.SIDE_EFFECT( throw std::runtime_error("from a writer") );
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done(
+			std::make_exception_ptr(std::runtime_error("from a writer"))
+		) );
 
 	executor_image_saver saver(
 		writers,
@@ -318,8 +337,16 @@ TEST_CASE(
 		.RETURN(std::ref(stack_descriptor));
 	ALLOW_CALL(*writer_one, get_descriptor())
 		.LR_RETURN(std::ref(short_stack_descriptor));
-	REQUIRE_CALL(*writer_zero, write(trompeloeil::_, trompeloeil::_));
-	REQUIRE_CALL(*writer_one, write(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*writer_zero,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*writer_one,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_saver saver(
 		writers,
@@ -363,10 +390,18 @@ TEST_CASE(
 
 	REQUIRE_CALL(*writers, acquire("stack_0.mrcs")).RETURN(writer);
 	ALLOW_CALL(*writer, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_shape().get_extents()[0] == 2 );
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_shape().get_extents()[0] == 1 );
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_shape().get_extents()[0] == 2 )
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_shape().get_extents()[0] == 1 )
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_saver saver(
 		writers,

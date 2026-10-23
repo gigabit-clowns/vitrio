@@ -27,6 +27,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -677,10 +678,13 @@ TEST_CASE(
 	const auto entry = make_entry({0, 1, 2, 3, 4, 5, 6, 7}, 4);
 
 	// One read of the file, for the four images of the second run.
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( get_file_indices(_2) == index_list({4, 5, 6, 7}) )
 		.LR_WITH( get_array_slots(_2) == index_list({4, 5, 6, 7}) )
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
 	entry->store(file, images({5}));
 
@@ -735,10 +739,15 @@ TEST_CASE(
 
 	SECTION( "the last run has the images that are left" )
 	{
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( get_file_indices(_2) == index_list({6, 7}) )
 			.LR_WITH( get_array_slots(_2) == index_list({6, 7}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 
 		entry->store(file, images({7}));
 	}
@@ -746,23 +755,38 @@ TEST_CASE(
 	SECTION( "a region across two runs loads both" )
 	{
 		trompeloeil::sequence order;
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
 			.LR_WITH( get_file_indices(_2) == index_list({0, 1, 2}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
 			.LR_WITH( get_file_indices(_2) == index_list({3, 4, 5}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 
 		entry->store(file, image_range(2, 2));
 	}
 
 	SECTION( "a region across two runs is missing until both are loaded" )
 	{
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.TIMES(2)
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 		auto destination = make_batch(2);
 
 		entry->store(file, images({2}));
@@ -791,9 +815,12 @@ TEST_CASE(
 	mock_image_reader file;
 	const auto entry = make_entry({0, 1, 2, 3}, run_length);
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( get_file_indices(_2) == index_list({0, 1, 2, 3}) )
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
 	entry->store(file, images({2}));
 }
@@ -809,10 +836,15 @@ TEST_CASE(
 
 	SECTION( "storing a held image loads the held images of its run" )
 	{
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( get_file_indices(_2) == index_list({1, 4, 5}) )
 			.LR_WITH( get_array_slots(_2) == index_list({0, 1, 2}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 		auto destination = make_batch(3);
 
 		entry->store(file, images({4}));
@@ -830,9 +862,14 @@ TEST_CASE(
 
 	SECTION( "storing a region loads the held images among the ones it spans" )
 	{
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( get_file_indices(_2) == index_list({1, 4, 5}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 		auto destination = make_batch(6);
 
 		entry->store(file, image_range(0, 6));
@@ -847,14 +884,20 @@ TEST_CASE(
 
 	SECTION( "storing images that are not held reads nothing" )
 	{
-		FORBID_CALL(file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		entry->store(file, images({0, 2, 3, 7}));
 	}
 
 	SECTION( "storing a region between held images reads nothing" )
 	{
-		FORBID_CALL(file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		entry->store(file, image_range(2, 2));
 	}
@@ -874,21 +917,34 @@ TEST_CASE(
 	SECTION( "storing it loads the images held from its first index on" )
 	{
 		trompeloeil::sequence order;
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
 			.LR_WITH( get_file_indices(_2) == index_list({4}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
 			.LR_WITH( get_file_indices(_2) == index_list({5}) )
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 
 		entry->store(file, image_range(4, max_index));
 	}
 
 	SECTION( "storing it reads nothing when none of them is held" )
 	{
-		FORBID_CALL(file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		entry->store(file, image_range(max_index, max_index));
 	}
@@ -915,8 +971,11 @@ TEST_CASE(
 	mock_image_reader file;
 	const auto entry = make_entry({2, 3, 4}, 3);
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 	auto destination = make_batch(2);
 
 	SECTION( "when all of them are held" )
@@ -963,9 +1022,12 @@ TEST_CASE(
 	const auto entry = make_entry({0, 1, 2, 3, 4, 5, 6, 7}, 3);
 
 	// Eight slots in runs of three: three reads.
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.TIMES(3)
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 	auto destination = make_batch(8);
 
 	entry->store(file, image_range(0, 8));
@@ -986,8 +1048,11 @@ TEST_CASE(
 	mock_image_reader file;
 	const auto entry = make_entry({5}, 1);
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
 	// The second row of image 5, into an array of one row.
 	image_transfer_plan patch(image_transfer_shape({1, 2}, 3, 2));
@@ -1013,8 +1078,11 @@ TEST_CASE(
 	mock_image_reader file;
 	const auto entry = make_entry({5}, 1);
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 	auto destination =
 		make_host_array<double>({1, 2, 2}, numerical_type::float64, -1.0);
 
@@ -1043,7 +1111,10 @@ TEST_CASE(
 
 	SECTION( "storing it reads nothing" )
 	{
-		FORBID_CALL(file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
 		entry->store(file, plan);
 	}
@@ -1069,12 +1140,20 @@ TEST_CASE(
 	auto destination = make_batch(1);
 	trompeloeil::sequence order;
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.IN_SEQUENCE(order)
-		.THROW( std::runtime_error("from the file") );
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+		.SIDE_EFFECT( _3->notify_done(
+			std::make_exception_ptr(std::runtime_error("from the file"))
+		) );
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.IN_SEQUENCE(order)
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
 	REQUIRE_THROWS_AS( entry->store(file, images({2})), std::runtime_error );
 	CHECK( entry->read(array_ref(destination), images({2}))
@@ -1097,9 +1176,12 @@ TEST_CASE(
 	mock_image_reader file;
 	const auto entry = make_entry({0, 1, 2, 3}, 4);
 
-	REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.TIMES(1)
-		.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
 	std::thread first([&] { entry->store(file, images({1})); });
 	std::thread second([&] { entry->store(file, images({3})); });
@@ -1134,8 +1216,13 @@ TEST_CASE(
 
 	SECTION( "a held image that does not fit the destination is refused" )
 	{
-		REQUIRE_CALL(file, read(trompeloeil::_, trompeloeil::_))
-			.LR_SIDE_EFFECT( stack.get_reader().read(_1, _2) );
+		REQUIRE_CALL(
+			file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
+			.LR_SIDE_EFFECT(
+				stack.get_reader().read_async(_1.share(), _2, _3)
+			);
 		auto destination = make_batch(1);
 
 		entry->store(file, images({0, 1}));

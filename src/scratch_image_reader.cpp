@@ -2,11 +2,14 @@
 
 #include "scratch_image_reader.hpp"
 
+#include <vitrio/array/array.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/image_scratch_entry.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
+#include <array/borrowed_array.hpp>
 #include <assert.hpp>
+#include <waiting_transfers.hpp>
 
 #include <utility>
 
@@ -56,8 +59,8 @@ void scratch_image_reader::read(
 	{
 		return;
 	}
-	
-	m_file->read(destination, unheld);
+
+	read_and_wait(*m_file, borrow_array(destination), unheld);
 }
 
 } // namespace vitrio

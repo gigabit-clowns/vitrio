@@ -18,6 +18,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include "fixtures/dm_test_file.hpp"
 
 #include <cstddef>
@@ -78,7 +79,7 @@ std::vector<float> read_whole(const image_reader &reader)
 	const std::vector<std::size_t> origin(shape.size(), 0);
 	regions.add(make_span(origin), make_span(origin));
 
-	reader.read(array_ref(destination), regions);
+	read_now(reader, destination, regions);
 
 	std::size_t count = 1;
 	for (const auto extent : shape)

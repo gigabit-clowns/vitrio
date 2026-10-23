@@ -153,7 +153,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 2 &&
@@ -163,7 +166,8 @@ TEST_CASE(
 				std::vector<std::size_t>{0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("plane.mrc")).RETURN(reader);
 
@@ -189,7 +193,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 2 &&
@@ -198,7 +205,8 @@ TEST_CASE(
 				std::vector<std::size_t>{0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("plane.mrc")).RETURN(reader);
 
@@ -227,7 +235,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 3 &&
@@ -237,7 +248,8 @@ TEST_CASE(
 				std::vector<std::size_t>{2, 0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
@@ -269,14 +281,18 @@ TEST_CASE(
 	{
 		auto destination = make_float_array(file_extents);
 
-		REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*reader,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH(
 				_1.get_data() == destination.get_data() &&
 				_2.get_region_count() == 1 &&
 				to_vector(_2.get_shape().get_extents()) == file_extents &&
 				to_vector(_2.get_file_offset(0)) ==
 					std::vector<std::size_t>{0, 0, 0}
-			);
+			)
+			.SIDE_EFFECT( _3->notify_done() );
 		REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
 		read(array_ref(destination), image_location("stack.mrcs"), readers);
@@ -286,14 +302,18 @@ TEST_CASE(
 	{
 		auto destination = make_float_array(core_extents);
 
-		REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*reader,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH(
 				_1.get_data() == destination.get_data() &&
 				_2.get_region_count() == 1 &&
 				to_vector(_2.get_shape().get_extents()) == core_extents &&
 				to_vector(_2.get_file_offset(0)) ==
 					std::vector<std::size_t>{2, 0, 0}
-			);
+			)
+			.SIDE_EFFECT( _3->notify_done() );
 		REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
 		read(
@@ -320,7 +340,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 	ALLOW_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
-	FORBID_CALL(*reader, read(trompeloeil::_, trompeloeil::_));
+	FORBID_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
 
 	SECTION( "one that is larger" )
 	{
@@ -375,10 +398,14 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_1.get_descriptor().get_data_type() == numerical_type::float32
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 

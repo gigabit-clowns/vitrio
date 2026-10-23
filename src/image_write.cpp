@@ -14,7 +14,10 @@
 #include <vitrio/span.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
+#include <array/borrowed_array.hpp>
+
 #include <image_plan_builders.hpp>
+#include <waiting_transfers.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -114,8 +117,12 @@ void write(
 	}
 
 	const auto writer = formats.open(path, descriptor, metadata);
-	writer->write(arr, make_location_plan(descriptor, image_location(path)));
-	writer->flush();
+	write_and_wait(
+		*writer,
+		borrow_array(arr),
+		make_location_plan(descriptor, image_location(path))
+	);
+	flush_and_wait(*writer);
 }
 
 std::shared_ptr<completion> write_batch_async(

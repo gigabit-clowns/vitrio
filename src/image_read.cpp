@@ -2,6 +2,7 @@
 
 #include <vitrio/image_read.hpp>
 
+#include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/clipping_image_transfer_sanitizer.hpp>
@@ -24,9 +25,11 @@
 #include <vitrio/span.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
+#include <array/borrowed_array.hpp>
 #include <assert.hpp>
 
 #include <image_plan_builders.hpp>
+#include <waiting_transfers.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -137,7 +140,7 @@ array read(
 		)
 	);
 
-	reader->read(array_ref(destination), plan);
+	read_and_wait(*reader, destination.share(), plan);
 
 	return destination;
 }
@@ -166,7 +169,7 @@ void read(
 		);
 	}
 
-	reader->read(destination, plan);
+	read_and_wait(*reader, borrow_array(destination), plan);
 }
 
 std::shared_ptr<completion> read_batch_async(

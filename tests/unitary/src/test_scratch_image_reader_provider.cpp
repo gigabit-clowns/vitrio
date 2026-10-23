@@ -17,6 +17,8 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
+#include <vitrio/tests/transfers.hpp>
+
 #include <array>
 #include <cstddef>
 #include <functional>
@@ -27,6 +29,7 @@
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
@@ -144,9 +147,12 @@ TEST_CASE(
 
 		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
 			.LR_RETURN(nothing);
-		FORBID_CALL(*file, read(trompeloeil::_, trompeloeil::_));
+		FORBID_CALL(
+			*file,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 	}
 
 	SECTION( "what it does not hold is taken in out of the backing reader" )
@@ -167,7 +173,7 @@ TEST_CASE(
 			.IN_SEQUENCE(order)
 			.LR_RETURN(nothing);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 	}
 }
 
