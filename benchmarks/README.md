@@ -290,7 +290,7 @@ and the data type stated, and holding the particles asked of it.
 ## The engine, in C++
 
 `cpp/strided_transfer.cpp` measures the engine of
-`src/formats/strided_transfer/` on its own: no file is opened and no thread
+`src/strided_transfer/` on its own: no file is opened and no thread
 started, so what it measures is the copy and the conversion of elements,
 which bound a read once its pages are in memory. The images of a batch of 64
 are drawn at random from a buffer larger than the processor's caches (256

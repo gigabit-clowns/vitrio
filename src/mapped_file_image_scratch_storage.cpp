@@ -5,7 +5,7 @@
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_scratch_storage.hpp>
 
-#include <formats/memory_mapping/image_file_mapping.hpp>
+#include <formats/raw/mapped/image_file_mapping.hpp>
 #include <system/page_prefetch.hpp>
 
 #include <boost/filesystem/operations.hpp>

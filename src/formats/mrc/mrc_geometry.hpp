@@ -5,7 +5,7 @@
 #include "mrc_header.hpp"
 #include "mrc_single_section.hpp"
 
-#include <formats/raw_image_layout.hpp>
+#include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/image_descriptor.hpp>
 

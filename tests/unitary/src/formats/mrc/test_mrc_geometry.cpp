@@ -7,7 +7,7 @@
 
 #include <formats/mrc/mrc_header.hpp>
 #include <formats/mrc/mrc_mode.hpp>
-#include <formats/raw_image_layout.hpp>
+#include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>

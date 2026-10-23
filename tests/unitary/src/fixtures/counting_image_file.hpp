@@ -8,8 +8,8 @@
 #include <vitrio/image_reader.hpp>
 #include <vitrio/tests/host_array.hpp>
 
-#include <formats/memory_mapping/mapped_image_reader.hpp>
-#include <formats/raw_image_layout.hpp>
+#include <formats/raw/mapped/mapped_image_reader.hpp>
+#include <formats/raw/raw_image_layout.hpp>
 #include <memory/byte_order.hpp>
 
 #include <cstddef>

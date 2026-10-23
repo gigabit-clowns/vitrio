@@ -4,10 +4,10 @@
 
 #include "tiff_sample_type.hpp"
 
-#include <formats/strided_transfer/image_page_regions.hpp>
-#include <formats/strided_transfer/image_region_bounds.hpp>
-#include <formats/strided_transfer/image_region_transfer.hpp>
-#include <formats/strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/image_page_regions.hpp>
+#include <strided_transfer/image_region_bounds.hpp>
+#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/image_region_write_walk.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array_ref.hpp>

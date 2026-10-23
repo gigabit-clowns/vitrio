@@ -2,8 +2,8 @@
 
 #include <vitrio/counting_detector_event_renderer.hpp>
 
-#include <formats/strided_transfer/image_region_read_walk.hpp>
-#include <formats/strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/image_region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>

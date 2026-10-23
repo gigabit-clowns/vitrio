@@ -1,18 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-target_sources(
-	vitrio-obj
-	PRIVATE
-		open_raw_image_reader.cpp
-		raw_image_layout.cpp
-)
-
 add_subdirectory(dm)
-add_subdirectory(memory_mapping)
 add_subdirectory(mrc)
-add_subdirectory(queued_reading)
-add_subdirectory(read_planning)
-add_subdirectory(strided_transfer)
+add_subdirectory(raw)
 
 if(VITRIO_ENABLE_TIFF)
 	add_subdirectory(eer)

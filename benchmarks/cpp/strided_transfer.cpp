@@ -11,9 +11,9 @@
 // VITRIO_BENCH_FILE_BYTES sets how large, so that a short run, such as the one
 // CTest makes, need not fill hundreds of megabytes first.
 
-#include <formats/strided_transfer/image_region_read_walk.hpp>
-#include <formats/strided_transfer/image_region_transfer.hpp>
-#include <formats/strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/image_region_write_walk.hpp>
 
 #include <array/fixed_width_float.hpp>
 #include <array/numerical_type_traits.hpp>

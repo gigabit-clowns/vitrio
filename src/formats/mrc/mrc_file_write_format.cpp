@@ -13,7 +13,7 @@
 #include <vitrio/image_file_probe.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
-#include <formats/memory_mapping/mapped_image_writer.hpp>
+#include <formats/raw/mapped/mapped_image_writer.hpp>
 
 #include <vector>
 

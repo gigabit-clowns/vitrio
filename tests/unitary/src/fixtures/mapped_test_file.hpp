@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <formats/memory_mapping/image_file_access.hpp>
-#include <formats/memory_mapping/image_file_mapping.hpp>
+#include <formats/raw/mapped/image_file_access.hpp>
+#include <formats/raw/mapped/image_file_mapping.hpp>
 
 #include <vitrio/byte.hpp>
 #include <vitrio/span.hpp>

@@ -135,6 +135,7 @@ add_subdirectory(array)
 add_subdirectory(concurrency)
 add_subdirectory(formats)
 add_subdirectory(memory)
+add_subdirectory(strided_transfer)
 add_subdirectory(system)
 
 # vitrio is a shared library only. Its image formats register themselves

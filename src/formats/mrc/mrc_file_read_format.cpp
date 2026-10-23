@@ -11,7 +11,7 @@
 #include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
-#include <formats/open_raw_image_reader.hpp>
+#include <formats/raw/open_raw_image_reader.hpp>
 
 namespace vitrio
 {

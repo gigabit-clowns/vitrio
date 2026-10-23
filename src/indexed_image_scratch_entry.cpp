@@ -2,7 +2,7 @@
 
 #include "indexed_image_scratch_entry.hpp"
 
-#include <formats/memory_mapping/image_prefetched_read.hpp>
+#include <formats/raw/mapped/image_prefetched_read.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
