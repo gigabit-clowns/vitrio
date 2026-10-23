@@ -8,13 +8,13 @@
 
 #include <formats/raw/queued/queued_image_reader.hpp>
 
-#include "../../../fixtures/file_read_queue_pools.hpp"
+#include "../../../fixtures/file_transfer_executors.hpp"
 
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/array/array.hpp>
-#include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
@@ -24,6 +24,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <memory/byte_order.hpp>
@@ -120,7 +121,7 @@ std::vector<float> read_all(
 		numerical_type::float32,
 		-1.0F
 	);
-	reader.read(array_ref(destination), whole_of(extents));
+	read_now(reader, destination, whole_of(extents));
 
 	return get_values<float>(destination);
 }
@@ -132,7 +133,8 @@ TEST_CASE(
 	"[queued_image_reader]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
 	const scoped_path path("queued_reader_descriptor.raw");
 	const std::vector<std::size_t> extents = {2, 3, 4};
 	write_file(path.get(), counting(24));
@@ -141,7 +143,7 @@ TEST_CASE(
 		path.get(),
 		make_layout(extents),
 		image_metadata(),
-		pool
+		transfers
 	);
 
 	CHECK( reader.get_descriptor() ==
@@ -153,7 +155,8 @@ TEST_CASE(
 	"[queued_image_reader]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
 	const scoped_path path("queued_reader_values.raw");
 	const std::vector<std::size_t> extents = {3, 3, 4};
 	const auto values = counting(36);
@@ -163,7 +166,7 @@ TEST_CASE(
 		path.get(),
 		make_layout(extents),
 		image_metadata(),
-		pool
+		transfers
 	);
 
 	SECTION( "the whole of a stack arrives in order" )
@@ -181,7 +184,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>{0, 0})
 		);
 
-		reader.read(array_ref(destination), regions);
+		read_now(reader, destination, regions);
 
 		CHECK( get_values<float>(destination) ==
 			std::vector<float>(values.begin() + 12, values.begin() + 24) );
@@ -201,7 +204,7 @@ TEST_CASE(
 			);
 		}
 
-		reader.read(array_ref(destination), regions);
+		read_now(reader, destination, regions);
 
 		std::vector<float> expected;
 		for (const auto section : sections)
@@ -219,7 +222,7 @@ TEST_CASE(
 			make_host_array<float>({3, 4}, numerical_type::float32);
 		const image_transfer_plan regions(image_transfer_shape({3, 4}, 3, 2));
 
-		CHECK_NOTHROW( reader.read(array_ref(destination), regions) );
+		CHECK_NOTHROW( read_now(reader, destination, regions) );
 	}
 
 	SECTION( "reads from several threads at once each get their values" )
@@ -240,7 +243,7 @@ TEST_CASE(
 
 				for (int round = 0; round < 50; ++round)
 				{
-					reader.read(array_ref(destination), regions);
+					read_now(reader, destination, regions);
 				}
 				planes[plane] = get_values<float>(destination);
 			});
@@ -264,7 +267,8 @@ TEST_CASE(
 	"[queued_image_reader]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
 	const scoped_path path("queued_reader_layout.raw");
 	const std::vector<std::size_t> extents = {3, 4};
 
@@ -279,7 +283,7 @@ TEST_CASE(
 			path.get(),
 			make_layout(extents, numerical_type::float32, {1, 3}),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		std::vector<float> expected;
@@ -320,7 +324,7 @@ TEST_CASE(
 				other
 			),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		CHECK( read_all(reader, extents) == counting(12) );
@@ -337,7 +341,7 @@ TEST_CASE(
 			path.get(),
 			make_layout(extents, numerical_type::int16),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		CHECK( read_all(reader, extents) ==
@@ -357,7 +361,7 @@ TEST_CASE(
 				preamble_size + 2
 			),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		CHECK( read_all(reader, extents) == counting(12) );
@@ -369,7 +373,8 @@ TEST_CASE(
 	"[queued_image_reader]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
 	const scoped_path path("queued_reader_refused.raw");
 	const std::vector<std::size_t> extents = {3, 4};
 
@@ -380,11 +385,12 @@ TEST_CASE(
 			path.get(),
 			make_layout(extents),
 			image_metadata(),
-			pool
+			transfers
 		);
 
+		array uninitialized;
 		CHECK_THROWS_AS(
-			reader.read(array_ref(), whole_of(extents)),
+			read_now(reader, uninitialized, whole_of(extents)),
 			std::invalid_argument
 		);
 	}
@@ -396,7 +402,7 @@ TEST_CASE(
 			path.get(),
 			make_layout(extents),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		auto destination =
@@ -408,7 +414,7 @@ TEST_CASE(
 		);
 
 		CHECK_THROWS_AS(
-			reader.read(array_ref(destination), regions),
+			read_now(reader, destination, regions),
 			std::out_of_range
 		);
 	}
@@ -420,13 +426,13 @@ TEST_CASE(
 			path.get(),
 			make_layout(extents, numerical_type::complex_float32),
 			image_metadata(),
-			pool
+			transfers
 		);
 
 		auto destination =
 			make_host_array<float>(extents, numerical_type::float32);
 		CHECK_THROWS_AS(
-			reader.read(array_ref(destination), whole_of(extents)),
+			read_now(reader, destination, whole_of(extents)),
 			unsupported_operation_error
 		);
 	}
@@ -438,7 +444,8 @@ TEST_CASE(
 	"[queued_image_reader]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
 	const scoped_path path("queued_reader_bad_file.raw");
 	const std::vector<std::size_t> extents = {2, 3, 4};
 	const auto names_the_file = Catch::Matchers::MessageMatches(
@@ -454,7 +461,7 @@ TEST_CASE(
 				path.get(),
 				make_layout(extents),
 				image_metadata(),
-				pool
+				transfers
 			),
 			image_file_format_error,
 			names_the_file
@@ -468,10 +475,98 @@ TEST_CASE(
 				path.get(),
 				make_layout(extents),
 				image_metadata(),
-				pool
+				transfers
 			),
 			image_file_error,
 			names_the_file
 		);
 	}
+}
+
+TEST_CASE(
+	"a queued_image_reader refuses a null notifier",
+	"[queued_image_reader]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_reader_null_notifier.raw");
+	const std::vector<std::size_t> extents = {3, 4};
+	write_file(path.get(), counting(12));
+
+	const queued_image_reader reader(
+		path.get(),
+		make_layout(extents),
+		image_metadata(),
+		transfers
+	);
+
+	auto destination = make_host_array<float>(extents, numerical_type::float32);
+	CHECK_THROWS_AS(
+		reader.read_async(destination.share(), whole_of(extents), nullptr),
+		std::invalid_argument
+	);
+}
+
+TEST_CASE(
+	"a queued_image_reader reports what it can not plan, rather than "
+	"throwing it",
+	"[queued_image_reader]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_reader_reported.raw");
+	const std::vector<std::size_t> extents = {3, 4};
+	write_file(path.get(), counting(12));
+
+	const queued_image_reader reader(
+		path.get(),
+		make_layout(extents),
+		image_metadata(),
+		transfers
+	);
+
+	auto destination = make_host_array<float>(extents, numerical_type::float32);
+	image_transfer_plan regions(image_transfer_shape(extents, 2, 2));
+	regions.add(
+		make_span(std::vector<std::size_t>{1, 0}),
+		make_span(std::vector<std::size_t>{0, 0})
+	);
+
+	const auto done = std::make_shared<counting_completion>(1);
+	CHECK_NOTHROW( reader.read_async(destination.share(), regions, done) );
+	REQUIRE( done->is_ready() );
+	CHECK_THROWS_AS( done->get(), std::out_of_range );
+}
+
+TEST_CASE(
+	"a read of a queued_image_reader goes on after the reader is gone",
+	"[queued_image_reader]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_reader_gone.raw");
+	const std::vector<std::size_t> extents = {64, 3, 4};
+	const auto values = counting(64 * 12);
+	write_file(path.get(), values);
+
+	// Converted, so that the read takes tasks as well as reads.
+	auto destination =
+		make_host_array<double>(extents, numerical_type::float64, -1.0);
+	const auto done = std::make_shared<counting_completion>(1);
+	{
+		const queued_image_reader reader(
+			path.get(),
+			make_layout(extents),
+			image_metadata(),
+			transfers
+		);
+		reader.read_async(destination.share(), whole_of(extents), done);
+	}
+
+	CHECK_NOTHROW( done->get() );
+	CHECK( get_values<double>(destination) ==
+		std::vector<double>(values.begin(), values.end()) );
 }

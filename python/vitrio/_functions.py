@@ -21,6 +21,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from . import _binding
+from ._default_transfers import default_file_transfer_pool
 from ._binding import (
 	Array,
 	CachingImageReaderProvider,
@@ -38,6 +39,7 @@ from ._binding import (
 	FileDetectorEventTimelineReaderProvider,
 	FileImageReaderProvider,
 	FileImageWriterProvider,
+	FileTransferPool,
 	ImageDescriptor,
 	ImageFileReadFormatSelector,
 	ImageFileWriteFormatSelector,
@@ -83,6 +85,13 @@ def _resolve_write_formats(
 		formats = ImageFileWriteFormatSelector.get_shared()
 	return formats
 
+def _resolve_transfers(
+	transfers: FileTransferPool | None
+) -> FileTransferPool:
+	if transfers is None:
+		transfers = default_file_transfer_pool()
+	return transfers
+
 def _resolve_readers(
 	readers: ImageReaderProvider | None
 ) -> ImageReaderProvider:
@@ -105,7 +114,8 @@ def _resolve_data_type(data_type: object | None) -> NumericalType | None:
 def reader_provider(
 	cache: int | None = None,
 	formats: ImageFileReadFormatSelector | None = None,
-	scratch: ImageScratch | None = None
+	scratch: ImageScratch | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageReaderProvider:
 	"""
 	Assemble a reader provider that opens files.
@@ -119,11 +129,17 @@ def reader_provider(
 		scratch: A scratch to serve reads through: what it holds is read
 			from it, and what it does not yet hold is read from the file
 			and taken in. Defaults to reading the files alone.
+		transfers: The threads that carry out the reads of the files.
+			Defaults to a pool shared by the process, whose conversions
+			run on a thread pool of its own.
 
 	Returns:
 		ImageReaderProvider: The assembled provider. Its keys are paths.
 	"""
-	readers = FileImageReaderProvider(_resolve_read_formats(formats))
+	readers = FileImageReaderProvider(
+		_resolve_read_formats(formats),
+		_resolve_transfers(transfers)
+	)
 	if cache is not None:
 		readers = CachingImageReaderProvider(readers, cache)
 	if scratch is not None:
@@ -237,35 +253,46 @@ def loader(
 	cache: int | None = None,
 	formats: ImageFileReadFormatSelector | None = None,
 	executor: Executor | None = None,
-	scratch: ImageScratch | None = None
+	scratch: ImageScratch | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ExecutorImageLoader:
 	"""
 	Assemble an image loader over a thread pool.
 
-	Wires the four objects a loader stands on: the formats, a reader
-	provider, an executor and the loader itself. A caller reaches
-	`read_batch_async` and `read_patches_async` without naming them.
+	Wires the objects a loader stands on: the formats, a reader provider,
+	the threads that carry out the reads of files, an executor and the
+	loader itself. A caller reaches `read_batch_async` and
+	`read_patches_async` without naming them.
+
+	The threads of the executor open the files and start their reads, which
+	the threads of `transfers` carry out, many at once. A format read where
+	it is asked, such as TIFF, is read and decoded on the executor.
 
 	Each loader built this way owns its executor. Two of them are two
 	thread pools, each sized to the machine. Pass one executor to both to
 	avoid that.
 
 	Args:
-		workers: How many threads to run reads on. Defaults to what the
-			machine reports. Ignored when `executor` is given.
+		workers: How many threads to open files and start reads on.
+			Defaults to what the machine reports. Ignored when `executor`
+			is given.
 		cache: How many open readers to keep between reads. Defaults to
 			opening a file every time it is asked for.
 		formats: The formats to recognize files with. Defaults to the
 			bundled ones.
-		executor: Where reads run. Defaults to a thread pool of its own.
+		executor: Where files are opened and their reads started. Defaults
+			to a thread pool of its own.
 		scratch: A scratch to serve reads through, as `reader_provider`
 			takes one. Defaults to reading the files alone.
+		transfers: The threads that carry out the reads of the files, as
+			`reader_provider` takes them. Defaults to the pool shared by
+			the process.
 
 	Returns:
 		ExecutorImageLoader: The assembled loader.
 	"""
 	return ExecutorImageLoader(
-		reader_provider(cache, formats, scratch),
+		reader_provider(cache, formats, scratch, transfers),
 		_resolve_executor(executor, workers)
 	)
 

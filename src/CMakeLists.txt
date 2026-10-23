@@ -80,6 +80,8 @@ target_sources(
 		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
 		file_image_writer_provider.cpp
+		file_transfer_pool.cpp
+		file_transfer_pool_implementation.cpp
 		host_image_scratch_storage.cpp
 		image_descriptor.cpp
 		image_file_probe.cpp

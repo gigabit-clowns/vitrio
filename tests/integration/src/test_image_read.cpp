@@ -16,6 +16,7 @@
 #include <vitrio/image_write.hpp>
 #include <vitrio/index_table.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
@@ -74,7 +75,10 @@ TEST_CASE(
 	const auto selector =
 		image_file_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<file_image_reader_provider>(selector);
+		std::make_shared<file_image_reader_provider>(
+			selector,
+			make_file_transfer_pool()
+		);
 	const auto path = get_mrc_asset_path("EMD-3197.map");
 	const image_location location(path);
 
@@ -180,7 +184,8 @@ TEST_CASE(
 
 	const auto loader = std::make_shared<executor_image_loader>(
 		std::make_shared<file_image_reader_provider>(
-			image_file_read_format_selector::get_shared()
+			image_file_read_format_selector::get_shared(),
+			make_file_transfer_pool()
 		),
 		std::make_shared<synchronous_executor>()
 	);

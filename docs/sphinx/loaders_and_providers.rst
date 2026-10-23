@@ -57,3 +57,4 @@ Executors
 .. autoclass:: vitrio.SynchronousExecutor
 .. autoclass:: vitrio.ThreadPoolExecutor
    :members:
+.. autoclass:: vitrio.FileTransferPool

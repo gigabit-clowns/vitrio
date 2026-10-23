@@ -10,7 +10,8 @@ namespace vitrio
 
 thread_pool_file_transfer_executor::thread_pool_file_transfer_executor(
 	std::shared_ptr<executor> tasks,
-	std::vector<std::unique_ptr<file_read_port>> ports
+	const file_read_port_opener &ports,
+	std::size_t worker_count
 )
 	: m_next_worker(0)
 {
@@ -22,28 +23,19 @@ thread_pool_file_transfer_executor::thread_pool_file_transfer_executor(
 		);
 	}
 
-	if (ports.empty())
+	if (worker_count == 0)
 	{
 		throw std::invalid_argument(
-			"thread_pool_file_transfer_executor: There must be a port."
+			"thread_pool_file_transfer_executor: The worker count must be "
+			"greater than zero."
 		);
 	}
 
-	for (const auto &port : ports)
-	{
-		if (!port)
-		{
-			throw std::invalid_argument(
-				"thread_pool_file_transfer_executor: A port must not be null."
-			);
-		}
-	}
-
-	m_workers.reserve(ports.size());
-	for (auto &port : ports)
+	m_workers.reserve(worker_count);
+	for (std::size_t index = 0; index < worker_count; ++index)
 	{
 		m_workers.push_back(
-			std::make_unique<file_transfer_worker>(std::move(port), tasks)
+			std::make_unique<file_transfer_worker>(ports.open(), tasks)
 		);
 	}
 }

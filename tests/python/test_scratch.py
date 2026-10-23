@@ -142,7 +142,8 @@ def test_a_provider_serving_through_a_scratch_is_assembled_by_hand(
 ):
 	locations = __locations(__written_stack, [3])
 	files = vio.FileImageReaderProvider(
-		vio.ImageFileReadFormatSelector.get_shared()
+		vio.ImageFileReadFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	scratch = vio.create_host_image_scratch(locations, 1, files=files)
 	readers = vio.ScratchImageReaderProvider(files, scratch)

@@ -10,6 +10,7 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/transfers.hpp>
 
@@ -135,7 +136,7 @@ TEST_CASE(
 		REQUIRE( selector.get_most_suitable_format(image_file_probe(path)) !=
 			nullptr );
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		const std::vector<std::size_t> extents = {20, 20, 20};
 
@@ -155,7 +156,7 @@ TEST_CASE(
 		REQUIRE( field(raw, 36) == 72 );
 		REQUIRE( field(raw, 92) == 160 );
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
 		REQUIRE( reader->get_descriptor().get_extents().size() == 3 );
@@ -173,7 +174,7 @@ TEST_CASE(
 		REQUIRE( field(raw, 68) == 1 );
 		REQUIRE( field(raw, 72) == 2 );
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 		const auto extents = reader->get_descriptor().get_extents();
 
 		REQUIRE( extents.size() == 3 );
@@ -197,7 +198,7 @@ TEST_CASE(
 	for (const auto &name : names)
 	{
 		const auto path = get_mrc_asset_path(name);
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 		const auto extents = reader->get_descriptor().get_extents();
 		const std::vector<std::size_t> shape(
 			extents.begin(), extents.end());

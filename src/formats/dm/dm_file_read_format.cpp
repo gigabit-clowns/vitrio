@@ -77,8 +77,10 @@ dm_file_read_format::get_suitability(const image_file_probe &probe) const
 		: image_file_format_suitability::fallback;
 }
 
-std::shared_ptr<image_reader>
-dm_file_read_format::open(const image_file_probe &probe) const
+std::shared_ptr<image_reader> dm_file_read_format::open(
+	const image_file_probe &probe,
+	const file_transfer_pool &transfers
+) const
 {
 	const auto location = locate_file_image(probe.get_path());
 	const auto &descriptor = location.get_descriptor();
@@ -94,7 +96,8 @@ dm_file_read_format::open(const image_file_probe &probe) const
 			location.get_data_offset(),
 			location.get_byte_order()
 		),
-		image_metadata()
+		image_metadata(),
+		transfers
 	);
 }
 

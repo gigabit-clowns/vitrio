@@ -8,8 +8,10 @@
 
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_reader.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 
-#include <system/asynchronous_file_read_queue_pool.hpp>
+#include <system/asynchronous_file_read_port_opener.hpp>
+#include <file_transfer_pool_implementation.hpp>
 
 #include <memory>
 #include <utility>
@@ -17,33 +19,20 @@
 namespace vitrio
 {
 
-namespace
-{
-
-// The queues every queued reader takes, made the first time one is opened.
-const std::shared_ptr<file_read_queue_pool>& get_asynchronous_queue_pool()
-{
-	static const std::shared_ptr<file_read_queue_pool> queues =
-		std::make_shared<asynchronous_file_read_queue_pool>();
-
-	return queues;
-}
-
-} // anonymous namespace
-
 std::shared_ptr<image_reader> open_raw_image_reader(
 	const std::string &path,
 	raw_image_layout layout,
-	image_metadata metadata
+	image_metadata metadata,
+	const file_transfer_pool &transfers
 )
 {
-	if (asynchronous_file_read_queue_pool::is_supported())
+	if (asynchronous_file_read_port_opener::is_supported())
 	{
 		return std::make_shared<queued_image_reader>(
 			path,
 			std::move(layout),
 			std::move(metadata),
-			get_asynchronous_queue_pool()
+			transfers.get_implementation().get_executor()
 		);
 	}
 

@@ -180,7 +180,8 @@ def test_accepts_explicit_formats_and_an_explicit_provider(tmp_path):
 		formats=vio.ImageFileWriteFormatSelector.get_shared()
 	)
 	readers = vio.FileImageReaderProvider(
-		vio.ImageFileReadFormatSelector.get_shared()
+		vio.ImageFileReadFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	assert isinstance(vio.read(path, readers=readers), vio.Array)
 

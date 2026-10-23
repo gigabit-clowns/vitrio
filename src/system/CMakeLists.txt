@@ -3,13 +3,14 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
-		asynchronous_file_read_queue_pool.cpp
+		asynchronous_file_read_port_opener.cpp
 		blocking_file_read_port.cpp
+		blocking_file_read_port_opener.cpp
 		blocking_file_read_queue.cpp
 		file_read_completion.cpp
 		file_read_port.cpp
+		file_read_port_opener.cpp
 		file_read_queue.cpp
-		file_read_queue_pool.cpp
 		file_read_submitter.cpp
 		unseen_mapping_annotation.cpp
 )
@@ -47,7 +48,7 @@ else()
 endif()
 
 # Reads are queued with the kernel through io_uring only where the build has
-# liburing, which the pool of asynchronous queues is told of.
+# liburing, which the opener of asynchronous ports is told of.
 if(VITRIO_ENABLE_IO_URING)
 	target_sources(
 		vitrio-obj

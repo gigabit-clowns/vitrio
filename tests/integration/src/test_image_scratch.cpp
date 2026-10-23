@@ -27,6 +27,7 @@
 #include <vitrio/image_write.hpp>
 #include <vitrio/index_table.hpp>
 #include <vitrio/mapped_file_image_scratch_storage.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
@@ -84,7 +85,8 @@ public:
 		}
 
 		direct = std::make_shared<file_image_reader_provider>(
-			image_file_read_format_selector::get_shared()
+			image_file_read_format_selector::get_shared(),
+			make_file_transfer_pool()
 		);
 	}
 

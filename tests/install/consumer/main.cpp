@@ -3,7 +3,9 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/thread_pool_executor.hpp>
 #include <vitrio/file_image_reader_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
@@ -15,6 +17,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 namespace
@@ -56,8 +59,13 @@ int main()
 		*vitrio::image_file_write_format_selector::get_shared()
 	);
 
+	// The threads that carry out the reads of the files, which hand the
+	// conversions to a thread pool.
 	vitrio::file_image_reader_provider readers(
-		vitrio::image_file_read_format_selector::get_shared()
+		vitrio::image_file_read_format_selector::get_shared(),
+		std::make_shared<vitrio::file_transfer_pool>(
+			std::make_shared<vitrio::thread_pool_executor>(2)
+		)
 	);
 	const vitrio::image_location location(path);
 	const std::size_t &no_index = vitrio::image_location::no_stack_index;

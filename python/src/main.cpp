@@ -15,6 +15,7 @@
 #include "executor_image_saver.hpp"
 #include "file_detector_event_timeline_reader_provider.hpp"
 #include "file_image_reader_provider.hpp"
+#include "file_transfer_pool.hpp"
 #include "file_image_writer_provider.hpp"
 #include "image_descriptor.hpp"
 #include "image_file_read_format_selector.hpp"
@@ -64,6 +65,7 @@ NB_MODULE(_binding, m)
 	vitrio::bind_image_file_write_format_selector(m);
 
 	vitrio::bind_image_reader_provider(m);
+	vitrio::bind_file_transfer_pool(m);
 	vitrio::bind_file_image_reader_provider(m);
 	vitrio::bind_caching_image_reader_provider(m);
 	vitrio::bind_image_scratch(m);

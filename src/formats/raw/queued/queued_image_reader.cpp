@@ -2,20 +2,20 @@
 
 #include "queued_image_reader.hpp"
 
-#include "image_queued_read.hpp"
+#include "make_image_read_operation.hpp"
 
 #include <formats/raw/planning/image_read_policy.hpp>
 
-#include <vitrio/array/array_ref.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
-#include <vitrio/image_transfer_plan.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/interprocess/exceptions.hpp>
 
 #include <assert.hpp>
 
+#include <exception>
+#include <stdexcept>
 #include <utility>
 
 namespace vitrio
@@ -24,11 +24,12 @@ namespace vitrio
 namespace
 {
 
-boost::interprocess::file_mapping open_file(const std::string &path)
+std::shared_ptr<const boost::interprocess::file_mapping>
+open_file(const std::string &path)
 {
 	try
 	{
-		return boost::interprocess::file_mapping(
+		return std::make_shared<const boost::interprocess::file_mapping>(
 			path.c_str(),
 			boost::interprocess::read_only
 		);
@@ -63,16 +64,16 @@ queued_image_reader::queued_image_reader(
 	const std::string &path,
 	raw_image_layout layout,
 	image_metadata metadata,
-	std::shared_ptr<file_read_queue_pool> queues
+	std::shared_ptr<file_transfer_executor> transfers
 )
 	: m_path(path)
 	, m_file(open_file(path))
 	, m_file_size(measure_file(path))
 	, m_layout(std::move(layout))
 	, m_metadata(std::move(metadata))
-	, m_queues(std::move(queues))
+	, m_transfers(std::move(transfers))
 {
-	VITRIO_ASSERT(m_queues != nullptr);
+	VITRIO_ASSERT(m_transfers != nullptr);
 
 	const auto required =
 		m_layout.get_data_offset() + m_layout.get_data_size();
@@ -85,6 +86,8 @@ queued_image_reader::queued_image_reader(
 	}
 }
 
+queued_image_reader::~queued_image_reader() = default;
+
 const image_descriptor& queued_image_reader::get_descriptor() const noexcept
 {
 	return m_layout.get_descriptor();
@@ -95,21 +98,39 @@ const image_metadata& queued_image_reader::get_metadata() const noexcept
 	return m_metadata;
 }
 
-void queued_image_reader::read(
-	array_ref destination,
-	const image_transfer_plan &regions
+void queued_image_reader::read_async(
+	array destination,
+	image_transfer_plan regions,
+	std::shared_ptr<completion_notifier> done
 ) const
 {
-	read_queued_regions(
-		m_path,
-		m_file.get_mapping_handle().handle,
-		m_file_size,
-		m_layout,
-		destination,
-		regions,
-		m_queues->get_queue(),
-		default_staging_budget
-	);
+	if (!done)
+	{
+		throw std::invalid_argument(
+			m_path + ": queued_image_reader: The notifier must not be null."
+		);
+	}
+
+	std::unique_ptr<file_transfer_operation> operation;
+	try
+	{
+		operation = make_image_read_operation(
+			m_path,
+			m_file,
+			m_file_size,
+			m_layout,
+			std::move(destination),
+			regions,
+			default_staging_budget
+		);
+	}
+	catch (...)
+	{
+		done->notify_done(std::current_exception());
+		return;
+	}
+
+	m_transfers->submit(std::move(operation), std::move(done));
 }
 
 } // namespace vitrio

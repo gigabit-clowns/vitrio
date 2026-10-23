@@ -19,6 +19,7 @@
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -29,6 +30,7 @@
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
@@ -306,7 +308,8 @@ TEST_CASE(
 	"[eer][image_file_read_format_selector]" )
 {
 	file_image_reader_provider readers(
-		image_file_read_format_selector::get_shared());
+		image_file_read_format_selector::get_shared(),
+		make_file_transfer_pool());
 
 	REQUIRE_THROWS_AS(
 		readers.acquire(get_eer_asset_path(rle7.name)),

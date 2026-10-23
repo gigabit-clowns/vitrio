@@ -40,8 +40,10 @@ mrc_file_read_format::get_suitability(const image_file_probe &probe) const
 	return image_file_format_suitability::unsupported;
 }
 
-std::shared_ptr<image_reader>
-mrc_file_read_format::open(const image_file_probe &probe) const
+std::shared_ptr<image_reader> mrc_file_read_format::open(
+	const image_file_probe &probe,
+	const file_transfer_pool &transfers
+) const
 {
 	const auto header = parse_header(probe.get_leading_bytes());
 
@@ -51,7 +53,8 @@ mrc_file_read_format::open(const image_file_probe &probe) const
 			header,
 			get_single_section(probe.get_extension())
 		),
-		image_metadata()
+		image_metadata(),
+		transfers
 	);
 }
 

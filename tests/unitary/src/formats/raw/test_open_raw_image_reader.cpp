@@ -15,13 +15,14 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <memory/byte_order.hpp>
-#include <system/asynchronous_file_read_queue_pool.hpp>
+#include <system/asynchronous_file_read_port_opener.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -86,8 +87,12 @@ raw_image_layout make_layout(
 std::vector<float>
 read_all(const std::string &path, const raw_image_layout &layout)
 {
-	const auto reader =
-		open_raw_image_reader(path, layout, image_metadata());
+	const auto reader = open_raw_image_reader(
+		path,
+		layout,
+		image_metadata(),
+		*make_file_transfer_pool()
+	);
 	REQUIRE( reader != nullptr );
 
 	auto destination = make_host_array<float>(
@@ -130,9 +135,9 @@ TEST_CASE(
 	"[open_raw_image_reader]"
 )
 {
-	if (!asynchronous_file_read_queue_pool::is_supported())
+	if (!asynchronous_file_read_port_opener::is_supported())
 	{
-		SKIP( "The process can not have asynchronous queues here." );
+		SKIP( "The process can not have asynchronous ports here." );
 	}
 
 	const scoped_path path("open_raw_image_reader_out_of_order.raw");
@@ -173,7 +178,8 @@ TEST_CASE(
 			open_raw_image_reader(
 				path.get(),
 				make_layout(16),
-				image_metadata()
+				image_metadata(),
+				*make_file_transfer_pool()
 			),
 			image_file_format_error,
 			names_the_file
@@ -187,7 +193,7 @@ TEST_CASE(
 	"[open_raw_image_reader]"
 )
 {
-	if (asynchronous_file_read_queue_pool::is_supported())
+	if (asynchronous_file_read_port_opener::is_supported())
 	{
 		SKIP( "The process queues its reads here, which read any layout." );
 	}
@@ -199,7 +205,8 @@ TEST_CASE(
 		open_raw_image_reader(
 			path.get(),
 			make_layout(18, {12, 1, 3}),
-			image_metadata()
+			image_metadata(),
+			*make_file_transfer_pool()
 		),
 		image_file_format_error,
 		Catch::Matchers::MessageMatches(

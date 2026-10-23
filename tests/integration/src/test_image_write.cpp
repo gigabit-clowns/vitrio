@@ -20,6 +20,7 @@
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/image_reader_provider.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
@@ -129,7 +130,10 @@ TEST_CASE(
 	const auto reader_formats =
 		image_file_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<file_image_reader_provider>(reader_formats);
+		std::make_shared<file_image_reader_provider>(
+			reader_formats,
+			make_file_transfer_pool()
+		);
 	const auto loader = std::make_shared<executor_image_loader>(
 		readers,
 		std::make_shared<synchronous_executor>()
@@ -137,7 +141,8 @@ TEST_CASE(
 
 	SECTION( "the file states the stack it was declared as" )
 	{
-		const auto reader = reader_formats->open(path.get());
+		const auto reader =
+			reader_formats->open(path.get(), *make_file_transfer_pool());
 
 		CHECK( reader->get_descriptor() == stack_descriptor );
 	}
@@ -191,7 +196,10 @@ TEST_CASE(
 
 	const auto reader_formats =
 		image_file_read_format_selector::get_shared();
-	file_image_reader_provider readers(reader_formats);
+	file_image_reader_provider readers(
+		reader_formats,
+		make_file_transfer_pool()
+	);
 
 	SECTION( "the file states a stack of images of the array's type" )
 	{
@@ -295,7 +303,10 @@ TEST_CASE(
 	const auto reader_formats =
 		image_file_read_format_selector::get_shared();
 	const auto readers =
-		std::make_shared<file_image_reader_provider>(reader_formats);
+		std::make_shared<file_image_reader_provider>(
+			reader_formats,
+			make_file_transfer_pool()
+		);
 
 	SECTION( "the file states the stack it was declared as" )
 	{

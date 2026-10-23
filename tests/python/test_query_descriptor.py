@@ -31,7 +31,8 @@ def test_what_it_reports_sizes_a_destination(__written_stack):
 
 def test_accepts_an_explicit_provider(__written_image):
 	readers = vio.FileImageReaderProvider(
-		vio.ImageFileReadFormatSelector.get_shared()
+		vio.ImageFileReadFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	descriptor = vio.query_descriptor(__written_image, readers)
 	assert descriptor.extents == (4, 6)

@@ -43,7 +43,8 @@
 	#define VITRIO_STAGING_BYTE_BUDGET (1UL<<23)
 #endif
 
-// Reads of files the kernel carries out at once for one asynchronous queue.
+// Reads of files the kernel carries out at once for one asynchronous queue or
+// port.
 //
 // A read of scattered regions has this many stretches of the file in flight:
 // enough for a solid-state drive to serve them in parallel, and for the
@@ -51,4 +52,14 @@
 // waits for an earlier one.
 #ifndef VITRIO_FILE_READ_QUEUE_CAPACITY
 	#define VITRIO_FILE_READ_QUEUE_CAPACITY 64
+#endif
+
+// Threads that carry out the transfers of files of one file_transfer_pool, each
+// with a port of its own.
+//
+// A thread drives many transfers at once, and only queues their reads and
+// hands their conversions to the executor of computations, so one keeps up
+// with what the kernel delivers.
+#ifndef VITRIO_FILE_TRANSFER_WORKERS
+	#define VITRIO_FILE_TRANSFER_WORKERS 1
 #endif

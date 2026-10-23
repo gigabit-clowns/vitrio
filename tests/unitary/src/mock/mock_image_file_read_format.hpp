@@ -6,6 +6,7 @@
 
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_reader.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 
 #include <trompeloeil.hpp>
 
@@ -26,9 +27,12 @@ public:
 		override
 	);
 
-	MAKE_CONST_MOCK1(
+	MAKE_CONST_MOCK2(
 		open,
-		std::shared_ptr<image_reader>(const image_file_probe &probe),
+		std::shared_ptr<image_reader>(
+			const image_file_probe &probe,
+			const file_transfer_pool &transfers
+		),
 		override
 	);
 };

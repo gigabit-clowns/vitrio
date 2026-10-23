@@ -22,6 +22,8 @@ target_sources(
 		test_file_detector_event_timeline_reader_provider.cpp
 		test_file_image_reader_provider.cpp
 		test_file_image_writer_provider.cpp
+		test_file_transfer_pool.cpp
+		test_file_transfer_pool_implementation.cpp
 		test_find_most_suitable_format.cpp
 		test_host_image_scratch_storage.cpp
 		test_image_descriptor.cpp

@@ -18,6 +18,7 @@
 #include <vitrio/image_transfer_shape.hpp>
 
 
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/transfers.hpp>
 #include "fixtures/mrc_test_file.hpp"
@@ -91,7 +92,10 @@ TEST_CASE( "the MRC format claims the files it can read",
 	{
 		write_file(path.get(), make_file(4, 3, 1, 0, 2, counting(12)));
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		REQUIRE( reader != nullptr );
 		REQUIRE( reader->get_descriptor().get_core_rank() == 2 );
@@ -108,7 +112,10 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 	{
 		write_file(path.get(), make_file(4, 3, 2, 0, 2, counting(24)));
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {2, 3, 4};
 		const image_descriptor expected(
@@ -125,7 +132,10 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 		const auto values = counting(24);
 		write_file(path.get(), make_file(4, 3, 2, 0, 2, values));
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {2, 3, 4};
 		auto destination = make_array(
@@ -157,7 +167,10 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 		put_int32(raw, 92, 2);
 		write_file(path.get(), raw);
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {2, 3, 4};
 		auto destination = make_array(
@@ -193,7 +206,10 @@ TEST_CASE( "the MRC read format refuses a file that contradicts its header",
 		write_file(path.get(), raw);
 
 		REQUIRE_THROWS_AS(
-			format.open(image_file_probe(path.get())),
+			format.open(
+				image_file_probe(path.get()),
+				*make_file_transfer_pool()
+			),
 			image_file_format_error
 		);
 	}
@@ -205,7 +221,10 @@ TEST_CASE( "the MRC read format refuses a file that contradicts its header",
 		write_file(path.get(), raw);
 
 		REQUIRE_THROWS_MATCHES(
-			format.open(image_file_probe(path.get())),
+			format.open(
+				image_file_probe(path.get()),
+				*make_file_transfer_pool()
+			),
 			image_file_format_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(path.get() + ": ")
@@ -226,7 +245,10 @@ TEST_CASE(
 		const scoped_path path("read_format_single.mrcs");
 		write_file(path.get(), make_file(4, 3, 1, 0, 2, counting(12)));
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 		const auto extents = reader->get_descriptor().get_extents();
 
 		REQUIRE( std::vector<std::size_t>(extents.begin(), extents.end()) ==
@@ -238,7 +260,10 @@ TEST_CASE(
 		const scoped_path path("read_format_single.mrc");
 		write_file(path.get(), make_file(4, 3, 1, 0, 2, counting(12)));
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 		const auto extents = reader->get_descriptor().get_extents();
 
 		REQUIRE( std::vector<std::size_t>(extents.begin(), extents.end()) ==

@@ -1,278 +1,225 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/generators/catch_generators.hpp>
-#include <catch2/generators/catch_generators_range.hpp>
 #include <catch2/matchers/catch_matchers_exception.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <formats/raw/queued/file_read_plan_execution.hpp>
 
-#include "../../../fixtures/file_read_queue_pools.hpp"
-#include "../../../fixtures/mapped_test_file.hpp"
-#include "../../../fixtures/no_file.hpp"
-#include "../../../fixtures/recording_file_read_queue.hpp"
+#include "../../../mock/mock_file_read_submitter.hpp"
 
 #include <formats/raw/queued/file_read_plan.hpp>
+#include <system/file_read_completion.hpp>
 
 #include <vitrio/byte.hpp>
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/memory_range.hpp>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <system_error>
 #include <vector>
+
+#include <trompeloeil.hpp>
 
 using namespace vitrio;
 
 namespace
 {
 
-constexpr std::size_t file_size = 4096;
+const std::string path = "file_read_plan_execution.raw";
 
-// A plan of one read a step, each of `size` bytes, `stride` bytes apart.
+// What was asked of one read.
+struct queued_read
+{
+	std::uint64_t offset;
+	std::uint64_t tag;
+	std::size_t buffer_count;
+};
+
+// A plan of `reads_per_step` reads a step, each of `size` bytes, read after
+// read 1000 bytes apart.
 file_read_plan plan_steps(
 	std::vector<std::vector<byte>> &buffers,
 	std::size_t step_count,
-	std::size_t size,
-	std::size_t stride
+	std::size_t reads_per_step,
+	std::size_t size
 )
 {
 	file_read_plan plan;
-	buffers.assign(step_count, std::vector<byte>(size));
-	for (std::size_t step = 0; step < step_count; ++step)
+	buffers.assign(step_count * reads_per_step, std::vector<byte>(size));
+	for (std::size_t read = 0; read < buffers.size(); ++read)
 	{
-		const memory_range buffer(buffers[step].data(), size);
-		plan.add_read(step, step * stride, make_span(&buffer, 1));
+		const memory_range buffer(buffers[read].data(), size);
+		plan.add_read(
+			read / reads_per_step,
+			read * 1000,
+			make_span(&buffer, 1)
+		);
 	}
 
 	return plan;
 }
 
-bool holds_bytes_at(
-	const std::vector<byte> &buffer,
-	const mapped_test_file &file,
-	std::size_t offset
-)
+// A submitter that takes every read, and keeps what was asked of each.
+class recorded_reads
 {
-	const auto bytes = file.get_bytes();
-	return std::equal(buffer.begin(), buffer.end(), bytes.begin() + offset);
-}
-
-// Takes every read of an execution.
-void take_every_read(file_read_plan_execution &execution)
-{
-	std::size_t read = 0;
-	while (execution.take_next(read))
+public:
+	recorded_reads()
+		: m_taking(
+			NAMED_ALLOW_CALL(
+				m_submitter,
+				queue(
+					trompeloeil::_,
+					trompeloeil::_,
+					trompeloeil::_,
+					trompeloeil::_
+				)
+			).LR_SIDE_EFFECT( m_reads.push_back({_2, _4, _3.size()}) )
+		)
 	{
 	}
-}
+
+	file_read_submitter& get_submitter() noexcept
+	{
+		return m_submitter;
+	}
+
+	const std::vector<queued_read>& get_reads() const noexcept
+	{
+		return m_reads;
+	}
+
+private:
+	mock_file_read_submitter m_submitter;
+	std::vector<queued_read> m_reads;
+	std::unique_ptr<trompeloeil::expectation> m_taking;
+};
 
 } // anonymous namespace
 
 TEST_CASE(
-	"a file_read_plan_execution takes every read of its plan whole",
+	"a file_read_plan_execution sends the first two steps as it starts, each "
+	"read tagged with its index",
 	"[file_read_plan_execution]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
-	recording_file_read_queue queue(pool->get_queue());
-	const mapped_test_file file(
-		"file_read_plan_execution_reads.raw",
-		file_size
-	);
+	std::vector<std::vector<byte>> buffers;
+	const auto plan = plan_steps(buffers, 3, 2, 100);
+	recorded_reads reads;
 
-	// Two reads in the first step, the first scattered over two buffers, and
-	// one in each of the two steps after it.
-	std::vector<byte> first(40);
-	std::vector<byte> second(60);
-	std::vector<byte> third(50);
-	std::vector<byte> fourth(30);
-	std::vector<byte> fifth(20);
-	const std::vector<memory_range> scattered = {
-		{first.data(), first.size()},
-		{second.data(), second.size()},
-	};
-	const memory_range third_buffer(third.data(), third.size());
-	const memory_range fourth_buffer(fourth.data(), fourth.size());
-	const memory_range fifth_buffer(fifth.data(), fifth.size());
+	file_read_plan_execution execution(path, file_handle_t(), plan);
+	CHECK( reads.get_reads().empty() );
 
-	file_read_plan plan;
-	plan.add_read(0, 0, make_span(scattered));
-	plan.add_read(0, 500, make_span(&third_buffer, 1));
-	plan.add_read(1, 1000, make_span(&fourth_buffer, 1));
-	plan.add_read(2, 2000, make_span(&fifth_buffer, 1));
-
-	std::vector<std::size_t> taken;
+	execution.start(reads.get_submitter());
+	const auto &sent = reads.get_reads();
+	REQUIRE( sent.size() == 4 );
+	for (std::uint64_t read = 0; read < sent.size(); ++read)
 	{
-		file_read_plan_execution execution(
-		file.get_path(),
-		file.get_file(),
-		plan,
-		queue
-	);
-		std::size_t read = 0;
-		while (execution.take_next(read))
-		{
-			taken.push_back(read);
-		}
-		CHECK_FALSE( execution.take_next(read) );
+		CHECK( sent[read].offset == read * 1000 );
+		CHECK( sent[read].tag == read );
+		CHECK( sent[read].buffer_count == 1 );
 	}
-
-	std::sort(taken.begin(), taken.end());
-	CHECK( taken == std::vector<std::size_t>{0, 1, 2, 3} );
-	CHECK( queue.get_outstanding() == 0 );
-	CHECK( holds_bytes_at(first, file, 0) );
-	CHECK( holds_bytes_at(second, file, 40) );
-	CHECK( holds_bytes_at(third, file, 500) );
-	CHECK( holds_bytes_at(fourth, file, 1000) );
-	CHECK( holds_bytes_at(fifth, file, 2000) );
 }
 
 TEST_CASE(
-	"a file_read_plan_execution sends a step once the one two before it is "
-	"done with",
+	"a file_read_plan_execution sends a step once every read of the one two "
+	"before it is done with",
 	"[file_read_plan_execution]"
 )
 {
-	// Reads that read as they are asked complete in the order they were
-	// sent, which this relies on.
-	blocking_file_read_queue_pool pool;
-	recording_file_read_queue queue(pool.get_queue());
-	const mapped_test_file file(
-		"file_read_plan_execution_steps.raw",
-		file_size
-	);
-
 	std::vector<std::vector<byte>> buffers;
-	const auto plan = plan_steps(buffers, 4, 100, 1000);
+	const auto plan = plan_steps(buffers, 4, 2, 100);
+	recorded_reads reads;
+	auto &submitter = reads.get_submitter();
 
-	file_read_plan_execution execution(
-		file.get_path(),
-		file.get_file(),
-		plan,
-		queue
-	);
-	CHECK( queue.get_reads().empty() );
+	file_read_plan_execution execution(path, file_handle_t(), plan);
+	execution.start(submitter);
+	REQUIRE( reads.get_reads().size() == 4 );
 
-	std::size_t read = 0;
-	const std::vector<std::size_t> sent_by_then = {2, 3, 4, 4};
-	for (std::size_t step = 0; step < sent_by_then.size(); ++step)
+	// One read of the first step done with leaves the third step unsent.
+	execution.release(1, submitter);
+	CHECK( reads.get_reads().size() == 4 );
+
+	// The reads of the second step done with, the first is not.
+	execution.release(2, submitter);
+	execution.release(3, submitter);
+	CHECK( reads.get_reads().size() == 4 );
+
+	// Now both are, so the third and the fourth step go.
+	execution.release(0, submitter);
+	CHECK( reads.get_reads().size() == 8 );
+
+	for (std::size_t read = 4; read < 8; ++read)
 	{
-		REQUIRE( execution.take_next(read) );
-		CHECK( read == step );
-		CHECK( queue.get_reads().size() == sent_by_then[step] );
+		execution.release(read, submitter);
 	}
-	CHECK_FALSE( execution.take_next(read) );
+	CHECK( reads.get_reads().size() == 8 );
 }
 
 TEST_CASE(
-	"a file_read_plan_execution fails reads that do not arrive whole, and "
-	"leaves none outstanding",
+	"a file_read_plan_execution takes the completion of a read that arrived "
+	"whole",
 	"[file_read_plan_execution]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
-	recording_file_read_queue queue(pool->get_queue());
-	const mapped_test_file file(
-		"file_read_plan_execution_fails.raw",
-		file_size
-	);
 	std::vector<std::vector<byte>> buffers;
+	const auto plan = plan_steps(buffers, 2, 1, 100);
+	const file_read_plan_execution execution(path, file_handle_t(), plan);
 
-	SECTION( "a stretch the file ends before, naming the file" )
+	CHECK( execution.take(file_read_completion(1, 100)) == 1 );
+	CHECK( execution.take(file_read_completion(0, 100)) == 0 );
+}
+
+TEST_CASE(
+	"a file_read_plan_execution fails a read that does not arrive whole, "
+	"naming the file",
+	"[file_read_plan_execution]"
+)
+{
+	std::vector<std::vector<byte>> buffers;
+	const auto plan = plan_steps(buffers, 2, 1, 100);
+	const file_read_plan_execution execution(path, file_handle_t(), plan);
+	const auto names_the_file = Catch::Matchers::MessageMatches(
+		Catch::Matchers::StartsWith(path + ": ")
+	);
+
+	SECTION( "a stretch the file ends before" )
 	{
-		const auto plan = plan_steps(buffers, 3, 100, file_size - 150);
-
-		file_read_plan_execution execution(
-			file.get_path(),
-			file.get_file(),
-			plan,
-			queue
-		);
 		REQUIRE_THROWS_MATCHES(
-			take_every_read(execution),
+			execution.take(file_read_completion(1, 99)),
 			image_file_format_error,
-			Catch::Matchers::MessageMatches(
-				Catch::Matchers::StartsWith(file.get_path() + ": ")
-			)
+			names_the_file
 		);
 	}
 
 	SECTION( "a read the system fails" )
 	{
-		const auto plan = plan_steps(buffers, 3, 100, 1000);
-
-		file_read_plan_execution execution(
-			file.get_path(),
-			no_file,
-			plan,
-			queue
+		REQUIRE_THROWS_MATCHES(
+			execution.take(
+				file_read_completion(
+					0,
+					std::make_error_code(std::errc::io_error)
+				)
+			),
+			image_file_error,
+			names_the_file
 		);
-		std::size_t read = 0;
-		REQUIRE_THROWS_AS( execution.take_next(read), std::system_error );
-	}
-
-	CHECK( queue.get_outstanding() == 0 );
-}
-
-TEST_CASE(
-	"destroying a file_read_plan_execution waits for the reads that are "
-	"outstanding",
-	"[file_read_plan_execution]"
-)
-{
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
-	recording_file_read_queue queue(pool->get_queue());
-	const mapped_test_file file(
-		"file_read_plan_execution_waits.raw",
-		file_size
-	);
-
-	std::vector<std::vector<byte>> buffers;
-	const auto plan = plan_steps(buffers, 3, 100, 1000);
-	{
-		file_read_plan_execution execution(
-		file.get_path(),
-		file.get_file(),
-		plan,
-		queue
-	);
-		std::size_t read = 0;
-		REQUIRE( execution.take_next(read) );
-	}
-
-	CHECK( queue.get_outstanding() == 0 );
-	for (std::size_t step = 0; step < 2; ++step)
-	{
-		CHECK( holds_bytes_at(buffers[step], file, step * 1000) );
 	}
 }
 
 TEST_CASE(
-	"a file_read_plan_execution of a plan of no read takes none",
+	"a file_read_plan_execution of a plan of no read sends none",
 	"[file_read_plan_execution]"
 )
 {
-	const auto pool = GENERATE(from_range(make_every_file_read_queue_pool()));
-	recording_file_read_queue queue(pool->get_queue());
-	const mapped_test_file file(
-		"file_read_plan_execution_none.raw",
-		file_size
-	);
 	const file_read_plan plan;
+	recorded_reads reads;
 
-	file_read_plan_execution execution(
-		file.get_path(),
-		file.get_file(),
-		plan,
-		queue
-	);
-	std::size_t read = 0;
-
-	CHECK_FALSE( execution.take_next(read) );
-	CHECK( queue.get_reads().empty() );
+	file_read_plan_execution execution(path, file_handle_t(), plan);
+	execution.start(reads.get_submitter());
+	CHECK( reads.get_reads().empty() );
 }

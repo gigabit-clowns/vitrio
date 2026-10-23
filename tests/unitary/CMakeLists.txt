@@ -32,16 +32,6 @@ target_link_libraries(
 		trompeloeil::trompeloeil
 )
 
-# The cases of what is built only with liburing are compiled only with it
-# too.
-if(VITRIO_ENABLE_IO_URING)
-	target_compile_definitions(
-		vitrio-unitary-tests
-		PRIVATE
-			VITRIO_ENABLE_IO_URING
-	)
-endif()
-
 # The mocks count their arguments with a macro that only the conforming
 # preprocessor of MSVC expands as the others do.
 if(MSVC)

@@ -7,7 +7,9 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/thread_pool_executor.hpp>
 #include <vitrio/file_image_reader_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_read.hpp>
@@ -18,6 +20,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 int main()
@@ -46,8 +49,13 @@ int main()
 	);
 
 	// Read as 32-bit floats, whatever the file holds.
+	// The threads that carry out the reads of the files, which hand the
+	// conversions to a thread pool.
 	vitrio::file_image_reader_provider readers(
-		vitrio::image_file_read_format_selector::get_shared()
+		vitrio::image_file_read_format_selector::get_shared(),
+		std::make_shared<vitrio::file_transfer_pool>(
+			std::make_shared<vitrio::thread_pool_executor>(2)
+		)
 	);
 	const vitrio::array converted =
 		vitrio::read(path, readers, vitrio::numerical_type::float32);

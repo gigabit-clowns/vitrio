@@ -16,6 +16,7 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/image_write.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/transfers.hpp>
@@ -97,7 +98,8 @@ TEST_CASE(
 				flush_now(*writer);
 			}
 
-			const auto reader = readers.open(path.get());
+			const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 
 			REQUIRE( reader->get_descriptor() == descriptor );
 
@@ -159,7 +161,8 @@ TEST_CASE(
 			flush_now(*writer);
 		}
 
-		const auto reader = readers.open(path.get());
+		const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor().get_data_type() == file_type );
 
@@ -214,7 +217,8 @@ TEST_CASE(
 		}
 	}
 
-	const auto reader = readers.open(path.get());
+	const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 	auto destination =
 		make_host_array<std::int16_t>(extents, numerical_type::int16);
 	read_now(*reader, destination, whole_of(extents));
@@ -238,7 +242,8 @@ TEST_CASE(
 	const auto writers =
 		image_file_write_format_selector::get_shared();
 	const auto readers = std::make_shared<file_image_reader_provider>(
-		image_file_read_format_selector::get_shared()
+		image_file_read_format_selector::get_shared(),
+		make_file_transfer_pool()
 	);
 
 	SECTION( "a stack" )

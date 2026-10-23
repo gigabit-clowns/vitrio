@@ -31,9 +31,12 @@ tiff_file_read_format::get_suitability(const image_file_probe &probe) const
 		: image_file_format_suitability::unsupported;
 }
 
-std::shared_ptr<image_reader>
-tiff_file_read_format::open(const image_file_probe &probe) const
+std::shared_ptr<image_reader> tiff_file_read_format::open(
+	const image_file_probe &probe,
+	const file_transfer_pool &
+) const
 {
+	// The reader decodes on the thread that reads, as libtiff does.
 	return std::make_shared<tiff_image_reader>(probe.get_path());
 }
 

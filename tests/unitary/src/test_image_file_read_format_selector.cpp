@@ -11,6 +11,7 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
 #include "fixtures/format_selector_fixture.hpp"
@@ -23,6 +24,7 @@
 #include <trompeloeil.hpp>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
@@ -40,6 +42,7 @@ TEST_CASE( "an empty read format selector recognizes nothing",
 	"[image_file_read_format_selector]" )
 {
 	const image_file_read_format_selector selector;
+	const auto transfers = make_file_transfer_pool();
 
 	SECTION( "no format claims a file" )
 	{
@@ -50,7 +53,7 @@ TEST_CASE( "an empty read format selector recognizes nothing",
 	SECTION( "opening a path no file is at reports it missing" )
 	{
 		REQUIRE_THROWS_MATCHES(
-			selector.open("absent.mrc"),
+			selector.open("absent.mrc", *transfers),
 			image_file_error,
 			names("absent.mrc")
 		);
@@ -62,7 +65,7 @@ TEST_CASE( "an empty read format selector recognizes nothing",
 		std::ofstream(path.get().c_str(), std::ios::binary).put('\0');
 
 		REQUIRE_THROWS_MATCHES(
-			selector.open(path.get()),
+			selector.open(path.get(), *transfers),
 			unsupported_operation_error,
 			names(path.get())
 		);
@@ -76,6 +79,7 @@ TEST_CASE_METHOD(
 )
 {
 	const auto &selector = *get_selector();
+	const auto transfers = make_file_transfer_pool();
 	const image_file_probe probe("absent.mrc");
 
 	SECTION( "the only supporting format is chosen" )
@@ -111,24 +115,25 @@ TEST_CASE_METHOD(
 
 		REQUIRE( selector.get_most_suitable_format(probe) == nullptr );
 		REQUIRE_THROWS_MATCHES(
-			selector.open("absent.mrc"),
+			selector.open("absent.mrc", *transfers),
 			image_file_error,
 			names("absent.mrc")
 		);
 	}
 
-	SECTION( "the chosen format opens a path that names no file" )
+	SECTION( "the chosen format opens a path that names no file, with the "
+		"pool" )
 	{
 		// A path is only a locator: a format may claim one no local file is
 		// at, such as the address of a remote one.
 		auto &only = add_format(image_file_format_suitability::normal);
 		const auto reader = std::make_shared<mock_image_reader>();
 
-		REQUIRE_CALL(only, open(ANY(const image_file_probe&)))
-			.LR_WITH( _1.get_path() == "absent.mrc" )
+		REQUIRE_CALL(only, open(ANY(const image_file_probe&), trompeloeil::_))
+			.LR_WITH( _1.get_path() == "absent.mrc" && &_2 == transfers.get() )
 			.RETURN(reader);
 
-		REQUIRE( selector.open("absent.mrc") == reader );
+		REQUIRE( selector.open("absent.mrc", *transfers) == reader );
 	}
 }
 

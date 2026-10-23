@@ -5,7 +5,7 @@
 #include "file_transfer_executor.hpp"
 #include "file_transfer_worker.hpp"
 
-#include <system/file_read_port.hpp>
+#include <system/file_read_port_opener.hpp>
 
 #include <vitrio/concurrency/executor.hpp>
 
@@ -34,18 +34,19 @@ class thread_pool_file_transfer_executor final
 {
 public:
 	/**
-	 * @brief Start a thread for each port.
+	 * @brief Start a number of threads, each with a port of its own.
 	 *
 	 * @param tasks Where the tasks of the operations run. Must not be null.
-	 * @param ports The port of each thread. Must not be empty, nor hold a
-	 * null port.
-	 * @throws std::invalid_argument If @p tasks is null, @p ports is empty
-	 * or one of them is null.
+	 * @param ports What opens the port of each thread.
+	 * @param worker_count How many threads to start. Must not be zero.
+	 * @throws std::invalid_argument If @p tasks is null or @p worker_count is
+	 * zero.
 	 * @throws std::system_error If a thread can not be started.
 	 */
 	thread_pool_file_transfer_executor(
 		std::shared_ptr<executor> tasks,
-		std::vector<std::unique_ptr<file_read_port>> ports
+		const file_read_port_opener &ports,
+		std::size_t worker_count
 	);
 	~thread_pool_file_transfer_executor() override;
 

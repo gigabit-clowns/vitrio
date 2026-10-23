@@ -2,13 +2,10 @@
 
 #include "file_read_plan_execution.hpp"
 
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 
-#include <system/file_read_completion.hpp>
-#include <system/file_read_queue.hpp>
-
-#include <exception>
-#include <system_error>
+#include <assert.hpp>
 
 namespace vitrio
 {
@@ -16,44 +13,38 @@ namespace vitrio
 file_read_plan_execution::file_read_plan_execution(
 	const std::string &path,
 	file_handle_t file,
-	const file_read_plan &plan,
-	file_read_queue &queue
+	const file_read_plan &plan
 )
 	: m_path(path)
 	, m_file(file)
 	, m_plan(plan)
-	, m_queue(queue)
 	, m_pending(plan.get_step_count(), 0)
-	, m_outstanding(0)
 	, m_next_read(0)
 	, m_sent_steps(0)
 	, m_done_steps(0)
-	, m_taken(false)
-	, m_taken_read(0)
 {
 }
 
-file_read_plan_execution::~file_read_plan_execution()
+file_read_plan_execution::~file_read_plan_execution() = default;
+
+void file_read_plan_execution::start(file_read_submitter &reads)
 {
-	wait_out();
+	send_ahead(reads);
 }
 
-bool file_read_plan_execution::take_next(std::size_t &read)
+std::size_t file_read_plan_execution::take(
+	const file_read_completion &completion
+) const
 {
-	release_taken();
-	send_ahead();
-	if (m_done_steps == m_plan.get_step_count())
-	{
-		return false;
-	}
-
-	const auto completion = m_queue.wait();
-	--m_outstanding;
-	read = static_cast<std::size_t>(completion.get_tag());
+	const auto read = static_cast<std::size_t>(completion.get_tag());
+	VITRIO_ASSERT(read < m_plan.get_read_count());
 
 	if (completion.get_error())
 	{
-		throw std::system_error(completion.get_error());
+		throw image_file_error(
+			m_path + ": file_read_plan_execution: The file could not be "
+			"read: " + completion.get_error().message()
+		);
 	}
 
 	if (completion.get_size() < m_plan.get_size(read))
@@ -64,30 +55,31 @@ bool file_read_plan_execution::take_next(std::size_t &read)
 		);
 	}
 
-	m_taken = true;
-	m_taken_read = read;
-	return true;
+	return read;
 }
 
-void file_read_plan_execution::release_taken() noexcept
+void file_read_plan_execution::release(
+	std::size_t read,
+	file_read_submitter &reads
+)
 {
-	if (m_taken)
-	{
-		--m_pending[m_plan.get_step(m_taken_read)];
-		m_taken = false;
-	}
+	const auto step = m_plan.get_step(read);
+	VITRIO_ASSERT(m_pending[step] > 0);
+
+	--m_pending[step];
+	send_ahead(reads);
 }
 
 // Sends the step that is not done with and the one after it, past the steps
 // whose reads are all done with.
-void file_read_plan_execution::send_ahead()
+void file_read_plan_execution::send_ahead(file_read_submitter &reads)
 {
 	const auto step_count = m_plan.get_step_count();
 	for (;;)
 	{
 		while (m_sent_steps < step_count && m_sent_steps < m_done_steps + 2)
 		{
-			send_step(m_sent_steps++);
+			send_step(m_sent_steps++, reads);
 		}
 
 		if (m_done_steps == step_count || m_pending[m_done_steps] > 0)
@@ -99,7 +91,10 @@ void file_read_plan_execution::send_ahead()
 	}
 }
 
-void file_read_plan_execution::send_step(std::size_t step)
+void file_read_plan_execution::send_step(
+	std::size_t step,
+	file_read_submitter &reads
+)
 {
 	for (; m_next_read < m_plan.get_read_count(); ++m_next_read)
 	{
@@ -108,41 +103,13 @@ void file_read_plan_execution::send_step(std::size_t step)
 			return;
 		}
 
-		m_queue.queue(
+		reads.queue(
 			m_file,
 			m_plan.get_offset(m_next_read),
 			m_plan.get_buffers(m_next_read),
 			m_next_read
 		);
-		++m_outstanding;
 		++m_pending[step];
-	}
-}
-
-// Takes the completions of the reads still outstanding, and discards them.
-void file_read_plan_execution::wait_out() noexcept
-{
-	while (m_outstanding > 0)
-	{
-		try
-		{
-			m_queue.wait();
-			--m_outstanding;
-		}
-		catch (const std::system_error &error)
-		{
-			// The system is short of memory for the reads that are queued,
-			// and may have it later. Failing otherwise, it could still write
-			// into their buffers, which nothing could then release safely.
-			const auto code = error.code();
-			if (
-				code != std::errc::resource_unavailable_try_again &&
-				code != std::errc::device_or_resource_busy
-			)
-			{
-				std::terminate();
-			}
-		}
 	}
 }
 

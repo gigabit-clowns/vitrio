@@ -13,6 +13,7 @@ namespace vitrio
 {
 
 class image_file_probe;
+class file_transfer_pool;
 
 /**
  * @brief The ability of one image file format to be read.
@@ -65,12 +66,14 @@ public:
 	 * @c image_file_format_suitability::unsupported.
 	 *
 	 * @param probe The file to open.
+	 * @param transfers The threads that carry out the transfers of the reader.
 	 * @return std::shared_ptr<image_reader> The opened reader, never null.
 	 * @throws image_file_error If the file can not be reached.
 	 * @throws image_file_format_error If the file is malformed or truncated.
 	 */
 	virtual std::shared_ptr<image_reader> open(
-		const image_file_probe &probe
+		const image_file_probe &probe,
+		const file_transfer_pool &transfers
 	) const = 0;
 };
 

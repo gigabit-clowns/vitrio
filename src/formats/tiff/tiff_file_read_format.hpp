@@ -35,7 +35,8 @@ public:
 	get_suitability(const image_file_probe &probe) const override;
 
 	std::shared_ptr<image_reader> open(
-		const image_file_probe &probe
+		const image_file_probe &probe,
+		const file_transfer_pool &transfers
 	) const override;
 };
 

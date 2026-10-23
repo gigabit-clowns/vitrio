@@ -20,9 +20,9 @@ in the same commit that causes it.
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `src/formats/` | The image formats, each in a directory and a namespace of its own, such as `vitrio::mrc`, and in `raw/` what the formats whose values lie in the file as they are share |
-| `src/formats/raw/` | What the formats whose values lie in the file as they are share. Such a format resolves its header into a `raw_image_layout` and opens its reader with `open_raw_image_reader`, which picks the reader that suits the system and the values: one that queues its reads where the process can have asynchronous queues, and one over a mapping otherwise |
+| `src/formats/raw/` | What the formats whose values lie in the file as they are share. Such a format resolves its header into a `raw_image_layout` and opens its reader with `open_raw_image_reader`, which picks the reader that suits the system and the values: one that queues its reads through the `file_transfer_pool` it is given where the process can have asynchronous ports, and one over a mapping otherwise |
 | `src/formats/raw/planning/` | Gathers the regions of a read into the stretches of the file they reach, merged across small gaps and grouped into steps of a bounded number of bytes, on a grid of pages or of elements |
-| `src/formats/raw/queued/` | Reads a file whose values lie as they are through the queue of file reads of the thread that reads: straight into the array where nothing is converted, and otherwise into memory of its own a step at a time, as the read planning groups the regions |
+| `src/formats/raw/queued/` | Reads a file whose values lie as they are through an executor of file transfers. A read is planned on the thread that starts it into an operation: one that reads straight into the array where nothing is converted, and otherwise one that reads into memory of its own a step at a time, as the read planning groups the regions, and converts each stretch on the executor of computations as it arrives |
 | `src/formats/raw/mapped/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead, and a scratch reads its copies the same way. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
 | `src/formats/dm/` | The DigitalMicrograph format, versions 3 and 4, read only: its header, the tree of tags it is parsed into, how the size of a value follows from its encoding, how the image is found among the tags, and the format that registers itself |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
@@ -30,12 +30,12 @@ in the same commit that causes it.
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
-| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, one that reads as it is asked, and the pool that keeps a queue for each thread, asynchronous where the process can have one. Beside them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that reads as it is asked and waits on a condition variable |
-| `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the reads of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding |
+| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, and one that reads as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that reads as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
+| `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the reads of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
-| `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region, and transfers waited for |
+| `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region, transfers waited for, and a pool of file transfers for the files a case opens |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
 | `tests/install/` | Installs the library into the build tree, then builds and runs `consumer/`, a project of its own, against what was installed |
@@ -210,7 +210,12 @@ since the archive of a commit lacks its libraries, which are submodules.
   `SPDX-License-Identifier: LGPL-2.1-or-later`.
 - **Public and private.** A header under `include/` is public and is installed.
   A header under `src/` is neither. A public symbol is marked `VITRIO_API`,
-  from the generated `vitrio/export.hpp`; everything else is hidden.
+  from the generated `vitrio/export.hpp`; everything else is hidden. A public
+  class whose implementation the library reaches into, such as
+  `file_transfer_pool`, declares `class implementation;` and a
+  `get_implementation()` that is not marked, and its members that are
+  exported are marked one by one. The implementation is a class of its own
+  under `src/`.
 - **One class per file.** A class is declared in a `.hpp` and defined in a
   `.cpp`, or in an `.inl` included at the end of the header when it has to be
   inline.
@@ -253,6 +258,10 @@ since the archive of a commit lacks its libraries, which are submodules.
     that starts a transfer is submitted with a `failure_forwarding_notifier`
     (`src/concurrency/`), so that the transfer reports its outcome and the
     task only its failure.
+  - Files are read through a `file_transfer_pool`, which a file format is
+    given when it opens a file, and whose executor the reader keeps. Only
+    what is about files takes one: `file_image_reader_provider` holds it,
+    so that `image_reader_provider::acquire` stays a key alone.
 - **Sizes that come from a file.** Extents and strides may be read from a
   file, so arithmetic on them goes through `checked_add` and
   `checked_multiply` and an overflow is reported, not computed.
@@ -349,6 +358,11 @@ since the archive of a commit lacks its libraries, which are submodules.
   describe rows and hold nothing that reads them: each read is given the
   image loader it goes through, a scratch included, and a read given none
   goes through the one `_default_loader.py` shares across the process.
+- **File transfers in Python.** A provider assembled without a
+  `FileTransferPool` takes the one `_default_transfers.py` shares across the
+  process, whose conversions run on a thread pool of its own, apart from the
+  threads of the loaders, which may wait for reads. A child of a fork makes
+  its own, as `_default_loader.py` does.
 - **Docstrings.** Everything `vitrio.__all__` exports has a docstring, and so
   has each public method and property of a class, which
   `tests/python/test_documentation.py` checks. They are written in the style
