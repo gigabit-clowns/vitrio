@@ -66,6 +66,8 @@ public:
 		);
 
 		const auto file_done =
+			sanitized.size() == 1 ?
+			m_done :
 			std::make_shared<counting_notifier>(sanitized.size(), m_done);
 		for (auto &regions : sanitized)
 		{
