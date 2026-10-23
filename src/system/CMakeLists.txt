@@ -4,10 +4,14 @@ target_sources(
 	vitrio-obj
 	PRIVATE
 		asynchronous_file_read_queue_pool.cpp
+		blocking_file_read_port.cpp
 		blocking_file_read_queue.cpp
 		file_read_completion.cpp
+		file_read_port.cpp
 		file_read_queue.cpp
 		file_read_queue_pool.cpp
+		file_read_submitter.cpp
+		unseen_mapping_annotation.cpp
 )
 
 # What is asked of the operating system has one source file per family of
@@ -48,6 +52,8 @@ if(VITRIO_ENABLE_IO_URING)
 	target_sources(
 		vitrio-obj
 		PRIVATE
+			event_counter.cpp
+			io_uring_file_read_port.cpp
 			io_uring_file_read_queue.cpp
 	)
 

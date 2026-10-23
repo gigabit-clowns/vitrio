@@ -136,6 +136,7 @@ endif()
 
 add_subdirectory(array)
 add_subdirectory(concurrency)
+add_subdirectory(file_transfer)
 add_subdirectory(formats)
 add_subdirectory(memory)
 add_subdirectory(strided_transfer)

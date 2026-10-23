@@ -30,7 +30,8 @@ in the same commit that causes it.
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
-| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, one that reads as it is asked, and the pool that keeps a queue for each thread, asynchronous where the process can have one |
+| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, one that reads as it is asked, and the pool that keeps a queue for each thread, asynchronous where the process can have one. Beside them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that reads as it is asked and waits on a condition variable |
+| `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the reads of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
@@ -182,7 +183,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | Dependency | Needed by |
 |---|---|
 | Threads | The library, privately |
-| Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash | The library, privately. Interprocess maps the files |
+| Boost 1.70 or newer: Filesystem, Interprocess, ContainerHash, Optional | The library, privately. Interprocess maps the files |
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
 | libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | liburing 2.0 or newer | The library, privately and on Linux only, for the queue of file reads through io_uring. Not needed with `-DVITRIO_ENABLE_IO_URING=OFF`. It installs no CMake package, so it is found with pkg-config. It has no CMake build either: built, its own configure script is run into the build tree, which needs a POSIX shell and make |
@@ -266,7 +267,11 @@ since the archive of a commit lacks its libraries, which are submodules.
 - **Mocks.** A test that needs a stand-in for an interface uses the
   trompeloeil mock under `tests/unitary/src/mock/`, never a hand-written
   fake. A mock is added with the first test that uses it. An expectation on
-  a mocked transfer reports to its notifier, as the transfer would.
+  a mocked transfer reports to its notifier, as the transfer would. A mock
+  that the code under test destroys, such as a task or a file transfer
+  operation, holds its own expectations in its member `expectations`, which
+  are checked as it goes: trompeloeil aborts when a mock is destroyed before
+  the expectations on it.
 - **Transfers in tests.** A test that reads or writes through an interface
   waits with `read_now`, `write_now` and `flush_now`, from
   `tests/assets/include/vitrio/tests/transfers.hpp`.

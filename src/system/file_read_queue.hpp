@@ -2,55 +2,26 @@
 
 #pragma once
 
-#include "file_handle.hpp"
 #include "file_read_completion.hpp"
-
-#include <vitrio/memory_range.hpp>
-#include <vitrio/span.hpp>
-
-#include <cstdint>
+#include "file_read_submitter.hpp"
 
 namespace vitrio
 {
 
 /**
- * @brief Reads of stretches of files, each scattered over buffers, queued and
- * then waited for.
+ * @brief Reads of files queued, then waited for by the thread that queued
+ * them.
  *
- * A read is outstanding from when it is queued until @ref wait returns its
- * completion, and the memory of its buffers must stay valid as long.
- * Outstanding reads complete in any order. A read fills its buffers in order,
- * from the first, and stops short of filling them only where the file ends.
- * Destroying a queue waits for the reads that are outstanding.
+ * A read is outstanding until @ref wait returns its completion. Outstanding
+ * reads complete in any order. Destroying a queue waits for the reads that
+ * are outstanding.
  */
 class file_read_queue
+	: public file_read_submitter
 {
 public:
 	file_read_queue() noexcept;
-	file_read_queue(const file_read_queue &other) = delete;
-	file_read_queue(file_read_queue &&other) = delete;
-	virtual ~file_read_queue();
-
-	file_read_queue& operator=(const file_read_queue &other) = delete;
-	file_read_queue& operator=(file_read_queue &&other) = delete;
-
-	/**
-	 * @brief Queue a read of a stretch of a file.
-	 *
-	 * @param file The file to read.
-	 * @param offset Where in the file the stretch starts, in bytes.
-	 * @param buffers Where its bytes go, in order: as many as the stretch
-	 * covers.
-	 * @param tag What the completion of the read carries, to tell it from
-	 * the others.
-	 * @throws std::system_error If the system can not take the read.
-	 */
-	virtual void queue(
-		file_handle_t file,
-		std::uint64_t offset,
-		span<const memory_range> buffers,
-		std::uint64_t tag
-	) = 0;
+	~file_read_queue() override;
 
 	/**
 	 * @brief Wait until a read completes.

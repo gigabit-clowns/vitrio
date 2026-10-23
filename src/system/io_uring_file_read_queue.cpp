@@ -3,6 +3,7 @@
 #include "io_uring_file_read_queue.hpp"
 
 #include "iovec_gathering.hpp"
+#include "unseen_mapping_annotation.hpp"
 
 #include <assert.hpp>
 
@@ -251,6 +252,7 @@ void io_uring_file_read_queue::open_ring()
 		throw_system_error(status, "io_uring_queue_init");
 	}
 
+	announce_unseen_mapping();
 	m_process = ::getpid();
 }
 
@@ -258,6 +260,7 @@ void io_uring_file_read_queue::close_ring() noexcept
 {
 	if (m_process != 0)
 	{
+		announce_unseen_unmapping();
 		io_uring_queue_exit(&m_ring);
 		m_process = 0;
 	}
