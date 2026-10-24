@@ -40,7 +40,7 @@ class GapCapBuild(VitrioBuild):
 	gap_cap = parameter([1 << 12, 1 << 15, 1 << 17, 1 << 20], type=int)
 
 	def defines(self):
-		return {'VITRIO_PREFETCH_GAP_CAP': self.gap_cap}
+		return {'VITRIO_DEFAULT_PREFETCH_GAP_CAP': self.gap_cap}
 
 @rfm.simple_test
 class gap_cap(Patches):

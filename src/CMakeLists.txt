@@ -125,6 +125,7 @@ target_sources(
 		strict_image_transfer_sanitizer.cpp
 		synchronous_image_reader.cpp
 		synchronous_image_writer.cpp
+		tuning.cpp
 		waiting_transfers.cpp
 )
 

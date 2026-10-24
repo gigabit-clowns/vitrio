@@ -10,6 +10,7 @@
 
 #include <assert.hpp>
 #include <logger.hpp>
+#include <tuning.hpp>
 
 #include <exception>
 #include <system_error>
@@ -51,9 +52,15 @@ asynchronous_file_read_port_opener::~asynchronous_file_read_port_opener() =
 
 bool asynchronous_file_read_port_opener::is_supported() noexcept
 {
-	// Opening a port is what tells whether the process can have them.
+	// Opening a port is what tells whether the process can have them,
+	// unless the environment turns them off.
 	static const bool supported = []() noexcept
 	{
+		if (is_asynchronous_io_disabled())
+		{
+			return false;
+		}
+
 		try
 		{
 			open_asynchronous_port(1);
@@ -71,6 +78,11 @@ bool asynchronous_file_read_port_opener::is_supported() noexcept
 std::unique_ptr<file_read_port>
 asynchronous_file_read_port_opener::open() const
 {
+	if (is_asynchronous_io_disabled())
+	{
+		return std::make_unique<blocking_file_read_port>();
+	}
+
 	try
 	{
 		return open_asynchronous_port(m_capacity);

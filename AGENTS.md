@@ -340,8 +340,12 @@ since the archive of a commit lacks its libraries, which are submodules.
   format strings. They write to a logger of the library's own, on the
   standard error stream, and never to the default logger of spdlog. spdlog
   stays out of the public headers.
-- **Tuning.** A number that tunes the library is a macro in `src/config.hpp`,
-  with a default that the build may override.
+- **Tuning.** A number that tunes the library has its default in a macro of
+  `src/config.hpp`, `VITRIO_DEFAULT_<NAME>`, which the build may override,
+  and is read through `src/tuning.hpp`, where the variable `VITRIO_<NAME>`
+  of the environment overrides it once the library runs. `VITRIO_DISABLE_ASYNCHRONOUS_IO`, set
+  to anything but 0, has the process read its files as one without
+  asynchronous ports does. None of them is an argument of the API.
 - **The Python binding.** `vitrio._binding` mirrors the C++ API, with the
   same names and the same required arguments. What Python expects on top,
   such as defaults and the ways a data type is stated, is Python code in

@@ -13,6 +13,7 @@
 #include <boost/interprocess/exceptions.hpp>
 
 #include <assert.hpp>
+#include <tuning.hpp>
 
 #include <exception>
 #include <stdexcept>
@@ -121,7 +122,7 @@ void queued_image_reader::read_async(
 			m_layout,
 			std::move(destination),
 			regions,
-			default_staging_budget
+			get_staging_byte_budget()
 		);
 	}
 	catch (...)

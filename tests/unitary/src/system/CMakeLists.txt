@@ -7,6 +7,7 @@ target_sources(
 		test_blocking_file_read_port.cpp
 		test_blocking_file_read_port_opener.cpp
 		test_blocking_file_read_queue.cpp
+		test_environment_variable.cpp
 		test_file_read_completion.cpp
 		test_page_prefetch.cpp
 		test_page_size.cpp

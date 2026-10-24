@@ -60,6 +60,7 @@ target_sources(
 		test_strict_image_transfer_sanitizer.cpp
 		test_synchronous_image_reader.cpp
 		test_synchronous_image_writer.cpp
+		test_tuning.cpp
 		test_version.cpp
 		test_waiting_transfers.cpp
 )

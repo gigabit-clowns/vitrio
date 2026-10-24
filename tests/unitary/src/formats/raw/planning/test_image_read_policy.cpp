@@ -5,6 +5,7 @@
 #include <formats/raw/planning/image_read_policy.hpp>
 
 #include <system/page_size.hpp>
+#include <tuning.hpp>
 
 #include <cstddef>
 
@@ -27,19 +28,19 @@ TEST_CASE( "the policy of advice scales its tolerance with the region",
 	SECTION( "a region wider than the cap is capped" )
 	{
 		const auto policy =
-			make_prefetch_policy(4 * default_prefetch_gap_cap);
+			make_prefetch_policy(4 * get_prefetch_gap_cap());
 
-		CHECK( policy.get_gap_tolerance() == default_prefetch_gap_cap );
+		CHECK( policy.get_gap_tolerance() == get_prefetch_gap_cap() );
 	}
 
 	SECTION( "a region narrower than the cap sets the tolerance" )
 	{
 		// Floored at a page, so the region has to be wider than one to be
 		// what decides it.
-		const std::size_t span = default_prefetch_gap_cap / 2;
+		const std::size_t span = get_prefetch_gap_cap() / 2;
 		const auto policy = make_prefetch_policy(span);
 
-		CHECK( policy.get_gap_tolerance() <= default_prefetch_gap_cap );
+		CHECK( policy.get_gap_tolerance() <= get_prefetch_gap_cap() );
 		CHECK( policy.get_gap_tolerance() >= span );
 	}
 
@@ -50,6 +51,6 @@ TEST_CASE( "the policy of advice scales its tolerance with the region",
 
 		CHECK( policy.get_alignment() == get_page_size() );
 		CHECK( policy.get_alignment_origin() == 0 );
-		CHECK( policy.get_byte_budget() == default_prefetch_budget );
+		CHECK( policy.get_byte_budget() == get_prefetch_byte_budget() );
 	}
 }

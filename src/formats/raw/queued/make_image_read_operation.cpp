@@ -15,6 +15,7 @@
 
 #include <array/array_data.hpp>
 #include <memory/byte_order.hpp>
+#include <tuning.hpp>
 
 #include <algorithm>
 #include <utility>
@@ -83,7 +84,7 @@ image_read_schedule schedule_stretches(
 		data_offset,
 		file_size,
 		image_read_policy(
-			std::min(region_span, default_prefetch_gap_cap),
+			std::min(region_span, get_prefetch_gap_cap()),
 			byte_budget,
 			element_size,
 			data_offset % element_size

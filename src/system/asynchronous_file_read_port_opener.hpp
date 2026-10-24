@@ -16,7 +16,9 @@ namespace vitrio
  * A port is an io_uring, which only builds with liburing have. Where the
  * system refuses the process one more, such as when it is short of the
  * memory it lets the process lock, the port reads as it is asked instead,
- * and the refusal is logged.
+ * and the refusal is logged. Where the environment turns asynchronous ports
+ * off, as @ref is_asynchronous_io_disabled says, the process has none, and
+ * every port reads as it is asked.
  */
 class asynchronous_file_read_port_opener final
 	: public file_read_port_opener
@@ -34,7 +36,8 @@ public:
 
 	/**
 	 * @brief Tell whether the process can have asynchronous ports of file
-	 * reads.
+	 * reads: whether the build and the kernel give it some, and the
+	 * environment does not turn them off.
 	 *
 	 * @return bool Whether it can. The same for as long as the process
 	 * lives.

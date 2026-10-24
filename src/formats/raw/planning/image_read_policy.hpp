@@ -2,40 +2,10 @@
 
 #pragma once
 
-#include <config.hpp>
-
 #include <cstddef>
 
 namespace vitrio
 {
-
-/**
- * @brief Widest gap that merging bridges, whatever one region spans.
- *
- * See config.hpp, which is where the number comes from and where it may be
- * overridden.
- */
-constexpr std::size_t default_prefetch_gap_cap =
-	VITRIO_PREFETCH_GAP_CAP;
-
-/**
- * @brief Bytes a step advises before the regions of the previous one are
- * walked.
- *
- * See config.hpp, which is where the number comes from and where it may be
- * overridden.
- */
-constexpr std::size_t default_prefetch_budget =
-	VITRIO_PREFETCH_BYTE_BUDGET;
-
-/**
- * @brief Bytes a step stages in memory of its own, where its values are
- * converted on their way to the array.
- *
- * See config.hpp, which is where the number comes from and where it may be
- * overridden.
- */
-constexpr std::size_t default_staging_budget = VITRIO_STAGING_BYTE_BUDGET;
 
 /**
  * @brief How the regions of a read are gathered into stretches of the file:
@@ -119,7 +89,8 @@ private:
  * The tolerance scales with the region rather than being flat, so that a gap
  * wider than the data on either side of it is never bridged; it is floored at
  * a page, below which two stretches would be advised as the same page twice,
- * and capped at @ref default_prefetch_gap_cap. Stretches start on the pages
+ * and capped at @ref get_prefetch_gap_cap. Its steps advise
+ * @ref get_prefetch_byte_budget bytes. Stretches start on the pages
  * of the machine, counted from the first byte of the file, which is where a
  * mapping of it starts.
  *

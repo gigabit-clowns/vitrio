@@ -80,7 +80,9 @@ reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
   once per value of a macro of `src/config.hpp`, with the fixture
   `VitrioBuild`, and run each point on its build. A build is kept between
   campaigns, named after its macros, so only the first campaign pays for
-  it. It needs nanobind in the environment ReFrame runs in.
+  it. It needs nanobind in the environment ReFrame runs in. As vitrio runs,
+  the variable of the environment named as the macro without `DEFAULT_`
+  overrides it, which measures a value without building it.
 
 ## A run
 
@@ -257,8 +259,8 @@ the defaults do not account for.
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |
 | `convert_first` | `epochs` | A converted dataset's first run, which converts it, against a rerun |
 | `patch_readers` | `patches` | Every reader that crops patches, at three sides |
-| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_PREFETCH_GAP_CAP`. A build per value |
-| `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_PREFETCH_BYTE_BUDGET`. A build per value |
+| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value |
+| `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET`. A build per value |
 | `ceiling` | `ceiling` | What the storage delivers |
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,

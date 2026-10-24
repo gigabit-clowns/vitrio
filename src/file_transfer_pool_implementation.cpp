@@ -8,7 +8,7 @@
 #include <system/file_read_port_opener.hpp>
 
 #include <assert.hpp>
-#include <config.hpp>
+#include <tuning.hpp>
 
 #include <utility>
 
@@ -25,7 +25,7 @@ std::unique_ptr<file_read_port_opener> make_port_opener()
 	if (asynchronous_file_read_port_opener::is_supported())
 	{
 		return std::make_unique<asynchronous_file_read_port_opener>(
-			VITRIO_FILE_READ_QUEUE_CAPACITY
+			get_file_read_queue_capacity()
 		);
 	}
 
@@ -41,7 +41,7 @@ file_transfer_pool::implementation::implementation(
 		std::make_shared<thread_pool_file_transfer_executor>(
 			std::move(tasks),
 			*make_port_opener(),
-			VITRIO_FILE_TRANSFER_WORKERS
+			get_file_transfer_workers()
 		)
 	)
 {

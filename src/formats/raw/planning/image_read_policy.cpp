@@ -3,6 +3,7 @@
 #include "image_read_policy.hpp"
 
 #include <system/page_size.hpp>
+#include <tuning.hpp>
 
 #include <algorithm>
 
@@ -48,8 +49,8 @@ image_read_policy make_prefetch_policy(std::size_t region_span) noexcept
 	const auto floor = std::max(region_span, page_size);
 
 	return image_read_policy(
-		std::min(floor, default_prefetch_gap_cap),
-		default_prefetch_budget,
+		std::min(floor, get_prefetch_gap_cap()),
+		get_prefetch_byte_budget(),
 		page_size,
 		0
 	);

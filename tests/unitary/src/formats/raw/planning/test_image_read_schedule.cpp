@@ -8,6 +8,8 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
+#include <tuning.hpp>
+
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -141,7 +143,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 		const image_transfer_plan regions(image_transfer_shape(plane, 3, 3));
 		const auto scheduled = schedule(
 			regions, plane_offsets({}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		CHECK( scheduled.get_step_count() == 0 );
@@ -155,7 +157,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({2}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -173,7 +175,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({1, 2, 3}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -190,7 +192,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({1, 4}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 2 );
@@ -210,7 +212,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({0, 2}), whole_file,
-			make_policy(plane_bytes, default_prefetch_budget)
+			make_policy(plane_bytes, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -226,7 +228,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({3, 3}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -242,7 +244,7 @@ TEST_CASE( "a batch is advised as the stretches it reaches",
 
 		const auto scheduled = schedule(
 			regions, plane_offsets({0}), whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		CHECK( scheduled.get_ranges().empty() );
@@ -270,7 +272,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 		const auto scheduled = schedule(
 			regions, plane_offsets({1}),
 			whole_file,
-			make_policy(0, default_prefetch_budget, 32)
+			make_policy(0, get_prefetch_byte_budget(), 32)
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -284,7 +286,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 		const auto end = values + plane_bytes + 16;
 		const auto scheduled = schedule(
 			regions, plane_offsets({1}),
-			end, make_policy(0, default_prefetch_budget)
+			end, make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_ranges().size() == 1 );
@@ -301,7 +303,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 		const auto scheduled = schedule(
 			regions, plane_offsets({1}),
 			whole_file + 1,
-			make_policy(0, default_prefetch_budget, 32, 1),
+			make_policy(0, get_prefetch_byte_budget(), 32, 1),
 			values + 1
 		);
 
@@ -318,7 +320,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 		const auto scheduled = schedule(
 			regions, plane_offsets({1}),
 			whole_file + 1,
-			make_policy(0, default_prefetch_budget, sizeof(float), 1),
+			make_policy(0, get_prefetch_byte_budget(), sizeof(float), 1),
 			values + 1
 		);
 
@@ -332,7 +334,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 	{
 		const auto scheduled = schedule(
 			regions, plane_offsets({1}),
-			values, make_policy(0, default_prefetch_budget)
+			values, make_policy(0, get_prefetch_byte_budget())
 		);
 
 		CHECK( scheduled.get_ranges().empty() );
@@ -354,7 +356,7 @@ TEST_CASE( "every stretch starts on the grid at or before its region, within "
 		const auto scheduled = schedule(
 			both, plane_offsets({0, 1}),
 			values + plane_bytes,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		std::size_t covered = 0;
@@ -382,7 +384,7 @@ TEST_CASE( "the stretches of a batch are grouped into steps",
 	{
 		const auto scheduled = schedule(
 			regions, offsets, whole_file,
-			make_policy(0, default_prefetch_budget)
+			make_policy(0, get_prefetch_byte_budget())
 		);
 
 		REQUIRE( scheduled.get_step_count() == 1 );

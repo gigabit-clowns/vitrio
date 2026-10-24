@@ -86,7 +86,7 @@ class BudgetBuild(VitrioBuild):
 	)
 
 	def defines(self):
-		return {'VITRIO_PREFETCH_BYTE_BUDGET': self.budget}
+		return {'VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET': self.budget}
 
 @rfm.simple_test
 class prefetch_budget(ReadBatches):

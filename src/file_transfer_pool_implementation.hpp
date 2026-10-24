@@ -10,16 +10,18 @@
 
 #include <memory>
 
+#include <tuning.hpp>
+
 namespace vitrio
 {
 
 /**
  * @brief What a @ref file_transfer_pool holds: an executor of file transfers,
- * with @c VITRIO_FILE_TRANSFER_WORKERS threads, each with a port that suits
+ * with @ref get_file_transfer_workers threads, each with a port that suits
  * the system.
  *
  * The ports are asynchronous where the process can have them, with room for
- * @c VITRIO_FILE_READ_QUEUE_CAPACITY reads each, and read as they are asked
+ * @ref get_file_read_queue_capacity reads each, and read as they are asked
  * otherwise.
  */
 class file_transfer_pool::implementation

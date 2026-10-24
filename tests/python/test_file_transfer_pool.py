@@ -1,11 +1,54 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import os
+import subprocess
+import sys
+import textwrap
 
 import numpy as np
 import pytest
 
 import vitrio as vio
+
+# Reads a file, checks what it holds, and prints how many io_uring instances
+# the process holds then.
+_READ_AND_COUNT_RINGS = textwrap.dedent('''
+	import os
+	import sys
+
+	import numpy as np
+	import vitrio as vio
+
+	read = np.asarray(vio.read(sys.argv[1]))
+	assert np.array_equal(read, np.arange(24, dtype=np.float32).reshape(4, 6))
+
+	rings = 0
+	for entry in os.listdir('/proc/self/fd'):
+		try:
+			target = os.readlink(f'/proc/self/fd/{entry}')
+		except OSError:
+			continue
+		rings += target == 'anon_inode:[io_uring]'
+	print(rings)
+''')
+
+def _rings_after_a_read(path, **variables) -> int:
+	result = subprocess.run(
+		[sys.executable, '-c', _READ_AND_COUNT_RINGS, str(path)],
+		env={**os.environ, **variables}, check=True, capture_output=True,
+		text=True,
+	)
+	return int(result.stdout)
+
+def _write_image(tmp_path):
+	path = tmp_path / 'image.mrc'
+	vio.write_single(np.arange(24, dtype=np.float32).reshape(4, 6), path)
+	return path
+
+_COUNTS_RINGS = pytest.mark.skipif(
+	not os.path.isdir('/proc/self/fd'),
+	reason='The system does not list the files of a process.',
+)
 
 def test_a_file_transfer_pool_needs_an_executor():
 	with pytest.raises(TypeError):
@@ -50,3 +93,18 @@ def test_the_child_of_a_fork_reads_through_a_pool_of_its_own(tmp_path):
 	_, status = os.waitpid(child, 0)
 	assert os.WIFEXITED(status)
 	assert os.WEXITSTATUS(status) == 0
+
+@_COUNTS_RINGS
+def test_the_environment_sets_the_threads_of_file_transfers(tmp_path):
+	path = _write_image(tmp_path)
+
+	# One ring a thread where the process can have asynchronous ports, and
+	# none where it can not.
+	per_thread = _rings_after_a_read(path, VITRIO_FILE_TRANSFER_WORKERS='1')
+	threads = _rings_after_a_read(path, VITRIO_FILE_TRANSFER_WORKERS='3')
+	assert threads == 3 * per_thread
+
+@_COUNTS_RINGS
+def test_the_environment_turns_asynchronous_io_off(tmp_path):
+	path = _write_image(tmp_path)
+	assert _rings_after_a_read(path, VITRIO_DISABLE_ASYNCHRONOUS_IO='1') == 0

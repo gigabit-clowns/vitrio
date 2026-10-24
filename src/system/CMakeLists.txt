@@ -21,6 +21,7 @@ if(WIN32)
 	target_sources(
 		vitrio-obj
 		PRIVATE
+			environment_variable_windows.cpp
 			page_prefetch_windows.cpp
 			page_size_windows.cpp
 			scattered_file_read_windows.cpp
@@ -29,6 +30,7 @@ elseif(APPLE)
 	target_sources(
 		vitrio-obj
 		PRIVATE
+			environment_variable_posix.cpp
 			iovec_gathering.cpp
 			page_prefetch_darwin.cpp
 			page_size_posix.cpp
@@ -38,6 +40,7 @@ elseif(UNIX)
 	target_sources(
 		vitrio-obj
 		PRIVATE
+			environment_variable_posix.cpp
 			iovec_gathering.cpp
 			page_prefetch_posix.cpp
 			page_size_posix.cpp
