@@ -48,20 +48,24 @@
 // Reads of files the kernel carries out at once for one asynchronous queue or
 // port.
 //
-// A read of scattered regions has this many stretches of the file in flight:
-// enough for a solid-state drive to serve them in parallel, and for the
-// scheduler of a disk to order them along its way. Past it, queueing a read
+// The threads of a file_transfer_pool have this many reads in flight each,
+// and so as many as a disk array needs in all: the reads of scattered
+// regions keep the disks busy, and their schedulers order the reads along
+// their way. More gains nothing, and where a read takes a thread of the
+// kernel, as on ZFS, each read in flight costs one. Past it, queueing a read
 // waits for an earlier one.
 #ifndef VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY
-	#define VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY 64
+	#define VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY 16
 #endif
 
 // Threads that carry out the transfers of files of one file_transfer_pool, each
 // with a port of its own.
 //
 // A thread drives many transfers at once, and only queues their reads and
-// hands their conversions to the executor of computations, so one keeps up
-// with what the kernel delivers.
+// hands their conversions to the executor of computations. Where the kernel
+// copies what a read brings from its cache on the thread that drives the
+// ring, as ext4 does, that copying is the thread's work too, and a solid-state
+// drive delivers more than one thread copies.
 #ifndef VITRIO_DEFAULT_FILE_TRANSFER_WORKERS
-	#define VITRIO_DEFAULT_FILE_TRANSFER_WORKERS 1
+	#define VITRIO_DEFAULT_FILE_TRANSFER_WORKERS 4
 #endif
