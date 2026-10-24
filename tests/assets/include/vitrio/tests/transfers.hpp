@@ -6,6 +6,7 @@
 #include <vitrio/array/const_array.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/image_reader.hpp>
+#include <vitrio/image_scratch_entry.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_writer.hpp>
 
@@ -83,6 +84,26 @@ inline void flush_now(image_writer &writer)
 {
 	const auto done = std::make_shared<counting_completion>(1);
 	writer.flush_async(done);
+	done->get();
+}
+
+/**
+ * @brief Store regions of a file in a scratch entry and wait until they are
+ * held.
+ *
+ * @param entry The entry.
+ * @param file A reader over the file the entry is of.
+ * @param regions The regions to take in.
+ * @throws Whatever the store reports.
+ */
+inline void store_now(
+	image_scratch_entry &entry,
+	const image_reader &file,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	entry.store_async(file, regions, done);
 	done->get();
 }
 

@@ -2,65 +2,190 @@
 
 #include "scratch_image_reader.hpp"
 
-#include <vitrio/array/array.hpp>
 #include <vitrio/array/array_ref.hpp>
+#include <vitrio/concurrency/task.hpp>
 #include <vitrio/image_scratch_entry.hpp>
-#include <vitrio/image_transfer_plan.hpp>
 
-#include <array/borrowed_array.hpp>
+#include <concurrency/failure_forwarding_notifier.hpp>
+
 #include <assert.hpp>
-#include <waiting_transfers.hpp>
 
+#include <exception>
+#include <stdexcept>
 #include <utility>
 
 namespace vitrio
 {
 
+namespace
+{
+
+// What a read does once the entry has taken in what it was offered: read
+// from the entry what it now holds, and from the file whatever it does not.
+class held_read final
+	: public task
+{
+public:
+	held_read(
+		std::shared_ptr<image_scratch_entry> entry,
+		std::shared_ptr<const image_reader> file,
+		array destination,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
+	) noexcept
+		: m_entry(std::move(entry))
+		, m_file(std::move(file))
+		, m_destination(std::move(destination))
+		, m_regions(std::move(regions))
+		, m_done(std::move(done))
+	{
+	}
+
+	void run() override
+	{
+		const auto unheld = m_entry->read(array_ref(m_destination), m_regions);
+		if (unheld.get_region_count() == 0)
+		{
+			m_done->notify_done();
+			return;
+		}
+
+		m_file->read_async(std::move(m_destination), unheld, std::move(m_done));
+	}
+
+private:
+	std::shared_ptr<image_scratch_entry> m_entry;
+	std::shared_ptr<const image_reader> m_file;
+	array m_destination;
+	image_transfer_plan m_regions;
+	std::shared_ptr<completion_notifier> m_done;
+};
+
+// What the entry reports to once it has taken in the regions it was offered:
+// a failure is the read's, and otherwise a task reads them from it. The
+// task reports only its own failure, since the read it finishes reports.
+class scratch_read_continuation final
+	: public completion_notifier
+{
+public:
+	scratch_read_continuation(
+		std::shared_ptr<image_scratch_entry> entry,
+		std::shared_ptr<const image_reader> file,
+		std::shared_ptr<executor> tasks,
+		array destination,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
+	) noexcept
+		: m_entry(std::move(entry))
+		, m_file(std::move(file))
+		, m_tasks(std::move(tasks))
+		, m_destination(std::move(destination))
+		, m_regions(std::move(regions))
+		, m_done(std::move(done))
+	{
+	}
+
+	void notify_done(std::exception_ptr error) override
+	{
+		if (error)
+		{
+			m_done->notify_done(std::move(error));
+			return;
+		}
+
+		const auto reported =
+			std::make_shared<failure_forwarding_notifier>(m_done);
+		m_tasks->submit(
+			std::make_unique<held_read>(
+				std::move(m_entry),
+				std::move(m_file),
+				std::move(m_destination),
+				std::move(m_regions),
+				std::move(m_done)
+			),
+			reported
+		);
+	}
+
+private:
+	std::shared_ptr<image_scratch_entry> m_entry;
+	std::shared_ptr<const image_reader> m_file;
+	std::shared_ptr<executor> m_tasks;
+	array m_destination;
+	image_transfer_plan m_regions;
+	std::shared_ptr<completion_notifier> m_done;
+};
+
+} // anonymous namespace
+
 scratch_image_reader::scratch_image_reader(
 	std::shared_ptr<image_scratch_entry> entry,
-	std::shared_ptr<const image_reader> file
+	std::shared_ptr<const image_reader> file,
+	std::shared_ptr<executor> tasks
 )
 	: m_entry(std::move(entry))
 	, m_file(std::move(file))
+	, m_tasks(std::move(tasks))
 {
+	VITRIO_ASSERT(m_entry);
+	VITRIO_ASSERT(m_file);
+	VITRIO_ASSERT(m_tasks);
 }
 
 scratch_image_reader::~scratch_image_reader() = default;
 
 const image_descriptor& scratch_image_reader::get_descriptor() const noexcept
 {
-	VITRIO_ASSERT(m_file);
 	return m_file->get_descriptor();
 }
 
 const image_metadata& scratch_image_reader::get_metadata() const noexcept
 {
-	VITRIO_ASSERT(m_file);
 	return m_file->get_metadata();
 }
 
-void scratch_image_reader::read(
-	array_ref destination,
-	const image_transfer_plan &regions
+void scratch_image_reader::read_async(
+	array destination,
+	image_transfer_plan regions,
+	std::shared_ptr<completion_notifier> done
 ) const
 {
-	VITRIO_ASSERT(m_entry);
-	const auto missing = m_entry->read(destination, regions);
-	if (missing.get_region_count() == 0)
+	if (!done)
 	{
+		throw std::invalid_argument(
+			"scratch_image_reader: The notifier must not be null."
+		);
+	}
+
+	// What the entry does not hold is offered to it, and read once it has
+	// taken that in. Each step reports what fails it, and nothing throws.
+	std::shared_ptr<completion_notifier> continuation;
+	try
+	{
+		auto missing = m_entry->read(array_ref(destination), regions);
+		if (missing.get_region_count() == 0)
+		{
+			done->notify_done();
+			return;
+		}
+
+		continuation = std::make_shared<scratch_read_continuation>(
+			m_entry,
+			m_file,
+			m_tasks,
+			std::move(destination),
+			missing,
+			done
+		);
+		regions = std::move(missing);
+	}
+	catch (...)
+	{
+		done->notify_done(std::current_exception());
 		return;
 	}
 
-	VITRIO_ASSERT(m_file);
-	m_entry->store(*m_file, missing);
-
-	const auto unheld = m_entry->read(destination, missing);
-	if (unheld.get_region_count() == 0)
-	{
-		return;
-	}
-
-	read_and_wait(*m_file, borrow_array(destination), unheld);
+	m_entry->store_async(*m_file, std::move(regions), std::move(continuation));
 }
 
 } // namespace vitrio

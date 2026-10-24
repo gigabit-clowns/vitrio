@@ -26,6 +26,8 @@
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
 #include <array/borrowed_array.hpp>
+#include <concurrency/failure_forwarding_notifier.hpp>
+
 #include <assert.hpp>
 
 #include <image_plan_builders.hpp>
@@ -79,13 +81,15 @@ public:
 	scratch_prefetch_task(
 		const image_location_grouping::group &group,
 		std::shared_ptr<image_scratch_entry> entry,
-		std::shared_ptr<image_reader_provider> files
+		std::shared_ptr<image_reader_provider> files,
+		std::shared_ptr<completion_notifier> done
 	)
 		: m_key(group.get_key())
 		, m_indices(group.get_indices().begin(), group.get_indices().end())
 		, m_whole(group.is_whole())
 		, m_entry(std::move(entry))
 		, m_files(std::move(files))
+		, m_done(std::move(done))
 	{
 	}
 
@@ -95,11 +99,13 @@ public:
 		VITRIO_ASSERT(file);
 
 		const auto &descriptor = file->get_descriptor();
-		const auto plan = m_whole
+		auto plan = m_whole
 			? make_location_plan(descriptor, image_location(m_key))
 			: make_indices_plan(descriptor, make_span(m_indices));
 
-		m_entry->store(*file, plan);
+		// The entry reports once what it takes in has landed, with every run
+		// of the file read at once.
+		m_entry->store_async(*file, std::move(plan), std::move(m_done));
 	}
 
 private:
@@ -108,6 +114,7 @@ private:
 	bool m_whole;
 	std::shared_ptr<image_scratch_entry> m_entry;
 	std::shared_ptr<image_reader_provider> m_files;
+	std::shared_ptr<completion_notifier> m_done;
 };
 
 } // anonymous namespace
@@ -226,29 +233,33 @@ std::shared_ptr<completion> prefetch_scratch_async(
 
 	const auto group_count = locations.get_group_count();
 
-	std::vector<std::unique_ptr<task>> tasks;
+	std::vector<std::shared_ptr<image_scratch_entry>> entries;
+	std::vector<std::size_t> groups;
 	for (std::size_t index = 0; index < group_count; ++index)
 	{
-		const auto group = locations.get_group(index);
-		auto entry = scratch.find(group.get_key());
-		if (!entry)
+		auto entry = scratch.find(locations.get_group(index).get_key());
+		if (entry)
 		{
-			continue;
+			entries.push_back(std::move(entry));
+			groups.push_back(index);
 		}
-
-		tasks.push_back(
-			std::make_unique<scratch_prefetch_task>(
-				group,
-				std::move(entry),
-				files
-			)
-		);
 	}
 
-	auto result = std::make_shared<counting_completion>(tasks.size());
-	for (auto &prefetch : tasks)
+	// A task reports only its own failure: the store it starts reports the
+	// file.
+	auto result = std::make_shared<counting_completion>(entries.size());
+	const auto failures = std::make_shared<failure_forwarding_notifier>(result);
+	for (std::size_t file = 0; file < entries.size(); ++file)
 	{
-		executor.submit(std::move(prefetch), result);
+		executor.submit(
+			std::make_unique<scratch_prefetch_task>(
+				locations.get_group(groups[file]),
+				std::move(entries[file]),
+				files,
+				result
+			),
+			failures
+		);
 	}
 
 	return result;

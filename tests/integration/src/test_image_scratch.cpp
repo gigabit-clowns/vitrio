@@ -88,6 +88,7 @@ public:
 			image_file_read_format_selector::get_shared(),
 			make_file_transfer_pool()
 		);
+		tasks = std::make_shared<thread_pool_executor>(2);
 	}
 
 protected:
@@ -132,6 +133,7 @@ protected:
 		return std::make_shared<indexed_image_scratch>(
 			image_location_grouping(make_span(held)),
 			*direct,
+			*tasks,
 			std::move(storage),
 			run_length
 		);
@@ -151,6 +153,7 @@ protected:
 			return create_mapped_file_image_scratch(
 				grouping,
 				*direct,
+				*tasks,
 				m_storage_file.get(),
 				image_count,
 				max_size
@@ -160,6 +163,7 @@ protected:
 		return create_host_image_scratch(
 			grouping,
 			*direct,
+			*tasks,
 			image_count,
 			max_size
 		);
@@ -174,7 +178,8 @@ protected:
 	{
 		return std::make_shared<scratch_image_reader_provider>(
 			direct,
-			make_scratch(held, std::move(storage), run_length)
+			make_scratch(held, std::move(storage), run_length),
+			tasks
 		);
 	}
 
@@ -207,6 +212,10 @@ protected:
 	}
 
 	std::shared_ptr<image_reader_provider> direct;
+
+	// Where the scratches open their files, and their readers read what an
+	// entry took in.
+	std::shared_ptr<executor> tasks;
 
 private:
 	void write_stack_file(std::size_t stack)
@@ -443,7 +452,11 @@ TEST_CASE_METHOD(
 		2
 	);
 	const auto scratched =
-		std::make_shared<scratch_image_reader_provider>(direct, scratch);
+		std::make_shared<scratch_image_reader_provider>(
+			direct,
+			scratch,
+			tasks
+		);
 
 	SECTION( "once the prefetch is done" )
 	{
@@ -495,7 +508,8 @@ TEST_CASE_METHOD(
 	{
 		const auto scratched = std::make_shared<scratch_image_reader_provider>(
 			direct,
-			create_scratch(batch, in_a_file, dataset_bytes)
+			create_scratch(batch, in_a_file, dataset_bytes),
+			tasks
 		);
 
 		CHECK( read_batch(scratched, batch) == expected );
@@ -506,7 +520,8 @@ TEST_CASE_METHOD(
 	{
 		const auto scratched = std::make_shared<scratch_image_reader_provider>(
 			direct,
-			create_scratch(batch, in_a_file, 3 * image_bytes)
+			create_scratch(batch, in_a_file, 3 * image_bytes),
+			tasks
 		);
 
 		CHECK( read_batch(scratched, batch) == expected );
@@ -531,7 +546,8 @@ TEST_CASE_METHOD(
 	{
 		const auto scratched = std::make_shared<scratch_image_reader_provider>(
 			direct,
-			create_scratch(batch, true, dataset_bytes)
+			create_scratch(batch, true, dataset_bytes),
+			tasks
 		);
 
 		REQUIRE( read_batch(scratched, batch) == expected );
@@ -539,7 +555,8 @@ TEST_CASE_METHOD(
 
 	const auto scratched = std::make_shared<scratch_image_reader_provider>(
 		direct,
-		create_scratch(batch, true, dataset_bytes)
+		create_scratch(batch, true, dataset_bytes),
+		tasks
 	);
 
 	CHECK( read_batch(scratched, batch) == expected );
@@ -561,14 +578,16 @@ TEST_CASE_METHOD(
 
 	const auto first = std::make_shared<scratch_image_reader_provider>(
 		direct,
-		create_scratch(batch, true, dataset_bytes)
+		create_scratch(batch, true, dataset_bytes),
+		tasks
 	);
 	REQUIRE( read_batch(first, batch) == expected );
 
 	// A second scratch of the same images, while the first is in use.
 	const auto second = std::make_shared<scratch_image_reader_provider>(
 		direct,
-		create_scratch(batch, true, dataset_bytes)
+		create_scratch(batch, true, dataset_bytes),
+		tasks
 	);
 
 	CHECK( read_batch(second, batch) == expected );

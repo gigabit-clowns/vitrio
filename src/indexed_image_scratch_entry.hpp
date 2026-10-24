@@ -7,9 +7,13 @@
 #include <vitrio/image_scratch_entry.hpp>
 #include <vitrio/image_scratch_open_mode.hpp>
 
+#include <vitrio/concurrency/completion_notifier.hpp>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -32,6 +36,12 @@ class image_scratch_storage;
  * from the file in one read. Storing a region loads every run that contains
  * a held index of the region.
  *
+ * A run is absent, loading or loaded. One that is loading has waiters, the
+ * stores that asked for it, which are reported to once its read lands; one
+ * that a store asks for while it is loading is waited for, not read again.
+ * A run whose read fails is absent again. A short lock guards the waiters,
+ * and never a read.
+ *
  * A region is read from the entry only if all its indices are held and
  * loaded. A read asks the storage for the slots it is about to copy before
  * it copies them, a step ahead, as @ref read_prefetched_regions describes.
@@ -43,6 +53,7 @@ class image_scratch_storage;
  */
 class indexed_image_scratch_entry final
 	: public image_scratch_entry
+	, public std::enable_shared_from_this<indexed_image_scratch_entry>
 {
 public:
 	/**
@@ -89,20 +100,31 @@ public:
 		const image_transfer_plan &regions
 	) const override;
 
-	void store(
+	/**
+	 * @copydoc image_scratch_entry::store_async
+	 *
+	 * The entry must be owned by a std::shared_ptr, which the reads it starts
+	 * keep.
+	 */
+	void store_async(
 		const image_reader &file,
-		const image_transfer_plan &regions
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) override;
 
 	/**
 	 * @brief Clear the flags and leave nothing loaded.
 	 *
 	 * Unlike the other methods, it must not be called while another method
-	 * runs.
+	 * runs, nor while a run is loading.
 	 */
 	void reset() noexcept;
 
 private:
+	class run_load_notifier;
+
+	using waiter_list = std::list<std::shared_ptr<completion_notifier>>;
+
 	/**
 	 * @brief Get the flags, one per run.
 	 *
@@ -133,15 +155,33 @@ private:
 	) const noexcept;
 
 	/**
-	 * @brief Load a run from the file, unless it is already loaded.
+	 * @brief Find the runs that contain a held index of the regions of a
+	 * plan.
 	 *
-	 * A run is loaded at most once: two threads that ask for the same run
-	 * read the file once.
+	 * @param regions The regions.
+	 * @return std::vector<std::size_t> The runs, in ascending order, each
+	 * once. None for a plan that does not have the rank of the file.
+	 */
+	std::vector<std::size_t> find_runs(
+		const image_transfer_plan &regions
+	) const;
+
+	/**
+	 * @brief Start the read that loads a run.
 	 *
 	 * @param file A reader over the file.
-	 * @param run Index of the run.
+	 * @param run Index of the run, which is loading.
 	 */
-	void load(const image_reader &file, std::size_t run);
+	void start_load(const image_reader &file, std::size_t run) noexcept;
+
+	/**
+	 * @brief Settle a run whose read reported: it is loaded, or absent
+	 * again if the read failed, and its waiters are told so.
+	 *
+	 * @param run Index of the run.
+	 * @param error What the read failed with, or null.
+	 */
+	void finish_load(std::size_t run, std::exception_ptr error);
 
 	/**
 	 * @brief Make the plan that reads a run from the file.
@@ -159,6 +199,9 @@ private:
 	array m_values;
 	array m_flags;
 	std::uint64_t m_modification_time;
+
+	// The stores waiting for each run, of which only a loading run has any.
+	std::vector<waiter_list> m_waiters;
 	std::mutex m_mutex;
 };
 

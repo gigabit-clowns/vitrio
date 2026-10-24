@@ -8,6 +8,9 @@
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/concurrency/executor.hpp>
+#include <vitrio/concurrency/task.hpp>
 #include <vitrio/host_image_scratch_storage.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_location_grouping.hpp>
@@ -21,11 +24,13 @@
 #include <memory/align.hpp>
 
 #include <boost/filesystem/operations.hpp>
+#include <boost/optional.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <numeric>
 #include <stdexcept>
@@ -426,12 +431,107 @@ void check_not_empty(const storage_cursor &layout)
 	}
 }
 
-// How a scratch of some locations lays out its storage, when it may use no
-// more than a maximum. It is a dry run of the constructor: the files are
-// taken and placed the same way, and nothing is stored.
-storage_cursor lay_out(
+// Opens the file of one group, to learn its shape and data type, and keeps
+// what that fails with rather than throw it.
+class file_description final
+	: public task
+{
+public:
+	file_description(
+		image_reader_provider &files,
+		std::string key,
+		boost::optional<image_descriptor> &descriptor,
+		std::exception_ptr &error
+	) noexcept
+		: m_files(files)
+		, m_key(std::move(key))
+		, m_descriptor(descriptor)
+		, m_error(error)
+	{
+	}
+
+	void run() override
+	{
+		try
+		{
+			const auto file = m_files.acquire(m_key);
+			VITRIO_ASSERT(file);
+			m_descriptor = file->get_descriptor();
+		}
+		catch (...)
+		{
+			m_error = std::current_exception();
+		}
+	}
+
+private:
+	image_reader_provider &m_files;
+	std::string m_key;
+	boost::optional<image_descriptor> &m_descriptor;
+	std::exception_ptr &m_error;
+};
+
+// What the file of each group holds, in the order of the grouping. The files
+// are opened at once, a task each, and waited for. What one fails with is
+// thrown, that of the first in the grouping.
+std::vector<image_descriptor> describe_files(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks
+)
+{
+	const auto group_count = locations.get_group_count();
+	std::vector<boost::optional<image_descriptor>> described(group_count);
+	std::vector<std::exception_ptr> errors(group_count);
+
+	// The tasks fill these, so every one that was submitted is waited for,
+	// and one that could not be is counted as failed.
+	const auto done = std::make_shared<counting_completion>(group_count);
+	for (std::size_t index = 0; index < group_count; ++index)
+	{
+		try
+		{
+			tasks.submit(
+				std::make_unique<file_description>(
+					files,
+					locations.get_group(index).get_key(),
+					described[index],
+					errors[index]
+				),
+				done
+			);
+		}
+		catch (...)
+		{
+			for (auto unsubmitted = index; unsubmitted < group_count; ++unsubmitted)
+			{
+				done->notify_done(std::current_exception());
+			}
+			break;
+		}
+	}
+	done->get();
+
+	std::vector<image_descriptor> descriptors;
+	descriptors.reserve(group_count);
+	for (std::size_t index = 0; index < group_count; ++index)
+	{
+		if (errors[index])
+		{
+			std::rethrow_exception(errors[index]);
+		}
+		descriptors.push_back(std::move(*described[index]));
+	}
+
+	return descriptors;
+}
+
+// How a scratch of some locations lays out its storage, when it may use no
+// more than a maximum. It is a dry run of the constructor: the files are
+// placed the same way, and nothing is stored.
+storage_cursor lay_out(
+	const image_location_grouping &locations,
+	const std::vector<image_descriptor> &descriptors,
 	std::size_t run_length,
 	std::size_t max_size
 )
@@ -443,10 +543,7 @@ storage_cursor lay_out(
 	{
 		const auto group = locations.get_group(index);
 		const auto &key = group.get_key();
-		const auto file = files.acquire(key);
-		VITRIO_ASSERT(file);
-
-		const auto &descriptor = file->get_descriptor();
+		const auto &descriptor = descriptors[index];
 		const auto indices = get_named_indices(group, descriptor);
 		if (indices.empty() || compute_slot_size(descriptor) == 0)
 		{
@@ -469,6 +566,7 @@ storage_cursor lay_out(
 indexed_image_scratch::indexed_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	std::shared_ptr<image_scratch_storage> storage,
 	std::size_t run_length,
 	image_scratch_open_mode mode
@@ -478,6 +576,7 @@ indexed_image_scratch::indexed_image_scratch(
 	check_run_length(run_length);
 
 	const auto group_count = locations.get_group_count();
+	const auto descriptors = describe_files(locations, files, tasks);
 
 	std::vector<std::shared_ptr<indexed_image_scratch_entry>> entries;
 	storage_cursor cursor(storage->get_size(), run_length);
@@ -485,10 +584,7 @@ indexed_image_scratch::indexed_image_scratch(
 	{
 		const auto group = locations.get_group(index);
 		const auto &key = group.get_key();
-		const auto file = files.acquire(key);
-		VITRIO_ASSERT(file);
-
-		const auto &descriptor = file->get_descriptor();
+		const auto &descriptor = descriptors[index];
 		auto indices = get_named_indices(group, descriptor);
 		if (indices.empty() || compute_slot_size(descriptor) == 0)
 		{
@@ -557,18 +653,25 @@ indexed_image_scratch::find(const std::string &key)
 std::shared_ptr<image_scratch> create_host_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	std::size_t run_length,
 	std::size_t max_size
 )
 {
 	check_run_length(run_length);
 
-	const auto layout = lay_out(locations, files, run_length, max_size);
+	const auto layout = lay_out(
+		locations,
+		describe_files(locations, files, tasks),
+		run_length,
+		max_size
+	);
 	check_not_empty(layout);
 
 	return std::make_shared<indexed_image_scratch>(
 		locations,
 		files,
+		tasks,
 		create_host_image_scratch_storage(layout.get_used()),
 		run_length
 	);
@@ -577,6 +680,7 @@ std::shared_ptr<image_scratch> create_host_image_scratch(
 std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	const std::string &path,
 	std::size_t run_length,
 	std::size_t max_size
@@ -584,7 +688,12 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 {
 	check_run_length(run_length);
 
-	const auto layout = lay_out(locations, files, run_length, max_size);
+	const auto layout = lay_out(
+		locations,
+		describe_files(locations, files, tasks),
+		run_length,
+		max_size
+	);
 	check_not_empty(layout);
 
 	// A file that is there is kept and mapped, so that programs that hold
@@ -609,6 +718,7 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 	return std::make_shared<indexed_image_scratch>(
 		locations,
 		files,
+		tasks,
 		std::move(storage),
 		run_length,
 		image_scratch_open_mode::resumed
@@ -618,6 +728,7 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 std::shared_ptr<image_scratch> create_directory_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	const std::string &directory,
 	std::size_t run_length,
 	std::size_t budget
@@ -626,6 +737,7 @@ std::shared_ptr<image_scratch> create_directory_image_scratch(
 	check_run_length(run_length);
 
 	image_scratch_directory scratches(directory, budget);
+	const auto descriptors = describe_files(locations, files, tasks);
 
 	// Files that can not be removed may leave less room than the layout
 	// was computed for. It is then computed again, for the room there is,
@@ -633,7 +745,8 @@ std::shared_ptr<image_scratch> create_directory_image_scratch(
 	auto max_size = budget;
 	for (;;)
 	{
-		const auto layout = lay_out(locations, files, run_length, max_size);
+		const auto layout =
+			lay_out(locations, descriptors, run_length, max_size);
 		check_not_empty(layout);
 
 		std::size_t room = 0;
@@ -648,6 +761,7 @@ std::shared_ptr<image_scratch> create_directory_image_scratch(
 			return std::make_shared<indexed_image_scratch>(
 				locations,
 				files,
+				tasks,
 				std::move(storage),
 				run_length,
 				image_scratch_open_mode::resumed

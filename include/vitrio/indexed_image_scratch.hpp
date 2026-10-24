@@ -16,6 +16,7 @@
 namespace vitrio
 {
 
+class executor;
 class image_location_grouping;
 class image_reader_provider;
 class image_scratch_storage;
@@ -61,12 +62,15 @@ public:
 	 * its file. A location without one names the whole file.
 	 *
 	 * Files are taken in the order of the grouping, which is ascending
-	 * order of key. Each is opened once, to learn its shape and data type.
-	 * If the storage runs out of room, the current file keeps the lowest
-	 * indices that fit and the remaining files are not opened.
+	 * order of key. Each is opened once, to learn its shape and data type,
+	 * all of them at once on @p tasks, which this waits for: it must not be
+	 * called on a thread of @p tasks. If the storage runs out of room, the
+	 * current file keeps the lowest indices that fit and the remaining files
+	 * hold nothing.
 	 *
 	 * @param locations The images to hold, grouped by file.
 	 * @param files Provider used to open the files.
+	 * @param tasks Where the files are opened.
 	 * @param storage Where the copies are stored. Its size is the capacity
 	 * of the scratch. It must be aligned for 64-bit integers and for the
 	 * data types of the files.
@@ -92,6 +96,7 @@ public:
 	indexed_image_scratch(
 		const image_location_grouping &locations,
 		image_reader_provider &files,
+		executor &tasks,
 		std::shared_ptr<image_scratch_storage> storage,
 		std::size_t run_length,
 		image_scratch_open_mode mode = image_scratch_open_mode::empty
@@ -118,11 +123,13 @@ private:
  * @p max_size. It then holds the images that fit, as
  * @ref indexed_image_scratch describes.
  *
- * Each file is opened twice through @p files: once to compute the size and
- * once to construct the scratch.
+ * Each file is opened twice through @p files, all of them at once on
+ * @p tasks, which this waits for: once to compute the size and once to
+ * construct the scratch. It must not be called on a thread of @p tasks.
  *
  * @param locations The images to hold, grouped by file.
  * @param files Provider used to open the files.
+ * @param tasks Where the files are opened.
  * @param run_length Number of held indices per run.
  * @param max_size Maximum number of bytes to allocate. By default there
  * is no maximum.
@@ -141,6 +148,7 @@ VITRIO_API
 std::shared_ptr<image_scratch> create_host_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	std::size_t run_length,
 	std::size_t max_size = std::numeric_limits<std::size_t>::max()
 );
@@ -165,11 +173,13 @@ std::shared_ptr<image_scratch> create_host_image_scratch(
  *
  * The file is not removed when the scratch is destroyed.
  *
- * Each image file is opened twice through @p files: once to compute the
- * size and once to construct the scratch.
+ * Each image file is opened twice through @p files, all of them at once on
+ * @p tasks, which this waits for: once to compute the size and once to
+ * construct the scratch. It must not be called on a thread of @p tasks.
  *
  * @param locations The images to hold, grouped by file.
  * @param files Provider used to open the image files.
+ * @param tasks Where the image files are opened.
  * @param path Path of the scratch file.
  * @param run_length Number of held indices per run.
  * @param max_size Maximum size of the file in bytes. By default there is no
@@ -189,6 +199,7 @@ VITRIO_API
 std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	const std::string &path,
 	std::size_t run_length,
 	std::size_t max_size = std::numeric_limits<std::size_t>::max()
@@ -232,12 +243,14 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
  * the extension `.vitrio-scratch`. The directory also holds
  * `vitrio-scratch.lock`, which programs take turns through.
  *
- * Each image file is opened at least twice through @p files: once to
- * compute the size and once to construct the scratch, and once more each
- * time files that can not be removed leave less room than was computed.
+ * Each image file is opened twice through @p files, all of them at once on
+ * @p tasks, which this waits for: once to compute the size, however often
+ * files that can not be removed leave less room than was computed, and once
+ * to construct the scratch. It must not be called on a thread of @p tasks.
  *
  * @param locations The images to hold, grouped by file.
  * @param files Provider used to open the image files.
+ * @param tasks Where the image files are opened.
  * @param directory Path of the directory. It is created if it is missing.
  * @param run_length Number of held indices per run.
  * @param budget The most bytes that the files of scratches in
@@ -259,6 +272,7 @@ VITRIO_API
 std::shared_ptr<image_scratch> create_directory_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
+	executor &tasks,
 	const std::string &directory,
 	std::size_t run_length,
 	std::size_t budget

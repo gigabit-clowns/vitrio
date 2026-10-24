@@ -75,14 +75,28 @@ def test_holds_whole_files(tmp_path):
 	readers = vio.reader_provider(scratch=scratch)
 	assert np.array_equal(vio.read(path, readers), __setup_array()[0])
 
-def test_prefetching_on_a_synchronous_executor_is_done_on_return(
+def test_prefetching_takes_in_every_image_on_the_shared_threads(
 	__written_stack
 ):
 	locations = __locations(__written_stack, range(5))
 	scratch = vio.create_host_image_scratch(locations, 2)
-	executor = vio.SynchronousExecutor()
-	completion = vio.prefetch_scratch_async(scratch, locations, executor)
-	assert completion.is_ready
+	vio.prefetch_scratch_async(scratch, locations).get()
+
+	__overwrite(__written_stack)
+	destination = np.zeros((5, 4, 6), dtype=np.float32)
+	loader = vio.loader(scratch=scratch)
+	vio.read_batch_async(loader, destination, locations).get()
+	assert np.array_equal(destination, __setup_array())
+
+def test_opens_the_files_on_the_executor_it_is_given(__written_stack):
+	locations = __locations(__written_stack, [0, 4])
+	scratch = vio.create_host_image_scratch(
+		locations,
+		1,
+		executor=vio.SynchronousExecutor()
+	)
+	readers = vio.reader_provider(scratch=scratch)
+	assert np.array_equal(vio.read(locations[1], readers), __setup_array()[4])
 
 def test_takes_a_grouping_of_the_locations(__written_stack):
 	grouping = vio.ImageLocationGrouping(
@@ -146,7 +160,11 @@ def test_a_provider_serving_through_a_scratch_is_assembled_by_hand(
 		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	scratch = vio.create_host_image_scratch(locations, 1, files=files)
-	readers = vio.ScratchImageReaderProvider(files, scratch)
+	readers = vio.ScratchImageReaderProvider(
+		files,
+		scratch,
+		vio.ThreadPoolExecutor(2)
+	)
 	assert isinstance(readers, vio.ImageReaderProvider)
 	assert np.array_equal(vio.read(locations[0], readers), __setup_array()[3])
 

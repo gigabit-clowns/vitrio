@@ -133,8 +133,8 @@ std::shared_ptr<completion> py_read_patches_async(
 	);
 }
 
-// Each file is opened and read on the executor, but a synchronous one runs
-// the work before the call returns.
+// Each file is opened on the executor, and a synchronous one opens them all
+// before the call returns.
 std::shared_ptr<completion> py_prefetch_scratch_async(
 	image_scratch &scratch,
 	std::shared_ptr<image_reader_provider> files,
@@ -258,13 +258,15 @@ void bind_image_read(nb::module_ &m)
 		nb::arg("locations"),
 		"Take images into a scratch ahead of the reads that need them.\n"
 		"\n"
-		"Prefer `vitrio.prefetch_scratch_async`, which defaults the readers.\n"
+		"Prefer `vitrio.prefetch_scratch_async`, which defaults the readers "
+		"and the executor.\n"
 		"\n"
 		"Args:\n"
 		"    scratch: The `ImageScratch` to fill.\n"
 		"    files: The `ImageReaderProvider` that reads the files "
 		"themselves, not through the scratch.\n"
-		"    executor: Where the files are read, a task for each.\n"
+		"    executor: Where the files are opened and their reads started, "
+		"a task for each.\n"
 		"    locations: An `ImageLocationGrouping` of the images to take in.\n"
 		"\n"
 		"Returns:\n"

@@ -5,11 +5,13 @@
 #include <vitrio/export.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
+#include <memory>
+
 namespace vitrio
 {
 
 class array_ref;
-
+class completion_notifier;
 class image_reader;
 
 /**
@@ -70,25 +72,33 @@ public:
 	) const = 0;
 
 	/**
-	 * @brief Take in regions of the file, out of a reader over it.
+	 * @brief Take in regions of the file, out of a reader over it, and
+	 * report once they are held.
 	 *
 	 * Takes in what it has room for of what the regions span, and may take
 	 * in more of the file than they span. A region none of which it has room
 	 * for is passed over, and so is a plan that does not have the rank of
-	 * the file. What is already held is not read again.
+	 * the file. What is already held is not read again, and what is already
+	 * being taken in, by another call, is waited for rather than read again.
 	 *
 	 * Only the file side of the plan plays a part.
 	 *
-	 * If reading @p file fails, what was being taken in is not held.
+	 * Reports to @p done exactly once, when everything the regions need is
+	 * held or failed to be. What failed to be taken in is not held, and the
+	 * failure is reported, such as an image_file_format_error for a file
+	 * that turns out to be malformed or truncated where it is read. Only a
+	 * null notifier throws.
 	 *
-	 * @param file A reader over the file this entry is of.
+	 * @param file A reader over the file this entry is of. It is only used
+	 * before this returns.
 	 * @param regions The regions to take in.
-	 * @throws image_file_format_error If the file turns out to be malformed or
-	 * truncated where it is read.
+	 * @param done Where the outcome is reported. Must not be null.
+	 * @throws std::invalid_argument If @p done is null.
 	 */
-	virtual void store(
+	virtual void store_async(
 		const image_reader &file,
-		const image_transfer_plan &regions
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) = 0;
 };
 

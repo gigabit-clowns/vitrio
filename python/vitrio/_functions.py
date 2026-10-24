@@ -21,7 +21,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from . import _binding
-from ._default_transfers import default_file_transfer_pool
+from ._default_transfers import default_executor, default_file_transfer_pool
 from ._binding import (
 	Array,
 	CachingImageReaderProvider,
@@ -92,6 +92,11 @@ def _resolve_transfers(
 		transfers = default_file_transfer_pool()
 	return transfers
 
+def _resolve_scratch_executor(executor: Executor | None) -> Executor:
+	if executor is None:
+		executor = default_executor()
+	return executor
+
 def _resolve_readers(
 	readers: ImageReaderProvider | None
 ) -> ImageReaderProvider:
@@ -128,7 +133,9 @@ def reader_provider(
 			bundled ones.
 		scratch: A scratch to serve reads through: what it holds is read
 			from it, and what it does not yet hold is read from the file
-			and taken in. Defaults to reading the files alone.
+			and taken in. What it takes in is copied out of it on a thread
+			pool shared by the process. Defaults to reading the files
+			alone.
 		transfers: The threads that carry out the reads of the files.
 			Defaults to a pool shared by the process, whose conversions
 			run on a thread pool of its own.
@@ -143,7 +150,11 @@ def reader_provider(
 	if cache is not None:
 		readers = CachingImageReaderProvider(readers, cache)
 	if scratch is not None:
-		readers = ScratchImageReaderProvider(readers, scratch)
+		readers = ScratchImageReaderProvider(
+			readers,
+			scratch,
+			default_executor()
+		)
 	return readers
 
 def detector_event_timeline_reader_provider(
@@ -300,7 +311,8 @@ def create_host_image_scratch(
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
 	run_length: int,
 	max_size: int | None = None,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in main memory.
@@ -317,7 +329,7 @@ def create_host_image_scratch(
 	`prefetch_scratch_async`. The memory is released once nothing holds
 	the scratch, the providers and loaders made with it included.
 
-	Every file is opened, twice, before this returns.
+	Every file is opened twice before this returns, many of them at once.
 
 	Args:
 		locations: The images to hold, as an `ImageLocationGrouping` or
@@ -329,6 +341,9 @@ def create_host_image_scratch(
 		max_size: The most bytes to allocate. Defaults to no maximum.
 		files: Where the files become readers. Defaults to a provider
 			that opens the file at the path each key is.
+		executor: Where the files are opened, all at once. Defaults to a
+			thread pool shared by the process. This waits for it, so it
+			must not be called on a thread of it.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -342,6 +357,7 @@ def create_host_image_scratch(
 	return _binding.create_host_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
 		run_length,
 		max_size
 	)
@@ -351,7 +367,8 @@ def create_mapped_file_image_scratch(
 	path: Key,
 	run_length: int,
 	max_size: int | None = None,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in a file mapped into memory.
@@ -382,6 +399,8 @@ def create_mapped_file_image_scratch(
 			maximum.
 		files: Where the image files become readers. Defaults to a
 			provider that opens the file at the path each key is.
+		executor: Where the image files are opened, as
+			`create_host_image_scratch` opens them.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -394,6 +413,7 @@ def create_mapped_file_image_scratch(
 	return _binding.create_mapped_file_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
 		path,
 		run_length,
 		max_size
@@ -404,7 +424,8 @@ def create_directory_image_scratch(
 	directory: Key,
 	run_length: int,
 	budget: int,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in a file of a directory kept
@@ -443,6 +464,8 @@ def create_directory_image_scratch(
 			take together.
 		files: Where the image files become readers. Defaults to a
 			provider that opens the file at the path each key is.
+		executor: Where the image files are opened, as
+			`create_host_image_scratch` opens them.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -456,6 +479,7 @@ def create_directory_image_scratch(
 	return _binding.create_directory_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
 		directory,
 		run_length,
 		budget
@@ -464,27 +488,26 @@ def create_directory_image_scratch(
 def prefetch_scratch_async(
 	scratch: ImageScratch,
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
-	executor: Executor,
+	executor: Executor | None = None,
 	files: ImageReaderProvider | None = None
 ) -> Completion:
 	"""
 	Take images into a scratch ahead of the reads that need them.
 
 	Returns before the images are in. Each file is one task on
-	`executor`, which reads what `locations` names of it in one go. A
-	file the scratch holds nothing of is passed over. The scratch may be
-	read through in the meantime, and a read takes in what it needs
-	itself.
-
-	The executor is not defaulted: one made for the call would be
-	destroyed when the call returns, and that waits for its work.
+	`executor`, which opens it and starts reading what `locations` names
+	of it, and the reads of many files are under way at once. A file the
+	scratch holds nothing of is passed over. The scratch may be read
+	through in the meantime, and a read takes in what it needs itself,
+	or waits for what is being taken in already.
 
 	Args:
 		scratch: The scratch to fill.
 		locations: The images to take in, as an `ImageLocationGrouping`
 			or as any iterable of `ImageLocation`. Usually those the
 			scratch was created with.
-		executor: Where the files are read.
+		executor: Where the files are opened and their reads started.
+			Defaults to a thread pool shared by the process.
 		files: Where the files become readers. It has to read the files
 			themselves and not through `scratch`. Defaults to a provider
 			that opens the file at the path each key is.
@@ -496,7 +519,7 @@ def prefetch_scratch_async(
 	return _binding.prefetch_scratch_async(
 		scratch,
 		_resolve_readers(files),
-		executor,
+		_resolve_scratch_executor(executor),
 		_resolve_grouping(locations)
 	)
 

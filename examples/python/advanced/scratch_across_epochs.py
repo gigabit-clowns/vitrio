@@ -75,11 +75,11 @@ def main() -> None:
 		# 	locations, "/local/disk/particles.scratch", run_length=8
 		# )
 
-		# The loader and the prefetch are separate pools, so that filling
-		# the scratch does not hold up the reads that already need it.
+		# The prefetch starts reading every file at once and returns. A
+		# read that needs what is being taken in waits for it, and one
+		# that needs what is not starts taking it in.
 		loader = vio.loader(workers=2, cache=len(stacks), scratch=scratch)
-		prefetcher = vio.ThreadPoolExecutor(2)    # keep it while it works
-		filling = vio.prefetch_scratch_async(scratch, locations, prefetcher)
+		filling = vio.prefetch_scratch_async(scratch, locations)
 
 		for epoch in range(2):
 			for first in range(0, len(locations), BATCH_SIZE):

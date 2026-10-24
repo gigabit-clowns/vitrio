@@ -15,10 +15,11 @@
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
+#include <vitrio/concurrency/counting_notifier.hpp>
+
 #include <array/array_data.hpp>
 #include <assert.hpp>
 #include <memory/byte_order.hpp>
-#include <waiting_transfers.hpp>
 
 #include <algorithm>
 #include <functional>
@@ -87,6 +88,31 @@ compute_end_index(std::size_t first_index, std::size_t index_count) noexcept
 
 } // anonymous namespace
 
+// What the read that loads a run reports to: it settles the run. It keeps
+// the entry, whose storage the read fills, until it has.
+class indexed_image_scratch_entry::run_load_notifier final
+	: public completion_notifier
+{
+public:
+	run_load_notifier(
+		std::shared_ptr<indexed_image_scratch_entry> entry,
+		std::size_t run
+	) noexcept
+		: m_entry(std::move(entry))
+		, m_run(run)
+	{
+	}
+
+	void notify_done(std::exception_ptr error) override
+	{
+		m_entry->finish_load(m_run, std::move(error));
+	}
+
+private:
+	std::shared_ptr<indexed_image_scratch_entry> m_entry;
+	std::size_t m_run;
+};
+
 indexed_image_scratch_entry::indexed_image_scratch_entry(
 	std::vector<std::size_t> indices,
 	std::shared_ptr<image_scratch_storage> storage,
@@ -103,6 +129,7 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 	, m_values(place(m_storage, std::move(values)))
 	, m_flags(place(m_storage, std::move(flags)))
 	, m_modification_time(modification_time)
+	, m_waiters(m_loaded.size())
 {
 	const auto unordered = std::adjacent_find(
 		m_indices.begin(),
@@ -235,36 +262,84 @@ image_transfer_plan indexed_image_scratch_entry::read(
 	return missing;
 }
 
-void indexed_image_scratch_entry::store(
+void indexed_image_scratch_entry::store_async(
 	const image_reader &file,
-	const image_transfer_plan &regions
+	image_transfer_plan regions,
+	std::shared_ptr<completion_notifier> done
 )
 {
-	const auto &shape = regions.get_shape();
-	const auto rank = m_values.get_descriptor().get_extents().size();
-	if (shape.get_file_rank() != rank)
+	if (!done)
 	{
+		throw std::invalid_argument(
+			"indexed_image_scratch_entry: The notifier must not be null."
+		);
+	}
+
+	// Each run is reported to the store once, whether it is held already,
+	// loads here, or loads for another store. What is allocated is
+	// allocated before the lock, so that taking a run never fails under it.
+	std::vector<std::size_t> runs;
+	std::shared_ptr<completion_notifier> waiting;
+	std::vector<waiter_list> joining;
+	std::vector<std::size_t> started;
+	try
+	{
+		runs = find_runs(regions);
+		waiting = std::make_shared<counting_notifier>(runs.size(), done);
+		joining.resize(runs.size());
+		for (auto &join : joining)
+		{
+			join.push_back(waiting);
+		}
+		started.reserve(runs.size());
+	}
+	catch (...)
+	{
+		if (!waiting)
+		{
+			done->notify_done(std::current_exception());
+		}
+		else
+		{
+			// The count may stand already, and reports for every run.
+			for (std::size_t run = 0; run < runs.size(); ++run)
+			{
+				waiting->notify_done(std::current_exception());
+			}
+		}
 		return;
 	}
 
-	const auto index_count = shape.get_extent(rank, 0);
-	const auto region_count = regions.get_region_count();
-	for (std::size_t region = 0; region < region_count; ++region)
+	std::size_t held = 0;
 	{
-		const auto first_index = regions.get_file_offset(region).front();
-		const auto first_slot = find_slot(first_index);
-		const auto end_slot =
-			find_slot(compute_end_index(first_index, index_count));
-		if (first_slot == end_slot)
+		const std::lock_guard<std::mutex> lock(m_mutex);
+		for (std::size_t index = 0; index < runs.size(); ++index)
 		{
-			continue;
-		}
+			const auto run = runs[index];
+			if (m_loaded[run].load(std::memory_order_relaxed))
+			{
+				++held;
+				continue;
+			}
 
-		const auto last_run = (end_slot - 1) / m_run_length;
-		for (auto run = first_slot / m_run_length; run <= last_run; ++run)
-		{
-			load(file, run);
+			// A run with no waiter is absent, and this store loads it.
+			auto &waiters = m_waiters[run];
+			if (waiters.empty())
+			{
+				started.push_back(run);
+			}
+			waiters.splice(waiters.end(), joining[index]);
 		}
+	}
+
+	for (std::size_t count = 0; count < held; ++count)
+	{
+		waiting->notify_done();
+	}
+
+	for (const auto run : started)
+	{
+		start_load(file, run);
 	}
 }
 
@@ -273,6 +348,7 @@ void indexed_image_scratch_entry::reset() noexcept
 	auto *run_flags = get_flags();
 	for (std::size_t run = 0; run < m_loaded.size(); ++run)
 	{
+		VITRIO_ASSERT(m_waiters[run].empty());
 		run_flags[run] = 0;
 		m_loaded[run].store(false, std::memory_order_relaxed);
 	}
@@ -313,27 +389,84 @@ bool indexed_image_scratch_entry::are_loaded(
 	return true;
 }
 
-void indexed_image_scratch_entry::load(
+std::vector<std::size_t> indexed_image_scratch_entry::find_runs(
+	const image_transfer_plan &regions
+) const
+{
+	std::vector<std::size_t> runs;
+	const auto &shape = regions.get_shape();
+	const auto rank = m_values.get_descriptor().get_extents().size();
+	if (shape.get_file_rank() != rank)
+	{
+		return runs;
+	}
+
+	const auto index_count = shape.get_extent(rank, 0);
+	const auto region_count = regions.get_region_count();
+	for (std::size_t region = 0; region < region_count; ++region)
+	{
+		const auto first_index = regions.get_file_offset(region).front();
+		const auto first_slot = find_slot(first_index);
+		const auto end_slot =
+			find_slot(compute_end_index(first_index, index_count));
+		if (first_slot == end_slot)
+		{
+			continue;
+		}
+
+		const auto last_run = (end_slot - 1) / m_run_length;
+		for (auto run = first_slot / m_run_length; run <= last_run; ++run)
+		{
+			runs.push_back(run);
+		}
+	}
+
+	std::sort(runs.begin(), runs.end());
+	runs.erase(std::unique(runs.begin(), runs.end()), runs.end());
+	return runs;
+}
+
+void indexed_image_scratch_entry::start_load(
 	const image_reader &file,
 	std::size_t run
-)
+) noexcept
 {
 	VITRIO_ASSERT(run < m_loaded.size());
 
-	if (m_loaded[run].load(std::memory_order_acquire))
+	try
 	{
-		return;
+		file.read_async(
+			m_values.share(),
+			make_load_plan(run),
+			std::make_shared<run_load_notifier>(shared_from_this(), run)
+		);
+	}
+	catch (...)
+	{
+		finish_load(run, std::current_exception());
+	}
+}
+
+void indexed_image_scratch_entry::finish_load(
+	std::size_t run,
+	std::exception_ptr error
+)
+{
+	waiter_list waiters;
+	{
+		const std::lock_guard<std::mutex> lock(m_mutex);
+		if (!error)
+		{
+			get_flags()[run] = m_modification_time;
+			m_loaded[run].store(true, std::memory_order_release);
+		}
+		waiters.swap(m_waiters[run]);
 	}
 
-	const std::lock_guard<std::mutex> lock(m_mutex);
-	if (m_loaded[run].load(std::memory_order_acquire))
+	for (const auto &waiter : waiters)
 	{
-		return;
+		waiter->notify_done(error);
 	}
-
-	read_and_wait(file, m_values.share(), make_load_plan(run));
-	get_flags()[run] = m_modification_time;
-	m_loaded[run].store(true, std::memory_order_release);
 }
 
 image_transfer_plan

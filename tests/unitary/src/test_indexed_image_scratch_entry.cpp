@@ -7,6 +7,7 @@
 
 #include "fixtures/counting_image_file.hpp"
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include "mock/mock_image_reader.hpp"
 #include "mock/mock_image_scratch_storage.hpp"
 
@@ -14,6 +15,8 @@
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/completion_notifier.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/host_image_scratch_storage.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_scratch_open_mode.hpp>
@@ -534,7 +537,7 @@ TEST_CASE(
 		image_scratch_open_mode::empty
 	);
 
-	entry->store(stack.get_reader(), images({3}));
+	store_now(*entry, stack.get_reader(), images({3}));
 
 	// The second run holds image 3, and the first is not loaded.
 	CHECK( storage.read_flags() ==
@@ -686,7 +689,7 @@ TEST_CASE(
 		.LR_WITH( get_array_slots(_2) == index_list({4, 5, 6, 7}) )
 		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
-	entry->store(file, images({5}));
+	store_now(*entry, file, images({5}));
 
 	SECTION( "the stored image is read from the entry" )
 	{
@@ -722,7 +725,7 @@ TEST_CASE(
 
 	SECTION( "storing an image of the same run does not read the file" )
 	{
-		entry->store(file, images({6, 4}));
+		store_now(*entry, file, images({6, 4}));
 	}
 }
 
@@ -749,7 +752,7 @@ TEST_CASE(
 				stack.get_reader().read_async(_1.share(), _2, _3)
 			);
 
-		entry->store(file, images({7}));
+		store_now(*entry, file, images({7}));
 	}
 
 	SECTION( "a region across two runs loads both" )
@@ -774,7 +777,7 @@ TEST_CASE(
 				stack.get_reader().read_async(_1.share(), _2, _3)
 			);
 
-		entry->store(file, image_range(2, 2));
+		store_now(*entry, file, image_range(2, 2));
 	}
 
 	SECTION( "a region across two runs is missing until both are loaded" )
@@ -789,11 +792,11 @@ TEST_CASE(
 			);
 		auto destination = make_batch(2);
 
-		entry->store(file, images({2}));
+		store_now(*entry, file, images({2}));
 		CHECK( entry->read(array_ref(destination), image_range(2, 2))
 			.get_region_count() == 1 );
 
-		entry->store(file, images({3}));
+		store_now(*entry, file, images({3}));
 		CHECK( entry->read(array_ref(destination), image_range(2, 2))
 			.get_region_count() == 0 );
 		CHECK( get_values<float>(destination) == values_of_images({2, 3}) );
@@ -822,7 +825,7 @@ TEST_CASE(
 		.LR_WITH( get_file_indices(_2) == index_list({0, 1, 2, 3}) )
 		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
-	entry->store(file, images({2}));
+	store_now(*entry, file, images({2}));
 }
 
 TEST_CASE(
@@ -847,7 +850,7 @@ TEST_CASE(
 			);
 		auto destination = make_batch(3);
 
-		entry->store(file, images({4}));
+		store_now(*entry, file, images({4}));
 		const auto missing =
 			entry->read(array_ref(destination), images({4, 2, 1}));
 
@@ -872,7 +875,7 @@ TEST_CASE(
 			);
 		auto destination = make_batch(6);
 
-		entry->store(file, image_range(0, 6));
+		store_now(*entry, file, image_range(0, 6));
 		const auto missing =
 			entry->read(array_ref(destination), image_range(0, 6));
 
@@ -889,7 +892,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		entry->store(file, images({0, 2, 3, 7}));
+		store_now(*entry, file, images({0, 2, 3, 7}));
 	}
 
 	SECTION( "storing a region between held images reads nothing" )
@@ -899,7 +902,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		entry->store(file, image_range(2, 2));
+		store_now(*entry, file, image_range(2, 2));
 	}
 }
 
@@ -936,7 +939,7 @@ TEST_CASE(
 				stack.get_reader().read_async(_1.share(), _2, _3)
 			);
 
-		entry->store(file, image_range(4, max_index));
+		store_now(*entry, file, image_range(4, max_index));
 	}
 
 	SECTION( "storing it reads nothing when none of them is held" )
@@ -946,7 +949,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		entry->store(file, image_range(max_index, max_index));
+		store_now(*entry, file, image_range(max_index, max_index));
 	}
 
 	SECTION( "reading it answers it" )
@@ -980,7 +983,7 @@ TEST_CASE(
 
 	SECTION( "when all of them are held" )
 	{
-		entry->store(file, image_range(3, 2));
+		store_now(*entry, file, image_range(3, 2));
 		const auto missing =
 			entry->read(array_ref(destination), image_range(3, 2));
 
@@ -991,7 +994,7 @@ TEST_CASE(
 	SECTION( "and not when the last of them is not" )
 	{
 		// The held part is still loaded: images 4 and 5, of which 4 is held.
-		entry->store(file, image_range(4, 2));
+		store_now(*entry, file, image_range(4, 2));
 		const auto missing =
 			entry->read(array_ref(destination), image_range(4, 2));
 
@@ -1002,7 +1005,7 @@ TEST_CASE(
 
 	SECTION( "nor when the first of them is not" )
 	{
-		entry->store(file, image_range(1, 2));
+		store_now(*entry, file, image_range(1, 2));
 		const auto missing =
 			entry->read(array_ref(destination), image_range(1, 2));
 
@@ -1030,7 +1033,7 @@ TEST_CASE(
 		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 	auto destination = make_batch(8);
 
-	entry->store(file, image_range(0, 8));
+	store_now(*entry, file, image_range(0, 8));
 	const auto missing =
 		entry->read(array_ref(destination), image_range(0, 8));
 
@@ -1062,7 +1065,7 @@ TEST_CASE(
 	auto destination =
 		make_host_array<float>({1, 2}, numerical_type::float32, untouched);
 
-	entry->store(file, patch);
+	store_now(*entry, file, patch);
 	const auto missing = entry->read(array_ref(destination), patch);
 
 	CHECK( missing.get_region_count() == 0 );
@@ -1086,7 +1089,7 @@ TEST_CASE(
 	auto destination =
 		make_host_array<double>({1, 2, 2}, numerical_type::float64, -1.0);
 
-	entry->store(file, images({5}));
+	store_now(*entry, file, images({5}));
 	const auto missing = entry->read(array_ref(destination), images({5}));
 
 	CHECK( missing.get_region_count() == 0 );
@@ -1116,7 +1119,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		entry->store(file, plan);
+		store_now(*entry, file, plan);
 	}
 
 	SECTION( "reading it answers every region" )
@@ -1155,12 +1158,15 @@ TEST_CASE(
 		.IN_SEQUENCE(order)
 		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
-	REQUIRE_THROWS_AS( entry->store(file, images({2})), std::runtime_error );
+	REQUIRE_THROWS_AS(
+		store_now(*entry, file, images({2})),
+		std::runtime_error
+	);
 	CHECK( entry->read(array_ref(destination), images({2}))
 		.get_region_count() == 1 );
 
 	// The next store reads the file again.
-	entry->store(file, images({2}));
+	store_now(*entry, file, images({2}));
 	const auto missing = entry->read(array_ref(destination), images({2}));
 
 	CHECK( missing.get_region_count() == 0 );
@@ -1183,8 +1189,8 @@ TEST_CASE(
 		.TIMES(1)
 		.LR_SIDE_EFFECT( stack.get_reader().read_async(_1.share(), _2, _3) );
 
-	std::thread first([&] { entry->store(file, images({1})); });
-	std::thread second([&] { entry->store(file, images({3})); });
+	std::thread first([&] { store_now(*entry, file, images({1})); });
+	std::thread second([&] { store_now(*entry, file, images({3})); });
 	first.join();
 	second.join();
 
@@ -1225,7 +1231,7 @@ TEST_CASE(
 			);
 		auto destination = make_batch(1);
 
-		entry->store(file, images({0, 1}));
+		store_now(*entry, file, images({0, 1}));
 
 		// The second image lands in a slot the batch does not have.
 		REQUIRE_THROWS_AS(
@@ -1282,7 +1288,7 @@ TEST_CASE(
 
 	SECTION( "the images a read copies are asked for before any of them is" )
 	{
-		entry->store(stack.get_reader(), images({0, 1, 2, 3}));
+		store_now(*entry, stack.get_reader(), images({0, 1, 2, 3}));
 
 		bool asked_before_copying = false;
 		REQUIRE_CALL(const_storage, prefetch(trompeloeil::_))
@@ -1305,4 +1311,128 @@ TEST_CASE(
 		CHECK( asked_before_copying );
 		CHECK( get_values<float>(destination) == values_of_images({3, 1}) );
 	}
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry refuses a null notifier",
+	"[indexed_image_scratch_entry]"
+)
+{
+	mock_image_reader file;
+	const auto entry = make_entry({0, 1, 2, 3}, 4);
+	FORBID_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
+
+	CHECK_THROWS_AS(
+		entry->store_async(file, images({1}), nullptr),
+		std::invalid_argument
+	);
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry reports at once a store of what it holds",
+	"[indexed_image_scratch_entry]"
+)
+{
+	const stack_file stack("indexed_scratch_entry_held.raw");
+	const auto entry = make_entry({0, 1, 2, 3}, 2);
+	store_now(*entry, stack.get_reader(), images({0, 1}));
+
+	mock_image_reader file;
+	FORBID_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
+
+	const auto done = std::make_shared<counting_completion>(1);
+	entry->store_async(file, images({1, 0}), done);
+	REQUIRE( done->is_ready() );
+	CHECK_NOTHROW( done->get() );
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry has a store that asks for a run being "
+	"loaded wait for it, rather than read it again",
+	"[indexed_image_scratch_entry]"
+)
+{
+	const stack_file stack("indexed_scratch_entry_joined.raw");
+	mock_image_reader file;
+	const auto entry = make_entry({0, 1, 2, 3}, 4);
+
+	// The read of the run is held back until the case lets it go.
+	std::shared_ptr<completion_notifier> loaded;
+	std::unique_ptr<array> run_values;
+	std::unique_ptr<image_transfer_plan> run_regions;
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.TIMES(1)
+		.LR_SIDE_EFFECT(
+			run_values = std::make_unique<array>(_1.share());
+			run_regions = std::make_unique<image_transfer_plan>(_2);
+			loaded = _3
+		);
+
+	const auto first = std::make_shared<counting_completion>(1);
+	const auto second = std::make_shared<counting_completion>(1);
+	entry->store_async(file, images({1}), first);
+	entry->store_async(file, images({3}), second);
+	CHECK_FALSE( first->is_ready() );
+	CHECK_FALSE( second->is_ready() );
+
+	REQUIRE( loaded != nullptr );
+	stack.get_reader().read_async(
+		std::move(*run_values),
+		*run_regions,
+		std::move(loaded)
+	);
+	REQUIRE( first->is_ready() );
+	REQUIRE( second->is_ready() );
+	CHECK_NOTHROW( first->get() );
+	CHECK_NOTHROW( second->get() );
+
+	auto destination = make_batch(2);
+	const auto missing = entry->read(array_ref(destination), images({1, 3}));
+	CHECK( missing.get_region_count() == 0 );
+	CHECK( get_values<float>(destination) == values_of_images({1, 3}) );
+}
+
+TEST_CASE(
+	"an indexed_image_scratch_entry reports a run that fails to load to "
+	"every store waiting for it",
+	"[indexed_image_scratch_entry]"
+)
+{
+	mock_image_reader file;
+	const auto entry = make_entry({0, 1, 2, 3}, 4);
+
+	std::shared_ptr<completion_notifier> loaded;
+	REQUIRE_CALL(
+		file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.TIMES(1)
+		.LR_SIDE_EFFECT( loaded = _3 );
+
+	const auto first = std::make_shared<counting_completion>(1);
+	const auto second = std::make_shared<counting_completion>(1);
+	entry->store_async(file, images({1}), first);
+	entry->store_async(file, images({2}), second);
+
+	REQUIRE( loaded != nullptr );
+	loaded->notify_done(
+		std::make_exception_ptr(std::runtime_error("from the file"))
+	);
+	REQUIRE( first->is_ready() );
+	REQUIRE( second->is_ready() );
+	CHECK_THROWS_AS( first->get(), std::runtime_error );
+	CHECK_THROWS_AS( second->get(), std::runtime_error );
+
+	auto destination = make_batch(1);
+	CHECK( entry->read(array_ref(destination), images({1}))
+		.get_region_count() == 1 );
 }

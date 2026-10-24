@@ -173,13 +173,15 @@ std::shared_ptr<completion> read_patches_async(
  * file. A location without one names the whole file.
  *
  * One task is submitted for each file the locations name, in the order of
- * the grouping. A task opens its file and stores what the locations name of
- * it into the entry of that file, which takes in what it has room for. A
- * file the scratch has no entry for is skipped.
+ * the grouping. A task opens its file and starts storing what the locations
+ * name of it into the entry of that file, which takes in what it has room
+ * for, and returns: the reads of every file are in flight at once. A file
+ * the scratch has no entry for is skipped.
  *
  * This function returns before the files are loaded. The scratch may be
  * read through in the meantime: a read loads what it needs and is not yet
- * loaded.
+ * loaded, and waits for what is already being loaded rather than read it
+ * again.
  *
  * @param scratch The scratch to load.
  * @param files Provider used to open the files. It must read the files

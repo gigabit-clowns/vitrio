@@ -13,6 +13,7 @@
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/synchronous_executor.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -58,10 +59,18 @@ image_transfer_plan make_plan(std::size_t index)
 	return plan;
 }
 
+// Where the readers read from their entries what the entries took in: on
+// the thread that reports it.
+std::shared_ptr<executor> make_tasks()
+{
+	return std::make_shared<synchronous_executor>();
+}
+
 } // anonymous namespace
 
 TEST_CASE(
-	"a scratch_image_reader_provider needs a backing provider and a scratch",
+	"a scratch_image_reader_provider needs a backing provider, a scratch "
+	"and an executor",
 	"[scratch_image_reader_provider]"
 )
 {
@@ -70,7 +79,8 @@ TEST_CASE(
 		REQUIRE_THROWS_AS(
 			scratch_image_reader_provider(
 				nullptr,
-				std::make_shared<mock_image_scratch>()
+				std::make_shared<mock_image_scratch>(),
+				make_tasks()
 			),
 			std::invalid_argument
 		);
@@ -81,6 +91,19 @@ TEST_CASE(
 		REQUIRE_THROWS_AS(
 			scratch_image_reader_provider(
 				std::make_shared<mock_image_reader_provider>(),
+				nullptr,
+				make_tasks()
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "a null executor is refused" )
+	{
+		REQUIRE_THROWS_AS(
+			scratch_image_reader_provider(
+				std::make_shared<mock_image_reader_provider>(),
+				std::make_shared<mock_image_scratch>(),
 				nullptr
 			),
 			std::invalid_argument
@@ -97,7 +120,7 @@ TEST_CASE(
 	const auto backing = std::make_shared<mock_image_reader_provider>();
 	const auto scratch = std::make_shared<mock_image_scratch>();
 	const auto file = std::make_shared<mock_image_reader>();
-	scratch_image_reader_provider provider(backing, scratch);
+	scratch_image_reader_provider provider(backing, scratch, make_tasks());
 
 	REQUIRE_CALL(*backing, acquire("micrograph.mrc")).RETURN(file);
 	REQUIRE_CALL(*scratch, find("micrograph.mrc")).RETURN(nullptr);
@@ -115,7 +138,7 @@ TEST_CASE(
 	const auto scratch = std::make_shared<mock_image_scratch>();
 	const auto entry = std::make_shared<mock_image_scratch_entry>();
 	const auto file = std::make_shared<mock_image_reader>();
-	scratch_image_reader_provider provider(backing, scratch);
+	scratch_image_reader_provider provider(backing, scratch, make_tasks());
 
 	REQUIRE_CALL(*backing, acquire("stack.mrcs")).RETURN(file);
 	REQUIRE_CALL(*scratch, find("stack.mrcs")).RETURN(entry);
@@ -166,9 +189,13 @@ TEST_CASE(
 		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
 			.IN_SEQUENCE(order)
 			.LR_RETURN(regions);
-		REQUIRE_CALL(*entry, store(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( &_1 == file.get() )
-			.IN_SEQUENCE(order);
+			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() );
 		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
 			.IN_SEQUENCE(order)
 			.LR_RETURN(nothing);
@@ -185,7 +212,7 @@ TEST_CASE(
 {
 	const auto backing = std::make_shared<mock_image_reader_provider>();
 	const auto scratch = std::make_shared<mock_image_scratch>();
-	scratch_image_reader_provider provider(backing, scratch);
+	scratch_image_reader_provider provider(backing, scratch, make_tasks());
 
 	REQUIRE_CALL(*backing, acquire("absent.mrcs"))
 		.SIDE_EFFECT( throw std::runtime_error("from the backing") )

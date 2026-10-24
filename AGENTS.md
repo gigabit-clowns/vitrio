@@ -262,6 +262,16 @@ since the archive of a commit lacks its libraries, which are submodules.
     given when it opens a file, and whose executor the reader keeps. Only
     what is about files takes one: `file_image_reader_provider` holds it,
     so that `image_reader_provider::acquire` stays a key alone.
+  - A scratch takes in what it is offered as a transfer:
+    `image_scratch_entry::store_async` reports the same way. A run is read
+    from the file once, and a store that needs a run already being taken in
+    waits for it. The lock of an entry guards only which runs are absent,
+    being taken in or held, never a read. What a reader copies out of an
+    entry once it has taken that in is a task on the executor the reader
+    was given.
+  - Work that waits for the tasks of an executor says so, and must not run
+    on a thread of it. Creating an `indexed_image_scratch` opens its files
+    that way, all at once.
 - **Sizes that come from a file.** Extents and strides may be read from a
   file, so arithmetic on them goes through `checked_add` and
   `checked_multiply` and an overflow is reported, not computed.
@@ -282,7 +292,7 @@ since the archive of a commit lacks its libraries, which are submodules.
   are checked as it goes: trompeloeil aborts when a mock is destroyed before
   the expectations on it.
 - **Transfers in tests.** A test that reads or writes through an interface
-  waits with `read_now`, `write_now` and `flush_now`, from
+  waits with `read_now`, `write_now`, `flush_now` and `store_now`, from
   `tests/assets/include/vitrio/tests/transfers.hpp`.
 - **Private headers use their dependencies openly.** A header under `src/`
   includes what it needs and names its types as they are: a mapping of a
@@ -365,8 +375,10 @@ since the archive of a commit lacks its libraries, which are submodules.
 - **File transfers in Python.** A provider assembled without a
   `FileTransferPool` takes the one `_default_transfers.py` shares across the
   process, whose conversions run on a thread pool of its own, apart from the
-  threads of the loaders, which may wait for reads. A child of a fork makes
-  its own, as `_default_loader.py` does.
+  threads of the loaders, which may wait for reads. The work of a scratch
+  given no executor, opening its files, prefetching and copying out what it
+  took in, runs on that thread pool too. A child of a fork makes its own, as
+  `_default_loader.py` does.
 - **Docstrings.** Everything `vitrio.__all__` exports has a docstring, and so
   has each public method and property of a class, which
   `tests/python/test_documentation.py` checks. They are written in the style
