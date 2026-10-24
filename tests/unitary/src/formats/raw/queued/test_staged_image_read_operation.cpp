@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/interfaces/catch_interfaces_capture.hpp>
 
 #include <formats/raw/queued/staged_image_read_operation.hpp>
 
@@ -31,6 +32,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -98,6 +100,16 @@ image_transfer_plan images_of_stack()
 	return regions;
 }
 
+// Every case runs as a process of its own, and several may run at once, so
+// the file of a case is named after it.
+std::string name_file()
+{
+	const auto case_name = Catch::getResultCapture().getCurrentTestName();
+	const auto tag = std::hash<std::string>()(case_name);
+
+	return "staged_image_read_operation_" + std::to_string(tag) + ".raw";
+}
+
 // What was asked of one read.
 struct queued_read
 {
@@ -111,7 +123,7 @@ class staged_fixture
 {
 public:
 	staged_fixture()
-		: m_path("staged_image_read_operation.raw")
+		: m_path(name_file())
 		, m_bytes(write_file(m_path.get()))
 		, m_destination(
 			make_host_array<double>(stack_extents, numerical_type::float64)
