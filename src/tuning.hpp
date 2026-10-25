@@ -88,6 +88,24 @@ std::size_t get_file_transfer_queue_capacity() noexcept;
 std::size_t get_file_transfer_workers() noexcept;
 
 /**
+ * @brief Get how many bytes of its chunks a read of a ZARR array holds at
+ * once: the variable @c VITRIO_CHUNK_BYTE_BUDGET of the environment, or
+ * @c VITRIO_DEFAULT_CHUNK_BYTE_BUDGET.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_chunk_byte_budget() noexcept;
+
+/**
+ * @brief Get how many chunks of a ZARR array a read has open at once: the
+ * variable @c VITRIO_CHUNKS_IN_FLIGHT of the environment, or
+ * @c VITRIO_DEFAULT_CHUNKS_IN_FLIGHT.
+ *
+ * @return std::size_t The chunks.
+ */
+std::size_t get_chunks_in_flight() noexcept;
+
+/**
  * @brief Tell whether files are to be transferred without asynchronous
  * ports, as where the process can not have them: whether the variable
  * @c VITRIO_DISABLE_ASYNCHRONOUS_IO of the environment is set.

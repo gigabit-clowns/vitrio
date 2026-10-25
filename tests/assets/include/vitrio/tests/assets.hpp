@@ -101,4 +101,19 @@ inline std::string get_dm_asset_path(const std::string &name)
 	#endif
 }
 
+/**
+ * @brief Get the path of one of the ZARR stores the tests are given, each a
+ * directory.
+ *
+ * @param name Name of the store, as tests/assets/zarr/README.txt lists it.
+ */
+inline std::string get_zarr_asset_path(const std::string &name)
+{
+	#if defined(_WIN32)
+		return get_asset_root() + "\\zarr\\" + name;
+	#else
+		return get_asset_root() + "/zarr/" + name;
+	#endif
+}
+
 } // namespace vitrio

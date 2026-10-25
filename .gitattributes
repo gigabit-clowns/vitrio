@@ -1,0 +1,4 @@
+# The files of the ZARR stores the tests read are bytes, whatever they look
+# like: a small compressed chunk may hold no zero byte, which git would take
+# for text and change the line endings of on a checkout on Windows.
+tests/assets/zarr/*.zarr/** -text

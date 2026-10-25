@@ -28,13 +28,14 @@ in the same commit that causes it.
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
+| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read only: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the read operation that opens, reads and decodes a chunk at a time, the reader and the format that registers itself. Built only with `VITRIO_ENABLE_ZARR` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time and by chunk for one moved a chunk at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks and the boolean of a file, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
 | `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the transfers of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
-| `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
+| `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to. A format has a directory of its own, with a README.txt that says where each file comes from and what it holds, and the script that wrote the synthetic ones. `.gitattributes` keeps git from taking the files of the ZARR stores for text |
 | `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region, transfers waited for, and a pool of file transfers for the files a case opens |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
@@ -355,6 +356,17 @@ since the archive of a commit lacks its libraries, which are submodules.
   it with; the counting one bins pixels of the detector by a
   `detector_event_binning`, stated in pixels rather than in quanta. That is chosen by whoever reads, not by the file, so it is
   stated where readers are made and never registered as a format of images.
+- **ZARR.** A ZARR array is a directory, and every chunk a file of its own.
+  The format opens no file until it reads: a read resolves its regions into
+  the chunks they reach with `image_chunk_regions`, and its operation opens,
+  reads and decodes each chunk, a few at a time within
+  `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+  bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
+  the order of the bytes are the strides and the byte order the strided
+  transfer reads a chunk with. A chunk that is not stored is read as its fill
+  value through strides of zero. Metadata that is not what ZARR states is an
+  `image_file_format_error`, and what ZARR allows but the format does not
+  read an `unsupported_operation_error`.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

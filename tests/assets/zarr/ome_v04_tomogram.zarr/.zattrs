@@ -1,0 +1,65 @@
+{
+  "multiscales": [
+    {
+      "version": "0.4",
+      "axes": [
+        {
+          "name": "z",
+          "type": "space",
+          "unit": "angstrom"
+        },
+        {
+          "name": "y",
+          "type": "space",
+          "unit": "angstrom"
+        },
+        {
+          "name": "x",
+          "type": "space",
+          "unit": "angstrom"
+        }
+      ],
+      "datasets": [
+        {
+          "path": "0",
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                10.0,
+                10.0,
+                10.0
+              ]
+            }
+          ]
+        },
+        {
+          "path": "1",
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                20.0,
+                20.0,
+                20.0
+              ]
+            }
+          ]
+        },
+        {
+          "path": "2",
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                40.0,
+                40.0,
+                40.0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

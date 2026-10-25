@@ -70,3 +70,23 @@
 #ifndef VITRIO_DEFAULT_FILE_TRANSFER_WORKERS
 	#define VITRIO_DEFAULT_FILE_TRANSFER_WORKERS 4
 #endif
+
+// Bytes a read of a ZARR array holds of its chunks at once: those it has read
+// and not yet decoded, and those it decodes.
+//
+// A chunk is read whole and decoded whole, and one of 256 voxels a side of
+// floats, as tomograms are chunked, is 64 MiB. The chunks a read holds are
+// decoded at once on the executor of computations, so this is what lets
+// them keep its threads busy. A read always holds one chunk, however large.
+#ifndef VITRIO_DEFAULT_CHUNK_BYTE_BUDGET
+	#define VITRIO_DEFAULT_CHUNK_BYTE_BUDGET (1UL<<29)
+#endif
+
+// Chunks of a ZARR array a read has open at once, each a file of its own.
+//
+// Small chunks fit the budget of bytes many at once, and each takes a file
+// descriptor, of which a process has a few thousand: several reads at once
+// hold several of this.
+#ifndef VITRIO_DEFAULT_CHUNKS_IN_FLIGHT
+	#define VITRIO_DEFAULT_CHUNKS_IN_FLIGHT 64
+#endif

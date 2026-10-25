@@ -13,10 +13,13 @@ target_sources(
 		test_zarr_codec_pipeline.cpp
 		test_zarr_core_rank.cpp
 		test_zarr_data_type.cpp
+		test_zarr_file_read_format.cpp
 		test_zarr_fill_value.cpp
+		test_zarr_image_reader.cpp
 		test_zarr_json.cpp
 		test_zarr_multiscale.cpp
 		test_zarr_node.cpp
+		test_zarr_read_operation.cpp
 		test_zlib_inflate.cpp
 		test_zlib_zarr_bytes_codec.cpp
 		test_zstd_zarr_bytes_codec.cpp
