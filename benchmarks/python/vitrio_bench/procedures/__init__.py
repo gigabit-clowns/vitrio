@@ -19,13 +19,14 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from . import ceiling, epochs, patches, read_batches
+from . import ceiling, epochs, patches, read_batches, zarr_io
 
 PROCEDURES: dict[str, ModuleType] = {
 	'ceiling': ceiling,
 	'epochs': epochs,
 	'patches': patches,
 	'read_batches': read_batches,
+	'zarr': zarr_io,
 }
 
 def get(name: str) -> ModuleType:

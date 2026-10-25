@@ -47,9 +47,9 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
+| `benchmarks/` | How fast vitrio reads, against the ways other software reads, how fast it writes and reads ZARR, against the libraries Python does it with, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
 | `benchmarks/cpp/` | The C++ benchmarks, built with `-DVITRIO_BUILD_BENCHMARKS=ON`: that of the engine of `src/strided_transfer/`, white-box, linked with the objects of the library as the unit tests are |
-| `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch |
+| `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch. The "reader" of the procedure `zarr` is a library of `zarr_libraries/`, which writes a store as well as reading it |
 | `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, the fixture that builds vitrio for the sweeps of its tuning macros, and example configurations of machines |
 | `benchmarks/datasets/` | The manifests of real datasets, in JSON: where to download each, what its files are, how to check them (`python -m vitrio_bench dataset check`) and how to make its variants. The data is never committed |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
@@ -202,6 +202,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | zarr-python, numcodecs | The tests of the Python package that read what zarr-python writes, and the script that writes the stores of `tests/assets/zarr`. They are skipped without it, which needs Python 3.12 |
 | psutil | The harness of the benchmarks, for the CPU time, memory and bytes read of a run |
 | mrcfile, lmdb | The baselines of the benchmarks that read as other software does |
+| zarr-python, tensorstore | The baselines of the benchmarks that write and read ZARR. Each is skipped without it; zarr-python needs Python 3.12 and tensorstore 3.11 |
 | ReFrame | Running campaigns of the benchmarks. Not installed on Windows, where it does not run |
 | Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |

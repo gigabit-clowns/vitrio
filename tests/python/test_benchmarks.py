@@ -24,7 +24,9 @@ BENCHMARKS = Path(__file__).parents[2] / 'benchmarks'
 HARNESS = BENCHMARKS / 'python'
 sys.path.insert(0, str(HARNESS))
 
-from vitrio_bench import datasets, manifests, readers, results    # noqa: E402
+from vitrio_bench import (    # noqa: E402
+	datasets, manifests, readers, results, zarr_libraries,
+)
 
 DATASET = ['--dataset.count=120', '--dataset.box=16']
 LAYOUTS = ['single-stack', 'per-micrograph:7']
@@ -206,6 +208,35 @@ def test_every_reframe_parameter_takes_values_from_the_command_line(tmp_path):
 		for option in ('-P', parameter)
 	]
 	list_reframe_tests(tmp_path, *options)
+
+VOLUME = ['--dataset.count=20', '--dataset.box=24']
+
+@pytest.mark.parametrize('kind', ['volume', 'stack'])
+def test_every_zarr_library_writes_and_reads_the_same_store(tmp_path, kind):
+	harness('generate', '--datadir', str(tmp_path), *VOLUME)
+	records_file = tmp_path / 'results.jsonl'
+	for name in zarr_libraries.LIBRARIES:
+		harness(
+			'run', 'zarr', '--datadir', str(tmp_path),
+			'--results', str(records_file), *VOLUME, f'--reader.name={name}',
+			f'--workload.kind={kind}', '--workload.chunk_edge=8',
+			'--workload.patch=5', '--workload.patches=7',
+			'--workload.repeats=2', '--workload.verify=true'
+		)
+
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	runnable = {
+		name for name, library in zarr_libraries.LIBRARIES.items()
+		if not zarr_libraries.missing(library)
+	}
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert {record['reader']['name'] for record in succeeded} == runnable
+	for metric in ('read_hash', 'patch_hash', 'files'):
+		assert len({record['metrics'][metric] for record in succeeded}) == 1
+	# What each wrote is removed after it.
+	assert not list(tmp_path.glob('zarr-*'))
 
 MICROGRAPHS = [
 	'--dataset.count=3', '--dataset.box=128', '--dataset.layout=one-per-file',
