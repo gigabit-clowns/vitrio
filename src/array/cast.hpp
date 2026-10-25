@@ -3,6 +3,7 @@
 #pragma once
 
 #include "fixed_width_float.hpp"
+#include "stored_boolean.hpp"
 
 #include <complex>
 #include <type_traits>
@@ -99,6 +100,52 @@ void cast(std::complex<T> *destination, const std::complex<Q> *source) noexcept;
  */
 template <typename T, typename Q>
 void cast(std::complex<T> *destination, const Q *source) noexcept;
+
+/**
+ * @brief Convert one boolean of a file into another type.
+ *
+ * Any byte but zero is true, which converts into one, and zero is false,
+ * which converts into zero.
+ *
+ * @tparam T Type converted into.
+ * @param destination Where the converted value is written.
+ * @param source The value to convert.
+ */
+template <typename T>
+typename std::enable_if<std::is_arithmetic<T>::value>::type
+cast(T *destination, const stored_boolean *source) noexcept;
+
+/**
+ * @brief Convert one boolean of a file into half precision.
+ *
+ * @param destination Where the converted value is written.
+ * @param source The value to convert.
+ * @see cast(T*, const stored_boolean*)
+ */
+void cast(float16_t *destination, const stored_boolean *source) noexcept;
+
+/**
+ * @brief Convert one element into a boolean of a file.
+ *
+ * Anything but zero is true, as static_cast into a bool has it, and is
+ * stored as one. A NaN is not zero, so it is true.
+ *
+ * @tparam Q Type converted from.
+ * @param destination Where the converted value is written.
+ * @param source The value to convert.
+ */
+template <typename Q>
+typename std::enable_if<std::is_arithmetic<Q>::value>::type
+cast(stored_boolean *destination, const Q *source) noexcept;
+
+/**
+ * @brief Convert one half precision element into a boolean of a file.
+ *
+ * @param destination Where the converted value is written.
+ * @param source The value to convert.
+ * @see cast(stored_boolean*, const Q*)
+ */
+void cast(stored_boolean *destination, const float16_t *source) noexcept;
 
 } // namespace vitrio
 

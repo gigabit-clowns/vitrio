@@ -9,6 +9,7 @@ target_sources(
 		image_region_offsets.cpp
 		image_region_read_walk.cpp
 		image_region_transfer.cpp
+		image_region_transfer_boolean.cpp
 		image_region_transfer_complex_float16.cpp
 		image_region_transfer_complex_float32.cpp
 		image_region_transfer_complex_float64.cpp

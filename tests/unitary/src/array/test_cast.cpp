@@ -182,3 +182,52 @@ TEST_CASE(
 	REQUIRE( static_cast<float>(destination.real()) == 1.25f );
 	REQUIRE( static_cast<float>(destination.imag()) == -8.0f );
 }
+
+TEST_CASE( "cast reads a boolean of a file as true unless it is zero",
+	"[cast]" )
+{
+	const std::uint8_t value = GENERATE(0, 1, 2, 255);
+	const stored_boolean source = {value};
+	const bool expected = value != 0;
+
+	bool boolean = !expected;
+	cast(&boolean, &source);
+	REQUIRE( boolean == expected );
+
+	int integer = -1;
+	cast(&integer, &source);
+	REQUIRE( integer == (expected ? 1 : 0) );
+
+	float16_t half;
+	cast(&half, &source);
+	REQUIRE( static_cast<float>(half) == (expected ? 1.0f : 0.0f) );
+
+	std::complex<double> complex;
+	cast(&complex, &source);
+	REQUIRE( complex == std::complex<double>(expected ? 1.0 : 0.0, 0.0) );
+}
+
+TEST_CASE( "cast stores anything but zero as a true boolean", "[cast]" )
+{
+	stored_boolean destination = {7};
+
+	const double zero = 0.0;
+	cast(&destination, &zero);
+	REQUIRE( destination.value == 0 );
+
+	const int negative = -3;
+	cast(&destination, &negative);
+	REQUIRE( destination.value == 1 );
+
+	const float not_a_number = std::nanf("");
+	cast(&destination, &not_a_number);
+	REQUIRE( destination.value == 1 );
+
+	const float16_t half_zero(0.0f);
+	cast(&destination, &half_zero);
+	REQUIRE( destination.value == 0 );
+
+	const float16_t half(0.5f);
+	cast(&destination, &half);
+	REQUIRE( destination.value == 1 );
+}

@@ -29,7 +29,7 @@ in the same commit that causes it.
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
-| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
+| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks and the boolean of a file, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
 | `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the transfers of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
@@ -304,7 +304,10 @@ since the archive of a commit lacks its libraries, which are submodules.
   it. Hiding a dependency is for public headers only.
 - **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
   element as `static_cast` does. Any type is produced from any other, except
-  that a complex number is only produced into another complex type.
+  that a complex number is only produced into another complex type. A
+  boolean of a file is a `stored_boolean`, in `src/array/stored_boolean.hpp`,
+  a byte that is true unless it is zero, and never a `bool`: a file may hold
+  any byte, and C++ leaves a `bool` that is neither zero nor one undefined.
 - **Half precision.** `float16_t`, in `src/array/float16_t.hpp`, is a class
   of vitrio's own, which converts and does no arithmetic. Its conversions
   are bit arithmetic without a branch, and no intrinsic, so that a compiler

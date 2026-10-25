@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <complex>
 #include <cstdint>
 #include <cstring>
@@ -707,7 +708,103 @@ TEST_CASE( "values are converted into the type asked for",
 			read_regions(
 			plan,
 				array.data(), numerical_type::uint8,
-				as_file(file), numerical_type::boolean,
+				as_file(file), numerical_type::unknown,
+				get_system_byte_order()
+			),
+			unsupported_operation_error
+		);
+	}
+}
+
+TEST_CASE( "a file holds a boolean as a byte, true unless it is zero",
+	"[image_region_transfer]" )
+{
+	const std::vector<std::size_t> extents = {4};
+	const auto strides = contiguous_strides(extents);
+
+	image_transfer_plan regions(image_transfer_shape(extents, 1, 1));
+	regions.add(make_span(std::vector<std::size_t>{0}),
+		make_span(std::vector<std::size_t>{0}));
+
+	const image_region_read_walk reader(
+		regions,
+		make_span(extents), make_span(strides),
+		make_span(extents), make_span(strides),
+		0
+	);
+	const image_region_write_walk writer(
+		regions,
+		make_span(extents), make_span(strides),
+		make_span(extents), make_span(strides),
+		0
+	);
+
+	// A byte that is neither zero nor one is no bool C++ may read, so these
+	// are read without ever being taken for one.
+	const std::vector<std::uint8_t> file = {0, 1, 2, 255};
+
+	SECTION( "read as a bool, any byte but zero is true" )
+	{
+		bool array[4] = {true, false, false, false};
+		read_regions(
+			reader,
+			array, numerical_type::boolean,
+			as_file(file), numerical_type::boolean,
+			other_byte_order()
+		);
+
+		REQUIRE_FALSE( array[0] );
+		REQUIRE( array[1] );
+		REQUIRE( array[2] );
+		REQUIRE( array[3] );
+	}
+
+	SECTION( "read as a number, true is one" )
+	{
+		std::vector<float32_t> floats(4, -1.0F);
+		read_regions(
+			reader,
+			floats.data(), numerical_type::float32,
+			as_file(file), numerical_type::boolean,
+			get_system_byte_order()
+		);
+		REQUIRE( floats == std::vector<float32_t>{0.0F, 1.0F, 1.0F, 1.0F} );
+
+		std::vector<float16_t> halves(4);
+		read_regions(
+			reader,
+			halves.data(), numerical_type::float16,
+			as_file(file), numerical_type::boolean,
+			get_system_byte_order()
+		);
+		REQUIRE( static_cast<float>(halves[0]) == 0.0F );
+		REQUIRE( static_cast<float>(halves[3]) == 1.0F );
+	}
+
+	SECTION( "written, anything but zero is stored as one" )
+	{
+		const std::vector<float32_t> array = {0.0F, 0.5F, -3.0F, NAN};
+		std::vector<std::uint8_t> written(4, 7);
+		write_regions(
+			writer,
+			array.data(), numerical_type::float32,
+			as_file(written), numerical_type::boolean,
+			get_system_byte_order()
+		);
+
+		REQUIRE( written == std::vector<std::uint8_t>{0, 1, 1, 1} );
+	}
+
+	SECTION( "a complex value has no boolean to be written as" )
+	{
+		const std::vector<std::complex<float32_t>> array(4);
+		std::vector<std::uint8_t> written(4);
+
+		REQUIRE_THROWS_AS(
+			write_regions(
+				writer,
+				array.data(), numerical_type::complex_float32,
+				as_file(written), numerical_type::boolean,
 				get_system_byte_order()
 			),
 			unsupported_operation_error
