@@ -1,0 +1,474 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#include "zarr_array_layout.hpp"
+
+#include "blosc_zarr_bytes_codec.hpp"
+#include "crc32c_zarr_bytes_codec.hpp"
+#include "gzip_zarr_bytes_codec.hpp"
+#include "zarr_data_type.hpp"
+#include "zarr_fill_value.hpp"
+#include "zarr_json.hpp"
+#include "zlib_zarr_bytes_codec.hpp"
+#include "zstd_zarr_bytes_codec.hpp"
+
+#include <algorithm>
+#include <memory>
+#include <numeric>
+#include <stdexcept>
+
+namespace vitrio
+{
+namespace zarr
+{
+
+namespace
+{
+
+using codec_list = std::vector<std::shared_ptr<const zarr_bytes_codec>>;
+
+// The members of the metadata of an array of version 3. Any other must be an
+// extension that says it need not be understood.
+const char *const v3_members[] = {
+	"zarr_format", "node_type", "shape", "data_type", "chunk_grid",
+	"chunk_key_encoding", "fill_value", "codecs", "dimension_names",
+	"storage_transformers",
+};
+
+std::vector<std::size_t> get_chunk_extents(
+	const nlohmann::json &value,
+	std::size_t rank,
+	const std::string &where
+)
+{
+	auto extents = get_extents(value, "chunk shape", where);
+	if (extents.size() != rank)
+	{
+		reject_metadata(
+			where, "The chunks do not have as many axes as the array.");
+	}
+	if (
+		std::find(extents.cbegin(), extents.cend(), std::size_t(0)) !=
+		extents.cend()
+	)
+	{
+		reject_metadata(where, "A chunk is empty along an axis.");
+	}
+
+	return extents;
+}
+
+// A codec of version 2, its "id" one of numcodecs.
+std::shared_ptr<const zarr_bytes_codec> make_v2_codec(
+	const nlohmann::json &compressor,
+	const std::string &where
+)
+{
+	const auto &id = get_member(compressor, "id", where);
+	if (id == "blosc")
+	{
+		return std::make_shared<blosc_zarr_bytes_codec>();
+	}
+	if (id == "zstd")
+	{
+		return std::make_shared<zstd_zarr_bytes_codec>();
+	}
+	if (id == "zlib")
+	{
+		return std::make_shared<zlib_zarr_bytes_codec>();
+	}
+	if (id == "gzip")
+	{
+		return std::make_shared<gzip_zarr_bytes_codec>();
+	}
+
+	refuse_metadata(where, "Chunks compressed with " + id.dump() +
+		" are not read.");
+}
+
+// A codec of version 3, an object that names it, or its name alone.
+const nlohmann::json& get_codec_name(
+	const nlohmann::json &codec,
+	const std::string &where
+)
+{
+	const auto &name =
+		codec.is_string() ? codec : get_member(codec, "name", where);
+	if (!name.is_string())
+	{
+		reject_metadata(where, "A codec is not named.");
+	}
+
+	return name;
+}
+
+const nlohmann::json& get_configuration(const nlohmann::json &codec)
+{
+	static const nlohmann::json none = nlohmann::json::object();
+	if (!codec.is_object())
+	{
+		return none;
+	}
+
+	const auto found = codec.find("configuration");
+	return found == codec.end() ? none : *found;
+}
+
+std::shared_ptr<const zarr_bytes_codec> make_v3_bytes_codec(
+	const std::string &name
+)
+{
+	if (name == "blosc")
+	{
+		return std::make_shared<blosc_zarr_bytes_codec>();
+	}
+	if (name == "zstd")
+	{
+		return std::make_shared<zstd_zarr_bytes_codec>();
+	}
+	if (name == "gzip")
+	{
+		return std::make_shared<gzip_zarr_bytes_codec>();
+	}
+	if (name == "crc32c")
+	{
+		return std::make_shared<crc32c_zarr_bytes_codec>();
+	}
+
+	return nullptr;
+}
+
+// Applies a transpose to the order the axes are in so far: the axis at each
+// position after it is the one at the position its order names before it.
+void apply_transpose(
+	const nlohmann::json &configuration,
+	std::vector<std::size_t> &axes,
+	const std::string &where
+)
+{
+	const auto found = configuration.find("order");
+	if (found == configuration.end() || !found->is_array())
+	{
+		reject_metadata(where, "A transpose states no order of the axes.");
+	}
+
+	const auto order = get_extents(*found, "order of a transpose", where);
+	auto sorted = order;
+	std::sort(sorted.begin(), sorted.end());
+	std::vector<std::size_t> identity(axes.size());
+	std::iota(identity.begin(), identity.end(), std::size_t(0));
+	if (sorted != identity)
+	{
+		reject_metadata(
+			where,
+			"The order of a transpose is not a permutation of the axes."
+		);
+	}
+
+	std::vector<std::size_t> transposed(axes.size());
+	for (std::size_t position = 0; position < axes.size(); ++position)
+	{
+		transposed[position] = axes[order[position]];
+	}
+	axes = transposed;
+}
+
+byte_order parse_endian(
+	const nlohmann::json &configuration,
+	bool needed,
+	const std::string &where
+)
+{
+	const auto found = configuration.find("endian");
+	if (found == configuration.end() || found->is_null())
+	{
+		if (needed)
+		{
+			reject_metadata(
+				where, "The bytes codec states no order of the bytes.");
+		}
+		return get_system_byte_order();
+	}
+
+	if (*found == "little")
+	{
+		return byte_order::little_endian;
+	}
+	if (*found == "big")
+	{
+		return byte_order::big_endian;
+	}
+
+	reject_metadata(where, "The bytes codec states an order of the bytes "
+		"that is neither little nor big.");
+}
+
+bool is_lenient_extension(const nlohmann::json &value)
+{
+	if (!value.is_object())
+	{
+		return false;
+	}
+
+	const auto found = value.find("must_understand");
+	return found != value.end() && *found == false;
+}
+
+} // anonymous namespace
+
+zarr_array_layout::zarr_array_layout(const zarr_node &node)
+	: m_keys(std::string(), '.')
+{
+	if (node.kind != zarr_node_kind::array)
+	{
+		throw std::invalid_argument(
+			node.metadata_path + ": zarr_array_layout: The node is not an "
+			"array."
+		);
+	}
+
+	const auto where = node.metadata_path + ": zarr_array_layout";
+	try
+	{
+		if (node.version == 2)
+		{
+			read_v2(node, where);
+		}
+		else
+		{
+			read_v3(node, where);
+		}
+	}
+	catch (const std::overflow_error &)
+	{
+		reject_metadata(where, "The chunks are too large to be counted.");
+	}
+}
+
+void zarr_array_layout::read_v2(
+	const zarr_node &node,
+	const std::string &where
+)
+{
+	const auto &metadata = node.metadata;
+
+	m_shape = get_extents(get_member(metadata, "shape", where), "shape", where);
+	auto chunks = get_chunk_extents(
+		get_member(metadata, "chunks", where), m_shape.size(), where);
+	const auto type = parse_v2_data_type(
+		get_member(metadata, "dtype", where), where);
+
+	std::vector<std::size_t> axes(m_shape.size());
+	std::iota(axes.begin(), axes.end(), std::size_t(0));
+	const auto &order = get_member(metadata, "order", where);
+	if (order == "F")
+	{
+		std::reverse(axes.begin(), axes.end());
+	}
+	else if (order != "C")
+	{
+		reject_metadata(where, "The order is neither C nor F.");
+	}
+
+	const auto filters = metadata.find("filters");
+	if (
+		filters != metadata.end() && !filters->is_null() &&
+		!(filters->is_array() && filters->empty())
+	)
+	{
+		refuse_metadata(where, "Arrays with filters are not read.");
+	}
+
+	codec_list codecs;
+	const auto &compressor = get_member(metadata, "compressor", where);
+	if (!compressor.is_null())
+	{
+		codecs.push_back(make_v2_codec(compressor, where));
+	}
+
+	m_chunk.emplace(std::move(chunks), make_span(axes), type.type,
+		type.order);
+	m_fill = parse_fill_value(
+		get_member(metadata, "fill_value", where), type.type, where);
+	m_codecs = zarr_codec_pipeline(std::move(codecs));
+	m_keys = parse_v2_chunk_key_encoding(metadata, where);
+}
+
+void zarr_array_layout::read_v3(
+	const zarr_node &node,
+	const std::string &where
+)
+{
+	const auto &metadata = node.metadata;
+	for (const auto &member : metadata.items())
+	{
+		const auto known = std::find_if(
+			std::begin(v3_members), std::end(v3_members),
+			[&member] (const char *name) { return member.key() == name; });
+		if (known == std::end(v3_members) &&
+			!is_lenient_extension(member.value()))
+		{
+			refuse_metadata(
+				where,
+				"The metadata states \"" + member.key() +
+					"\", which this reader does not understand."
+			);
+		}
+	}
+
+	const auto transformers = metadata.find("storage_transformers");
+	if (
+		transformers != metadata.end() &&
+		!(transformers->is_array() && transformers->empty())
+	)
+	{
+		refuse_metadata(
+			where, "Arrays with storage transformers are not read.");
+	}
+
+	m_shape = get_extents(get_member(metadata, "shape", where), "shape", where);
+
+	const auto &grid = get_member(metadata, "chunk_grid", where);
+	if (get_member(grid, "name", where) != "regular")
+	{
+		refuse_metadata(where, "Only a regular grid of chunks is read.");
+	}
+	auto chunks = get_chunk_extents(
+		get_member(get_member(grid, "configuration", where), "chunk_shape",
+			where),
+		m_shape.size(),
+		where
+	);
+
+	// The codecs come in three runs: those of arrays into arrays, the one
+	// of the array into bytes, and those of bytes into bytes.
+	const auto &listed = get_member(metadata, "codecs", where);
+	if (!listed.is_array() || listed.empty())
+	{
+		reject_metadata(where, "The codecs are no list, or none.");
+	}
+
+	std::vector<std::size_t> axes(m_shape.size());
+	std::iota(axes.begin(), axes.end(), std::size_t(0));
+	boost::optional<byte_order> endian;
+	codec_list codecs;
+	const auto &data_type = get_member(metadata, "data_type", where);
+	for (const auto &codec : listed)
+	{
+		const auto &name =
+			get_codec_name(codec, where).get_ref<const std::string&>();
+		const auto &configuration = get_configuration(codec);
+
+		if (name == "transpose")
+		{
+			if (endian)
+			{
+				reject_metadata(where, "A transpose follows the bytes codec.");
+			}
+			apply_transpose(configuration, axes, where);
+		}
+		else if (name == "bytes")
+		{
+			if (endian)
+			{
+				reject_metadata(where, "The array is turned into bytes twice.");
+			}
+			// Whether the order is needed depends on the size of the type,
+			// which the order is read along with.
+			const auto single = parse_v3_data_type(
+				data_type, get_system_byte_order(), where).type;
+			endian = parse_endian(
+				configuration, get_size(single) > 1, where);
+		}
+		else if (name == "sharding_indexed")
+		{
+			refuse_metadata(where, "Sharded arrays are not read yet.");
+		}
+		else if (const auto bytes_codec = make_v3_bytes_codec(name))
+		{
+			if (!endian)
+			{
+				reject_metadata(
+					where, "A codec of bytes comes before the bytes codec.");
+			}
+			codecs.push_back(bytes_codec);
+		}
+		else
+		{
+			refuse_metadata(
+				where, "Chunks encoded with \"" + name + "\" are not read.");
+		}
+	}
+	if (!endian)
+	{
+		reject_metadata(where, "No codec turns the array into bytes.");
+	}
+
+	const auto type = parse_v3_data_type(data_type, *endian, where);
+	m_chunk.emplace(std::move(chunks), make_span(axes), type.type,
+		type.order);
+	m_fill = parse_fill_value(
+		get_member(metadata, "fill_value", where), type.type, where);
+	m_codecs = zarr_codec_pipeline(std::move(codecs));
+	m_keys = parse_v3_chunk_key_encoding(
+		get_member(metadata, "chunk_key_encoding", where), where);
+
+	const auto names = metadata.find("dimension_names");
+	if (names != metadata.end() && !names->is_null())
+	{
+		if (!names->is_array() || names->size() != m_shape.size())
+		{
+			reject_metadata(
+				where, "The dimension names do not name every axis.");
+		}
+		for (const auto &name : *names)
+		{
+			if (name.is_string())
+			{
+				m_dimension_names.push_back(name.get<std::string>());
+			}
+			else if (name.is_null())
+			{
+				m_dimension_names.emplace_back();
+			}
+			else
+			{
+				reject_metadata(where, "A dimension name is no string.");
+			}
+		}
+	}
+}
+
+span<const std::size_t> zarr_array_layout::get_shape() const noexcept
+{
+	return make_span(m_shape);
+}
+
+const zarr_chunk_layout& zarr_array_layout::get_chunk_layout() const noexcept
+{
+	return *m_chunk;
+}
+
+span<const byte> zarr_array_layout::get_fill_element() const noexcept
+{
+	return make_span(m_fill);
+}
+
+const zarr_codec_pipeline& zarr_array_layout::get_codecs() const noexcept
+{
+	return m_codecs;
+}
+
+const zarr_chunk_key_encoding&
+zarr_array_layout::get_key_encoding() const noexcept
+{
+	return m_keys;
+}
+
+const std::vector<std::string>&
+zarr_array_layout::get_dimension_names() const noexcept
+{
+	return m_dimension_names;
+}
+
+} // namespace zarr
+} // namespace vitrio
