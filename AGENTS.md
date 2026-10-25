@@ -28,7 +28,7 @@ in the same commit that causes it.
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
-| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read only: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the read operation that opens, reads and decodes a chunk at a time, the reader and the format that registers itself. Built only with `VITRIO_ENABLE_ZARR` |
+| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read only: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the layout and the index of shards, the read operation that opens and reads a file at a time and decodes its chunks, the reader and the format that registers itself. Built only with `VITRIO_ENABLE_ZARR` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time and by chunk for one moved a chunk at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks and the boolean of a file, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
@@ -357,11 +357,12 @@ since the archive of a commit lacks its libraries, which are submodules.
   it with; the counting one bins pixels of the detector by a
   `detector_event_binning`, stated in pixels rather than in quanta. That is chosen by whoever reads, not by the file, so it is
   stated where readers are made and never registered as a format of images.
-- **ZARR.** A ZARR array is a directory, and every chunk a file of its own.
-  The format opens no file until it reads: a read resolves its regions into
-  the chunks they reach with `image_chunk_regions`, and its operation opens,
-  reads and decodes each chunk, a few at a time within
-  `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+- **ZARR.** A ZARR array is a directory, and every chunk a file of its own,
+  or every shard of chunks, with an index of where each lies. The format
+  opens no file until it reads: a read resolves its regions into the chunks
+  they reach with `image_chunk_regions`, and its operation opens and reads
+  each file, its index first for a shard, and decodes its chunks, a few
+  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
   bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
   the order of the bytes are the strides and the byte order the strided
   transfer reads a chunk with. A chunk that is not stored is read as its fill

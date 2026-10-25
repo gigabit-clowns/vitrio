@@ -21,6 +21,8 @@ target_sources(
 		zarr_multiscale.cpp
 		zarr_node.cpp
 		zarr_read_operation.cpp
+		zarr_shard_index.cpp
+		zarr_shard_layout.cpp
 		zlib_inflate.cpp
 		zlib_zarr_bytes_codec.cpp
 		zstd_zarr_bytes_codec.cpp

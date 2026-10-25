@@ -17,7 +17,8 @@ import numcodecs
 import numpy as np
 import zarr
 from zarr.codecs import (
-	BloscCodec, BytesCodec, Crc32cCodec, GzipCodec, TransposeCodec, ZstdCodec,
+	BloscCodec, BytesCodec, Crc32cCodec, GzipCodec, ShardingCodec,
+	TransposeCodec, ZstdCodec,
 )
 
 
@@ -129,6 +130,38 @@ def big_endian_gzip(root):
 		fill_value=0)
 
 
+def sharded(root):
+	"""Version 3, uint16, in shards of 4 by 4 of chunks of 2 by 2, its index
+	at the end and checked. The chunk at the origin is all zeros, the fill
+	value, and its shard does not store it; nor is the shard of the last rows
+	and columns stored, all zeros too."""
+	values = counting((6, 10), np.uint16, 3, 5)
+	values[0:2, 0:2] = 0
+	values[4:6, 8:10] = 0
+	write_v3(
+		root, 'v3_uint16_sharded.zarr', values, (2, 2), shards=(4, 4),
+		compressors=[ZstdCodec(level=3)], fill_value=0)
+
+
+def sharded_index_first(root):
+	"""Version 3, float32, one shard of 4 by 6 of chunks of 2 by 3, its index
+	at the start and unchecked; each chunk transposed, big endian and gzip."""
+	path = os.path.join(root, 'v3_float32_sharded_index_start.zarr')
+	remove(path)
+	values = counting((4, 6), np.float32, 0.5, -2)
+	array = zarr.create_array(
+		store=path, shape=values.shape, chunks=values.shape,
+		dtype=np.float32, zarr_format=3, fill_value=0, compressors=None,
+		serializer=ShardingCodec(
+			chunk_shape=(2, 3),
+			codecs=[
+				TransposeCodec(order=(1, 0)), BytesCodec(endian='big'),
+				GzipCodec(level=6)],
+			index_codecs=[BytesCodec(endian='little')],
+			index_location='start'))
+	array[...] = values
+
+
 def ome_tomogram(root):
 	"""An image of OME-Zarr 0.4, over version 2: three levels of a volume,
 	each half the one before along every axis."""
@@ -202,7 +235,8 @@ def main():
 	root = sys.argv[1]
 	for write in (
 		portal_tomogram, big_endian_fortran, missing_chunk, nan_fill,
-		booleans, transposed, big_endian_gzip, ome_tomogram, ome_tilt_series,
+		booleans, transposed, big_endian_gzip, sharded, sharded_index_first,
+		ome_tomogram, ome_tilt_series,
 	):
 		write(root)
 

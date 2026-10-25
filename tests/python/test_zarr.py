@@ -194,9 +194,38 @@ def test_an_ome_zarr_tilt_series_is_a_stack(tmp_path, zarr_format):
 	assert level.core_rank == 2
 
 
-def test_a_sharded_array_is_refused(tmp_path):
+@pytest.mark.parametrize('location', ['end', 'start'])
+@pytest.mark.parametrize('checked', [True, False])
+def test_a_sharded_array_reads_back(tmp_path, location, checked):
+	values = __values((9, 10), '<u2')
+	values[0:3, 0:2] = 0
+	index_codecs = [codecs.BytesCodec(endian='little')]
+	if checked:
+		index_codecs.append(codecs.Crc32cCodec())
+	path = tmp_path / 'a.zarr'
+	array = zarr.create_array(
+		store=str(path), shape=values.shape, chunks=(6, 4),
+		dtype=values.dtype, zarr_format=3, fill_value=0, compressors=None,
+		serializer=codecs.ShardingCodec(
+			chunk_shape=(3, 2),
+			codecs=[codecs.BytesCodec(), codecs.ZstdCodec(level=3)],
+			index_codecs=index_codecs, index_location=location))
+	array[...] = values
+	assert np.array_equal(__read(path), values)
+
+
+def test_a_sharded_array_of_the_defaults_reads_back(tmp_path):
+	values = __values((8, 8, 8), '<f4')
+	path = __write(
+		tmp_path / 'a.zarr', values, (2, 2, 2), zarr_format=3, shards=(4, 4, 4))
+	assert np.array_equal(__read(path), values)
+
+
+def test_shards_encoded_whole_are_refused(tmp_path):
 	values = __values((8, 8), '<u1')
 	path = __write(
-		tmp_path / 'a.zarr', values, (2, 2), zarr_format=3, shards=(4, 4))
+		tmp_path / 'a.zarr', values, (8, 8), zarr_format=3,
+		serializer=codecs.ShardingCodec(chunk_shape=(2, 2)),
+		compressors=[codecs.ZstdCodec(level=3)])
 	with pytest.raises(Exception):
 		vio.read(path)

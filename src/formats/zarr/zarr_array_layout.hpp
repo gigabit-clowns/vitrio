@@ -6,6 +6,7 @@
 #include "zarr_chunk_layout.hpp"
 #include "zarr_codec_pipeline.hpp"
 #include "zarr_node.hpp"
+#include "zarr_shard_layout.hpp"
 
 #include <vitrio/byte.hpp>
 #include <vitrio/span.hpp>
@@ -25,10 +26,11 @@ namespace zarr
  * @brief How a ZARR array lays its values out in its chunks and names their
  * files, as its metadata states it, in version 2 or 3.
  *
- * Only what reads a regular grid of chunks unsharded is accepted: version 2
- * without filters, and version 3 with transposes, then the bytes codec, then
- * codecs that turn bytes into bytes. The codecs of either version are those
- * of zarr_codec_pipeline.
+ * Only what reads a regular grid of chunks is accepted: version 2 without
+ * filters, and version 3 with transposes, then the bytes codec, then codecs
+ * that turn bytes into bytes, or with the sharding codec alone, whose chunks
+ * are encoded so. The codecs of either version are those of
+ * zarr_codec_pipeline.
  */
 class zarr_array_layout
 {
@@ -41,8 +43,8 @@ public:
 	 * @throws image_file_format_error If the metadata is not what ZARR
 	 * states. The message starts with the path of its document.
 	 * @throws unsupported_operation_error If it states what ZARR allows but
-	 * this reader does not read, such as a codec it lacks, sharding, a
-	 * filter or an extension it does not know.
+	 * this reader does not read, such as a codec it lacks, shards of shards,
+	 * a filter or an extension it does not know.
 	 */
 	explicit zarr_array_layout(const zarr_node &node);
 
@@ -60,6 +62,18 @@ public:
 	 * @return const zarr_chunk_layout& The layout of a chunk.
 	 */
 	const zarr_chunk_layout& get_chunk_layout() const noexcept;
+
+	/**
+	 * @brief Get how the chunks are grouped into shards, for an array that
+	 * is sharded.
+	 *
+	 * The key encoding then names the file of each shard, and the chunk
+	 * layout and the codecs are those of a chunk of a shard.
+	 *
+	 * @return const zarr_shard_layout* The layout of the shards, or null for
+	 * an array whose chunks are files of their own.
+	 */
+	const zarr_shard_layout* get_shard_layout() const noexcept;
 
 	/**
 	 * @brief Get what a chunk that is not stored holds, one element of it.
@@ -97,6 +111,7 @@ private:
 
 	std::vector<std::size_t> m_shape;
 	boost::optional<zarr_chunk_layout> m_chunk;
+	boost::optional<zarr_shard_layout> m_shard;
 	std::vector<byte> m_fill;
 	zarr_codec_pipeline m_codecs;
 	zarr_chunk_key_encoding m_keys;

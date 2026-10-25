@@ -269,11 +269,6 @@ TEST_CASE( "zarr_array_layout reads an array of version 3",
 			unsupported_operation_error);
 		REQUIRE_THROWS_AS(
 			zarr_array_layout(make_v3({{"codecs", json::parse(R"([
-				{"name": "sharding_indexed", "configuration": {}}
-			])")}})),
-			unsupported_operation_error);
-		REQUIRE_THROWS_AS(
-			zarr_array_layout(make_v3({{"codecs", json::parse(R"([
 				{"name": "bytes", "configuration": {"endian": "little"}},
 				{"name": "lz4"}
 			])")}})),
@@ -303,6 +298,113 @@ TEST_CASE( "zarr_array_layout reads an array of version 3",
 				{"name": "transpose", "configuration": {"order": [0, 0, 1]}},
 				{"name": "bytes", "configuration": {"endian": "little"}}
 			])")}})),
+			image_file_format_error);
+	}
+}
+
+TEST_CASE( "zarr_array_layout reads a sharded array of version 3",
+	"[zarr_array_layout]" )
+{
+	// Shards of 2 by 4 by 8 of chunks of 1 by 2 by 4.
+	const auto sharded = [] (const char *configuration)
+	{
+		auto codecs = json::array();
+		codecs.push_back({
+			{"name", "sharding_indexed"},
+			{"configuration", json::parse(configuration)},
+		});
+		return make_v3({{"codecs", codecs}});
+	};
+	const char *const standard = R"({"chunk_shape": [1, 2, 4],
+		"codecs": [{"name": "bytes", "configuration": {"endian": "big"}},
+			{"name": "zstd"}],
+		"index_codecs": [{"name": "bytes",
+			"configuration": {"endian": "little"}}, {"name": "crc32c"}]})";
+
+	SECTION( "a chunk of a shard is what is decoded" )
+	{
+		const zarr_array_layout layout(sharded(standard));
+
+		REQUIRE( chunk_of(layout) == extents{1, 2, 4} );
+		REQUIRE( strides_of(layout) == strides{8, 4, 1} );
+		REQUIRE( layout.get_chunk_layout().get_byte_order() ==
+			byte_order::big_endian );
+		REQUIRE( layout.get_codecs().get_codec_count() == 1 );
+
+		const auto *const shards = layout.get_shard_layout();
+		REQUIRE( shards != nullptr );
+		const auto per_shard = shards->get_chunks_per_shard();
+		REQUIRE( extents(per_shard.begin(), per_shard.end()) ==
+			extents{2, 2, 2} );
+		REQUIRE( shards->get_index_location() == zarr_index_location::end );
+		REQUIRE( shards->get_index_byte_order() ==
+			byte_order::little_endian );
+		REQUIRE( shards->has_index_checksum() );
+		REQUIRE( shards->get_index_byte_size() == 8 * 16 + 4 );
+	}
+
+	SECTION( "its index at its start, unchecked" )
+	{
+		const zarr_array_layout layout(sharded(R"({"chunk_shape": [2, 4, 8],
+			"codecs": [{"name": "bytes", "configuration": {"endian": "big"}}],
+			"index_codecs": [{"name": "bytes",
+				"configuration": {"endian": "big"}}],
+			"index_location": "start"})"));
+
+		const auto *const shards = layout.get_shard_layout();
+		REQUIRE( shards->get_index_location() ==
+			zarr_index_location::start );
+		REQUIRE_FALSE( shards->has_index_checksum() );
+		REQUIRE( shards->get_index_byte_size() == 16 );
+	}
+
+	SECTION( "an array of no shards has no layout of them" )
+	{
+		REQUIRE( zarr_array_layout(make_v3(json::object()))
+			.get_shard_layout() == nullptr );
+	}
+
+	SECTION( "what it does not read is refused as unsupported" )
+	{
+		REQUIRE_THROWS_AS(
+			zarr_array_layout(sharded(R"({"chunk_shape": [1, 2, 4],
+				"codecs": [{"name": "sharding_indexed", "configuration": {}}],
+				"index_codecs": [{"name": "bytes",
+					"configuration": {"endian": "little"}}]})")),
+			unsupported_operation_error);
+		REQUIRE_THROWS_AS(
+			zarr_array_layout(sharded(R"({"chunk_shape": [1, 2, 4],
+				"codecs": [{"name": "bytes",
+					"configuration": {"endian": "big"}}],
+				"index_codecs": [{"name": "bytes",
+					"configuration": {"endian": "little"}},
+					{"name": "zstd"}]})")),
+			unsupported_operation_error);
+
+		auto compressed = make_v3({{"codecs", json::parse(R"([
+			{"name": "sharding_indexed", "configuration": {}},
+			{"name": "zstd"}
+		])")}});
+		REQUIRE_THROWS_AS(
+			zarr_array_layout(compressed), unsupported_operation_error);
+	}
+
+	SECTION( "chunks that do not divide a shard are malformed" )
+	{
+		REQUIRE_THROWS_AS(
+			zarr_array_layout(sharded(R"({"chunk_shape": [1, 3, 4],
+				"codecs": [{"name": "bytes",
+					"configuration": {"endian": "big"}}],
+				"index_codecs": [{"name": "bytes",
+					"configuration": {"endian": "little"}}]})")),
+			image_file_format_error);
+		REQUIRE_THROWS_AS(
+			zarr_array_layout(sharded(R"({"chunk_shape": [1, 2, 4],
+				"codecs": [{"name": "bytes",
+					"configuration": {"endian": "big"}}],
+				"index_codecs": [{"name": "bytes",
+					"configuration": {"endian": "little"}}],
+				"index_location": "middle"})")),
 			image_file_format_error);
 	}
 }

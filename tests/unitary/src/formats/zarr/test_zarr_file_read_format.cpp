@@ -215,6 +215,60 @@ TEST_CASE( "zarr_file_read_format reads arrays of version 3",
 	}
 }
 
+TEST_CASE( "zarr_file_read_format reads sharded arrays",
+	"[zarr_file_read_format]" )
+{
+	SECTION( "its index at the end and checked, chunks and a shard unstored" )
+	{
+		const auto reader = open_asset("v3_uint16_sharded.zarr");
+		REQUIRE( reader->get_descriptor() == image_descriptor(
+			make_span(extents{6, 10}), 2, numerical_type::uint16) );
+
+		auto expected = counting<std::uint16_t>(60, 3, 5);
+		for (std::size_t row = 0; row < 6; ++row)
+		{
+			for (std::size_t column = 0; column < 10; ++column)
+			{
+				if ((row < 2 && column < 2) || (row >= 4 && column >= 8))
+				{
+					expected[row * 10 + column] = 0;
+				}
+			}
+		}
+		REQUIRE( read_whole<std::uint16_t>(*reader, numerical_type::uint16) ==
+			expected );
+	}
+
+	SECTION( "its index at the start, its chunks transposed and big endian" )
+	{
+		const auto reader =
+			open_asset("v3_float32_sharded_index_start.zarr");
+		REQUIRE( read_whole<float32_t>(*reader, numerical_type::float32) ==
+			counting<float32_t>(24, 0.5, -2) );
+	}
+
+	SECTION( "a patch that reaches some chunks of some shards" )
+	{
+		const auto reader = open_asset("v3_uint16_sharded.zarr");
+		image_transfer_plan regions(image_transfer_shape({3, 3}, 2, 2));
+		regions.add(make_span(extents{1, 3}), make_span(extents{0, 0}));
+		auto destination = make_host_array<std::uint16_t>(
+			{3, 3}, numerical_type::uint16);
+		read_now(*reader, destination, regions);
+
+		std::vector<std::uint16_t> expected;
+		for (std::size_t row = 1; row < 4; ++row)
+		{
+			for (std::size_t column = 3; column < 6; ++column)
+			{
+				expected.push_back(
+					static_cast<std::uint16_t>(3 * (row * 10 + column) + 5));
+			}
+		}
+		REQUIRE( get_values<std::uint16_t>(destination) == expected );
+	}
+}
+
 TEST_CASE( "zarr_file_read_format reads images of OME-Zarr",
 	"[zarr_file_read_format]" )
 {

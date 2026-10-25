@@ -21,9 +21,9 @@ namespace zarr
  * such an image takes its axes from the group above it. How many trailing
  * axes are one image or volume is decided as decide_core_rank says.
  *
- * Arrays are read in a regular grid of chunks, unsharded, with the codecs of
- * zarr_codec_pipeline. Reading one that holds anything else is reported as
- * an unsupported_operation_error.
+ * Arrays are read in a regular grid of chunks, each a file of its own or
+ * grouped into shards, with the codecs of zarr_codec_pipeline. Reading one
+ * that holds anything else is reported as an unsupported_operation_error.
  */
 class zarr_file_read_format final
 	: public image_file_read_format

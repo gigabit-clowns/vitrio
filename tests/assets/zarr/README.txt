@@ -58,6 +58,19 @@ v3_uint16_big_endian_gzip.zarr
 Version 3, uint16, 7 by 9 values of 7 p + 1000 in chunks of 4 by 4, the bytes
 big endian and gzip at level 6.
 
+v3_uint16_sharded.zarr
+Version 3, uint16, 6 by 10 values of 3 p + 5, in shards of 4 by 4 of chunks of
+2 by 2, the index at the end of each shard and checked with crc32c, each chunk
+zstd at level 3. The values of rows 0 and 1 of columns 0 and 1, and those of
+rows 4 and 5 of columns 8 and 9, are 0, the fill value: the first shard does
+not store the chunk at the origin, and the shard of the last rows and columns
+is not stored at all.
+
+v3_float32_sharded_index_start.zarr
+Version 3, float32, 4 by 6 values of 0.5 p - 2, one shard of chunks of 2 by 3,
+its index at the start and not checked. Each chunk is transposed, its bytes
+big endian, and gzip at level 6, so this shard too differs between two runs.
+
 ome_v04_tomogram.zarr
 A group of version 2 that is an image of OME-Zarr 0.4: axes z, y and x, all
 of space, in angstrom. Its levels 0, 1 and 2 are 8, 4 and 2 values a side,

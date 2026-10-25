@@ -213,6 +213,167 @@ bool is_lenient_extension(const nlohmann::json &value)
 	return found != value.end() && *found == false;
 }
 
+
+// What the codecs of version 3 say of a chunk: where each axis lies in it,
+// the order of its bytes and the codecs of its bytes, or the configuration
+// of the sharding codec that stores it instead.
+struct codec_chain
+{
+	std::vector<std::size_t> axes;
+	byte_order order = get_system_byte_order();
+	codec_list codecs;
+	const nlohmann::json *sharding = nullptr;
+};
+
+// The codecs come in three runs: those of arrays into arrays, the one of the
+// array into bytes, and those of bytes into bytes. The chunks of a shard
+// may not be sharded again, and the codecs of an array that is sharded hold
+// the sharding codec alone.
+codec_chain parse_codec_chain(
+	const nlohmann::json &listed,
+	const nlohmann::json &data_type,
+	std::size_t rank,
+	bool inner,
+	const std::string &where
+)
+{
+	if (!listed.is_array() || listed.empty())
+	{
+		reject_metadata(where, "The codecs are no list, or none.");
+	}
+
+	codec_chain chain;
+	chain.axes.resize(rank);
+	std::iota(chain.axes.begin(), chain.axes.end(), std::size_t(0));
+	bool transposed = false;
+	bool serialized = false;
+	for (const auto &codec : listed)
+	{
+		const auto &name =
+			get_codec_name(codec, where).get_ref<const std::string&>();
+		const auto &configuration = get_configuration(codec);
+
+		if (name == "transpose")
+		{
+			if (serialized)
+			{
+				reject_metadata(where, "A transpose follows the bytes codec.");
+			}
+			apply_transpose(configuration, chain.axes, where);
+			transposed = true;
+		}
+		else if (name == "bytes" || name == "sharding_indexed")
+		{
+			if (serialized)
+			{
+				reject_metadata(where, "The array is turned into bytes twice.");
+			}
+			serialized = true;
+
+			if (name == "sharding_indexed")
+			{
+				if (inner)
+				{
+					refuse_metadata(
+						where, "Shards of shards are not read.");
+				}
+				if (transposed)
+				{
+					refuse_metadata(
+						where, "Shards transposed whole are not read.");
+				}
+				chain.sharding = &configuration;
+				continue;
+			}
+
+			// Whether the order is needed depends on the size of the type,
+			// which the order is read along with.
+			const auto single = parse_v3_data_type(
+				data_type, get_system_byte_order(), where).type;
+			chain.order = parse_endian(
+				configuration, get_size(single) > 1, where);
+		}
+		else if (const auto bytes_codec = make_v3_bytes_codec(name))
+		{
+			if (!serialized)
+			{
+				reject_metadata(
+					where, "A codec of bytes comes before the bytes codec.");
+			}
+			if (chain.sharding != nullptr)
+			{
+				refuse_metadata(
+					where, "Shards encoded whole are not read.");
+			}
+			chain.codecs.push_back(bytes_codec);
+		}
+		else
+		{
+			refuse_metadata(
+				where, "Chunks encoded with \"" + name + "\" are not read.");
+		}
+	}
+	if (!serialized)
+	{
+		reject_metadata(where, "No codec turns the array into bytes.");
+	}
+
+	return chain;
+}
+
+// The codecs of the index of a shard: its integers in some byte order, and
+// maybe a checksum of them.
+struct index_codecs
+{
+	byte_order order;
+	bool checksum;
+};
+
+index_codecs parse_index_codecs(
+	const nlohmann::json &listed,
+	const std::string &where
+)
+{
+	if (!listed.is_array() || listed.empty() || listed.size() > 2)
+	{
+		refuse_metadata(
+			where, "Only an index of bytes, maybe checked, is read.");
+	}
+
+	if (get_codec_name(listed[0], where) != "bytes")
+	{
+		refuse_metadata(where, "Only an index of bytes is read.");
+	}
+	const auto order = parse_endian(get_configuration(listed[0]), true, where);
+
+	if (listed.size() == 2 && get_codec_name(listed[1], where) != "crc32c")
+	{
+		refuse_metadata(
+			where, "Only an index checked with crc32c, if at all, is read.");
+	}
+
+	return {order, listed.size() == 2};
+}
+
+zarr_index_location parse_index_location(
+	const nlohmann::json &configuration,
+	const std::string &where
+)
+{
+	const auto found = configuration.find("index_location");
+	if (found == configuration.end() || *found == "end")
+	{
+		return zarr_index_location::end;
+	}
+	if (*found == "start")
+	{
+		return zarr_index_location::start;
+	}
+
+	reject_metadata(where, "The index of a shard is neither at its start "
+		"nor at its end.");
+}
+
 } // anonymous namespace
 
 zarr_array_layout::zarr_array_layout(const zarr_node &node)
@@ -339,76 +500,55 @@ void zarr_array_layout::read_v3(
 		where
 	);
 
-	// The codecs come in three runs: those of arrays into arrays, the one
-	// of the array into bytes, and those of bytes into bytes.
-	const auto &listed = get_member(metadata, "codecs", where);
-	if (!listed.is_array() || listed.empty())
-	{
-		reject_metadata(where, "The codecs are no list, or none.");
-	}
-
-	std::vector<std::size_t> axes(m_shape.size());
-	std::iota(axes.begin(), axes.end(), std::size_t(0));
-	boost::optional<byte_order> endian;
-	codec_list codecs;
 	const auto &data_type = get_member(metadata, "data_type", where);
-	for (const auto &codec : listed)
-	{
-		const auto &name =
-			get_codec_name(codec, where).get_ref<const std::string&>();
-		const auto &configuration = get_configuration(codec);
+	const auto chain = parse_codec_chain(
+		get_member(metadata, "codecs", where), data_type, m_shape.size(),
+		false, where);
 
-		if (name == "transpose")
-		{
-			if (endian)
-			{
-				reject_metadata(where, "A transpose follows the bytes codec.");
-			}
-			apply_transpose(configuration, axes, where);
-		}
-		else if (name == "bytes")
-		{
-			if (endian)
-			{
-				reject_metadata(where, "The array is turned into bytes twice.");
-			}
-			// Whether the order is needed depends on the size of the type,
-			// which the order is read along with.
-			const auto single = parse_v3_data_type(
-				data_type, get_system_byte_order(), where).type;
-			endian = parse_endian(
-				configuration, get_size(single) > 1, where);
-		}
-		else if (name == "sharding_indexed")
-		{
-			refuse_metadata(where, "Sharded arrays are not read yet.");
-		}
-		else if (const auto bytes_codec = make_v3_bytes_codec(name))
-		{
-			if (!endian)
-			{
-				reject_metadata(
-					where, "A codec of bytes comes before the bytes codec.");
-			}
-			codecs.push_back(bytes_codec);
-		}
-		else
-		{
-			refuse_metadata(
-				where, "Chunks encoded with \"" + name + "\" are not read.");
-		}
-	}
-	if (!endian)
+	if (chain.sharding == nullptr)
 	{
-		reject_metadata(where, "No codec turns the array into bytes.");
+		const auto type = parse_v3_data_type(data_type, chain.order, where);
+		m_chunk.emplace(std::move(chunks), make_span(chain.axes), type.type,
+			type.order);
+		m_codecs = zarr_codec_pipeline(chain.codecs);
+	}
+	else
+	{
+		// The grid of the array is that of its shards, and what is decoded
+		// is a chunk of a shard.
+		const auto &sharding = *chain.sharding;
+		auto inner = get_chunk_extents(
+			get_member(sharding, "chunk_shape", where), m_shape.size(), where);
+		const auto inner_chain = parse_codec_chain(
+			get_member(sharding, "codecs", where), data_type, m_shape.size(),
+			true, where);
+		const auto index = parse_index_codecs(
+			get_member(sharding, "index_codecs", where), where);
+
+		try
+		{
+			m_shard.emplace(
+				std::move(chunks), make_span(inner),
+				parse_index_location(sharding, where), index.order,
+				index.checksum);
+		}
+		catch (const std::invalid_argument &)
+		{
+			reject_metadata(where, "The chunks do not divide a shard.");
+		}
+
+		const auto type =
+			parse_v3_data_type(data_type, inner_chain.order, where);
+		m_chunk.emplace(std::move(inner), make_span(inner_chain.axes),
+			type.type, type.order);
+		m_codecs = zarr_codec_pipeline(inner_chain.codecs);
 	}
 
-	const auto type = parse_v3_data_type(data_type, *endian, where);
-	m_chunk.emplace(std::move(chunks), make_span(axes), type.type,
-		type.order);
 	m_fill = parse_fill_value(
-		get_member(metadata, "fill_value", where), type.type, where);
-	m_codecs = zarr_codec_pipeline(std::move(codecs));
+		get_member(metadata, "fill_value", where),
+		m_chunk->get_data_type(),
+		where
+	);
 	m_keys = parse_v3_chunk_key_encoding(
 		get_member(metadata, "chunk_key_encoding", where), where);
 
@@ -446,6 +586,11 @@ span<const std::size_t> zarr_array_layout::get_shape() const noexcept
 const zarr_chunk_layout& zarr_array_layout::get_chunk_layout() const noexcept
 {
 	return *m_chunk;
+}
+
+const zarr_shard_layout* zarr_array_layout::get_shard_layout() const noexcept
+{
+	return m_shard ? &*m_shard : nullptr;
 }
 
 span<const byte> zarr_array_layout::get_fill_element() const noexcept

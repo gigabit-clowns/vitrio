@@ -20,6 +20,8 @@ target_sources(
 		test_zarr_multiscale.cpp
 		test_zarr_node.cpp
 		test_zarr_read_operation.cpp
+		test_zarr_shard_index.cpp
+		test_zarr_shard_layout.cpp
 		test_zlib_inflate.cpp
 		test_zlib_zarr_bytes_codec.cpp
 		test_zstd_zarr_bytes_codec.cpp
