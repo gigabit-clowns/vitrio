@@ -37,6 +37,26 @@ span<const memory_range> no_buffers()
 	return span<const memory_range>();
 }
 
+// Checks that a scope throws what refused its read and its task. Catch's
+// assertions are called from here rather than written inside the arguments
+// of trompeloeil's macros, where GCC 11 refuses the pragmas they expand to.
+void check_refused(file_transfer_scope &scope)
+{
+	CHECK_THROWS_AS(
+		scope.queue_read(file_handle_t(), 0, no_buffers(), 0),
+		std::system_error
+	);
+	CHECK_THROWS_AS(
+		scope.run(std::make_unique<mock_task>(), 0),
+		std::runtime_error
+	);
+}
+
+void check_null_task_refused(file_transfer_scope &scope)
+{
+	CHECK_THROWS_AS( scope.run(nullptr, 0), std::invalid_argument );
+}
+
 // A dispatch whose transfers go to a mocked submitter and whose tasks go to
 // a mocked executor, which a case completes by hand.
 class dispatch_fixture
@@ -475,16 +495,7 @@ TEST_CASE_METHOD(
 	auto operation = std::make_unique<mock_file_transfer_operation>();
 	operation->expectations.push_back(
 		NAMED_REQUIRE_CALL(*operation, start(trompeloeil::_))
-			.SIDE_EFFECT(
-				CHECK_THROWS_AS(
-					_1.queue_read(file_handle_t(), 0, no_buffers(), 0),
-					std::system_error
-				);
-				CHECK_THROWS_AS(
-					_1.run(std::make_unique<mock_task>(), 0),
-					std::runtime_error
-				)
-			)
+			.SIDE_EFFECT( check_refused(_1) )
 	);
 
 	const auto done = std::make_shared<counting_completion>(1);
@@ -505,9 +516,7 @@ TEST_CASE_METHOD(
 	auto operation = std::make_unique<mock_file_transfer_operation>();
 	operation->expectations.push_back(
 		NAMED_REQUIRE_CALL(*operation, start(trompeloeil::_))
-			.SIDE_EFFECT(
-				CHECK_THROWS_AS( _1.run(nullptr, 0), std::invalid_argument )
-			)
+			.SIDE_EFFECT( check_null_task_refused(_1) )
 	);
 
 	const auto done = std::make_shared<counting_completion>(1);

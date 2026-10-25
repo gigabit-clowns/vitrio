@@ -184,10 +184,20 @@ protected:
 				trompeloeil::_,
 				trompeloeil::_
 			)
-		).LR_SIDE_EFFECT(
-			REQUIRE( _3.size() == 1 );
-			m_reads.emplace(_4, queued_read{_2, _3[0]})
-		);
+		).LR_SIDE_EFFECT( keep_read(_2, _3, _4) );
+	}
+
+	// Keeps what a read asks for. Catch's assertion is here rather than
+	// inside the arguments of trompeloeil's macros, where GCC 11 refuses the
+	// pragmas it expands to.
+	void keep_read(
+		std::uint64_t offset,
+		span<const memory_range> buffers,
+		std::uint64_t tag
+	)
+	{
+		REQUIRE( buffers.size() == 1 );
+		m_reads.emplace(tag, queued_read{offset, buffers[0]});
 	}
 
 	// Lands the bytes of the file in the buffer of a read, as the kernel

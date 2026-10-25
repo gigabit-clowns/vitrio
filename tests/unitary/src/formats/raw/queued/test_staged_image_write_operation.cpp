@@ -197,10 +197,20 @@ protected:
 				trompeloeil::_,
 				trompeloeil::_
 			)
-		).LR_SIDE_EFFECT(
-			REQUIRE( _3.size() == 1 );
-			m_writes.emplace(_4, queued_write{_2, _3[0]})
-		);
+		).LR_SIDE_EFFECT( keep_write(_2, _3, _4) );
+	}
+
+	// Keeps what a write asks for. Catch's assertion is here rather than
+	// inside the arguments of trompeloeil's macros, where GCC 11 refuses the
+	// pragmas it expands to.
+	void keep_write(
+		std::uint64_t offset,
+		span<const const_memory_range> buffers,
+		std::uint64_t tag
+	)
+	{
+		REQUIRE( buffers.size() == 1 );
+		m_writes.emplace(tag, queued_write{offset, buffers[0]});
 	}
 
 	// Runs a conversion and hands the operation its outcome.
