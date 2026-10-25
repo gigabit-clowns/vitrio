@@ -30,7 +30,7 @@ void bind_image_file_read_format_selector(nb::module_ &m)
 			"\n"
 			"Returns:\n"
 			"    ImageFileReadFormatSelector: MRC, TIFF and EER (when built "
-			"with TIFF) and DM."
+			"with TIFF), DM and ZARR (when built with ZARR)."
 		);
 }
 

@@ -48,10 +48,22 @@ vitrio is young and its API and ABI are subject to change.
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
 | EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
 | DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
+| ZARR | yes | no | any: a directory | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c; a chunk that is not stored reads as the fill value. Sharded arrays, filters and other codecs are not read yet. |
 
 A file is recognized by its contents where the format allows it, and by its
-extension otherwise. TIFF and EER go through libtiff and can be left out of a
-build. More formats will follow.
+extension otherwise. A ZARR array is recognized by the metadata in its
+directory. TIFF and EER go through libtiff, and ZARR through nlohmann/json,
+c-blosc, zstd and zlib, and either can be left out of a build. More formats
+will follow.
+
+ZARR does not say whether three axes are a volume or a stack of images. The
+axes of OME-Zarr say which are of space, and a stack is told apart from a
+volume by levels of resolution that never scale its first axis, as the tilt
+series of the CryoET Data Portal are stored. Without OME-Zarr, the names of
+the dimensions of version 3 decide, and otherwise up to three trailing axes
+are one image or volume. A scratch that holds the images of a ZARR array does
+not notice a chunk rewritten in place: it goes by when the directory was last
+written, which a file inside it changing does not change.
 
 ## Installing
 

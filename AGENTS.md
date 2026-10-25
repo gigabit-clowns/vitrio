@@ -199,6 +199,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them. PyTorch is also a baseline of the benchmarks, which skip it without it |
 | pytest | The tests of the Python package |
+| zarr-python, numcodecs | The tests of the Python package that read what zarr-python writes, and the script that writes the stores of `tests/assets/zarr`. They are skipped without it, which needs Python 3.12 |
 | psutil | The harness of the benchmarks, for the CPU time, memory and bytes read of a run |
 | mrcfile, lmdb | The baselines of the benchmarks that read as other software does |
 | ReFrame | Running campaigns of the benchmarks. Not installed on Windows, where it does not run |

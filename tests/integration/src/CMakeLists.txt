@@ -23,3 +23,11 @@ if(VITRIO_ENABLE_TIFF)
 			test_tiff_round_trip.cpp
 	)
 endif()
+
+if(VITRIO_ENABLE_ZARR)
+	target_sources(
+		vitrio-integration-tests
+		PRIVATE
+			test_zarr_real_files.cpp
+	)
+endif()
