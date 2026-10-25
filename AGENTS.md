@@ -320,7 +320,10 @@ since the archive of a commit lacks its libraries, which are submodules.
   provider's business. An `image_location` is a key and an index in a stack,
   and the plans, the loader and the saver carry keys too. What is about
   files says so in its name: `image_file_probe`, `image_file_error`,
-  `image_file_format_error`, and three roles that are kept apart:
+  `image_file_format_error`, and three roles that are kept apart. A file
+  may be a directory, as a ZARR array is: its probe has no leading bytes and
+  says it is one, and a format of directories tells them by the entries
+  they hold, without reading them. The roles are:
   - A file format (`image_file_read_format`, `image_file_write_format`, and
     for one kind of file `mrc_file_read_format`, `tiff_file_write_format`)
     knows one format, and registers itself at namespace scope with the

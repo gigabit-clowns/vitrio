@@ -46,7 +46,10 @@ public:
 	 * @brief Report how well this format fits a file.
 	 *
 	 * Decide from @p probe alone, without opening the file: the probe
-	 * carries its path, its lower case extension and its leading bytes.
+	 * carries its path, its lower case extension and its leading bytes. A
+	 * format whose files are directories decides from the names of the
+	 * entries a directory holds instead, and may check whether those it is
+	 * recognized by are there, without reading them.
 	 *
 	 * Return @c image_file_format_suitability::unsupported for a file this
 	 * format does not recognize, and something higher than
