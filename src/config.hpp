@@ -90,3 +90,28 @@
 #ifndef VITRIO_DEFAULT_CHUNKS_IN_FLIGHT
 	#define VITRIO_DEFAULT_CHUNKS_IN_FLIGHT 64
 #endif
+
+// The width of a chunk of an image of two axes that vitrio writes to ZARR,
+// and of a chunk of a volume, which is a cube.
+//
+// An image of a stack takes chunks of its own, so that one is read without
+// another. A chunk of 1024 by 1024 holds a micrograph in a few, and one of
+// 128 voxels a side a patch of a tomogram in one or a few, without reading
+// much more than it.
+#ifndef VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE
+	#define VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE 1024
+#endif
+
+#ifndef VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE
+	#define VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE 128
+#endif
+
+// Bytes of chunks a writer of a ZARR array holds in memory before it stores
+// those written least recently.
+//
+// A chunk is stored once it is whole. A volume written a plane at a time
+// leaves every chunk of the planes written so far partial, which this
+// bounds: a chunk stored partial is read back when it is written again.
+#ifndef VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET
+	#define VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET (1UL<<30)
+#endif

@@ -2,12 +2,18 @@
 
 #include "zlib_zarr_bytes_codec.hpp"
 
+#include "zlib_deflate.hpp"
 #include "zlib_inflate.hpp"
 
 namespace vitrio
 {
 namespace zarr
 {
+
+zlib_zarr_bytes_codec::zlib_zarr_bytes_codec(int level) noexcept
+	: m_level(level)
+{
+}
 
 void zlib_zarr_bytes_codec::decode(
 	span<const byte> encoded,
@@ -16,6 +22,14 @@ void zlib_zarr_bytes_codec::decode(
 ) const
 {
 	inflate_stream(encoded, 15, limit, decoded, "zlib_zarr_bytes_codec");
+}
+
+void zlib_zarr_bytes_codec::encode(
+	span<const byte> decoded,
+	std::vector<byte> &encoded
+) const
+{
+	deflate_stream(decoded, 15, m_level, encoded, "zlib_zarr_bytes_codec");
 }
 
 } // namespace zarr

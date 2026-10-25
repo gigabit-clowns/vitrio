@@ -28,7 +28,7 @@ in the same commit that causes it.
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
-| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read only: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the layout and the index of shards, the read operation that opens and reads a file at a time and decodes its chunks, the reader and the format that registers itself. Built only with `VITRIO_ENABLE_ZARR` |
+| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read, and version 3 with OME-Zarr 0.5 written: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the layout and the index of shards, the read operation that opens and reads a file at a time and decodes its chunks, the reader and the read format that registers itself; and for writing, the metadata of a store, the chunks held in memory until they are stored, the operations that write and flush them, the writer and the write format. Built only with `VITRIO_ENABLE_ZARR` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time and by chunk for one moved a chunk at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks and the boolean of a file, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
@@ -368,7 +368,14 @@ since the archive of a commit lacks its libraries, which are submodules.
   transfer reads a chunk with. A chunk that is not stored is read as its fill
   value through strides of zero. Metadata that is not what ZARR states is an
   `image_file_format_error`, and what ZARR allows but the format does not
-  read an `unsupported_operation_error`.
+  read an `unsupported_operation_error`. A write holds the chunks it reaches
+  in memory, in the order of the system, in `zarr_chunk_store`, and stores
+  each once all of it in the array is written, or when what is held passes
+  `VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET`, or on a flush. A chunk is
+  written beside its file and renamed over it, a chunk of the fill value
+  alone is not stored, and one written again after it was stored is read
+  back first. The store records the core rank under `vitrio` in its
+  attributes, so that it reads back as it was written.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

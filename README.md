@@ -48,7 +48,7 @@ vitrio is young and its API and ABI are subject to change.
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
 | EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
 | DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
-| ZARR | yes | no | any: a directory | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c, alone or in shards; a chunk that is not stored reads as the fill value. Filters, other codecs and shards compressed whole are not read yet. |
+| ZARR | yes | yes | any: a directory; `.zarr` when writing | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c, alone or in shards; a chunk that is not stored reads as the fill value. Filters, other codecs and shards compressed whole are not read yet. Written as version 3 and, with two or three axes of space, an image of OME-Zarr 0.5 of one level: chunks of 1024 by 1024 of each image, or 128 cubed of each volume, compressed with blosc and zstd, and none written of a chunk that holds only zeros. Shards are not written yet. |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. A ZARR array is recognized by the metadata in its
@@ -64,6 +64,10 @@ the dimensions of version 3 decide, and otherwise up to three trailing axes
 are one image or volume. A scratch that holds the images of a ZARR array does
 not notice a chunk rewritten in place: it goes by when the directory was last
 written, which a file inside it changing does not change.
+
+A ZARR store written over a path replaces what is there only when it is a
+file or another ZARR store: a directory that holds anything else is refused
+and left as it is.
 
 ## Installing
 

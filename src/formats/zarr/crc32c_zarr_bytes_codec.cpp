@@ -60,5 +60,18 @@ void crc32c_zarr_bytes_codec::decode(
 	decoded.assign(encoded.data(), encoded.data() + size);
 }
 
+void crc32c_zarr_bytes_codec::encode(
+	span<const byte> decoded,
+	std::vector<byte> &encoded
+) const
+{
+	const auto checksum = compute_crc32c(decoded);
+	encoded.assign(decoded.begin(), decoded.end());
+	for (std::size_t i = 0; i < checksum_size; ++i)
+	{
+		encoded.push_back(static_cast<byte>(checksum >> (8 * i)));
+	}
+}
+
 } // namespace zarr
 } // namespace vitrio

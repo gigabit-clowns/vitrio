@@ -89,3 +89,14 @@ TEST_CASE( "crc32c_zarr_bytes_codec checks and strips the checksum",
 		REQUIRE( decoded.empty() );
 	}
 }
+
+TEST_CASE( "crc32c_zarr_bytes_codec appends the checksum it checks",
+	"[crc32c_zarr_bytes_codec]" )
+{
+	const crc32c_zarr_bytes_codec codec;
+	const auto bytes = make_codec_test_bytes(100);
+
+	std::vector<byte> encoded;
+	codec.encode(as_span(bytes), encoded);
+	REQUIRE( encoded == with_checksum(bytes) );
+}

@@ -123,3 +123,20 @@ TEST_CASE( "zstd_zarr_bytes_codec decodes zstd frames",
 		);
 	}
 }
+
+TEST_CASE( "zstd_zarr_bytes_codec encodes what zstd decodes",
+	"[zstd_zarr_bytes_codec]" )
+{
+	const zstd_zarr_bytes_codec codec(5);
+	const auto bytes = make_codec_test_bytes(300000);
+
+	std::vector<byte> encoded;
+	codec.encode(as_span(bytes), encoded);
+	REQUIRE( ZSTD_getFrameContentSize(encoded.data(), encoded.size()) ==
+		bytes.size() );
+
+	std::vector<byte> decoded(bytes.size());
+	REQUIRE( ZSTD_decompress(decoded.data(), decoded.size(),
+		encoded.data(), encoded.size()) == bytes.size() );
+	REQUIRE( decoded == bytes );
+}

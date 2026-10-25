@@ -27,4 +27,18 @@ inline void write_store_file(
 	output << contents;
 }
 
+// Writes the metadata of an array of version 3 of bytes, of 4 by 4 in chunks
+// of 2 by 2 stored as they are, whose fill value is 7.
+inline void write_byte_array_metadata(const std::string &directory)
+{
+	write_store_file(directory, "zarr.json",
+		R"({"zarr_format": 3, "node_type": "array", "shape": [4, 4],
+			"data_type": "uint8",
+			"chunk_grid": {"name": "regular",
+				"configuration": {"chunk_shape": [2, 2]}},
+			"chunk_key_encoding": {"name": "default"},
+			"fill_value": 7,
+			"codecs": [{"name": "bytes"}]})");
+}
+
 } // namespace vitrio

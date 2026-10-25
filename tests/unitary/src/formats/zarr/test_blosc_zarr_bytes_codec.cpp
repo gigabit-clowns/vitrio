@@ -94,3 +94,24 @@ TEST_CASE( "blosc_zarr_bytes_codec decodes what blosc encodes",
 		);
 	}
 }
+
+TEST_CASE( "blosc_zarr_bytes_codec encodes what it decodes",
+	"[blosc_zarr_bytes_codec]" )
+{
+	const auto bytes = make_codec_test_bytes(100000);
+	const std::string compressor = GENERATE("lz4", "zstd", "zlib");
+	const blosc_zarr_bytes_codec codec(compressor, 5, 1, 4);
+
+	std::vector<byte> encoded;
+	codec.encode(as_span(bytes), encoded);
+	REQUIRE( encoded.size() < bytes.size() );
+
+	std::vector<byte> decoded;
+	codec.decode(as_span(encoded), bytes.size(), decoded);
+	REQUIRE( decoded == bytes );
+
+	std::size_t size = 0;
+	REQUIRE( blosc_cbuffer_validate(
+		encoded.data(), encoded.size(), &size) >= 0 );
+	REQUIRE( size == bytes.size() );
+}

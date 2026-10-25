@@ -25,6 +25,11 @@ public:
 		std::size_t limit,
 		std::vector<byte> &decoded
 	) const override;
+
+	void encode(
+		span<const byte> decoded,
+		std::vector<byte> &encoded
+	) const override;
 };
 
 } // namespace zarr

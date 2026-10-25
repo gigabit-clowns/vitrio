@@ -6,10 +6,26 @@
 
 #include <blosc.h>
 
+#include <stdexcept>
+#include <utility>
+
 namespace vitrio
 {
 namespace zarr
 {
+
+blosc_zarr_bytes_codec::blosc_zarr_bytes_codec(
+	std::string compressor,
+	int level,
+	int shuffle,
+	std::size_t type_size
+)
+	: m_compressor(std::move(compressor))
+	, m_level(level)
+	, m_shuffle(shuffle)
+	, m_type_size(type_size)
+{
+}
 
 void blosc_zarr_bytes_codec::decode(
 	span<const byte> encoded,
@@ -51,6 +67,32 @@ void blosc_zarr_bytes_codec::decode(
 			"blosc_zarr_bytes_codec: The chunk could not be decoded."
 		);
 	}
+}
+
+void blosc_zarr_bytes_codec::encode(
+	span<const byte> decoded,
+	std::vector<byte> &encoded
+) const
+{
+	if (decoded.size() > static_cast<std::size_t>(BLOSC_MAX_BUFFERSIZE))
+	{
+		throw std::runtime_error(
+			"blosc_zarr_bytes_codec: The chunk is too large for blosc."
+		);
+	}
+
+	encoded.resize(decoded.size() + BLOSC_MAX_OVERHEAD);
+	const auto size = blosc_compress_ctx(
+		m_level, m_shuffle, m_type_size, decoded.size(), decoded.data(),
+		encoded.data(), encoded.size(), m_compressor.c_str(), 0, 1);
+	if (size <= 0)
+	{
+		throw std::runtime_error(
+			"blosc_zarr_bytes_codec: blosc could not compress the chunk."
+		);
+	}
+
+	encoded.resize(static_cast<std::size_t>(size));
 }
 
 } // namespace zarr

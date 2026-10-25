@@ -24,6 +24,22 @@ namespace zarr
 nlohmann::json read_json_document(const std::string &path);
 
 /**
+ * @brief Write a JSON document, as ZARR stores its metadata, replacing the
+ * one at its path whole or not at all.
+ *
+ * It is written beside its path and renamed over it, so a reader never sees
+ * half of it.
+ *
+ * @param path The file.
+ * @param document The document.
+ * @throws image_file_error If the file can not be written.
+ */
+void write_json_document(
+	const std::string &path,
+	const nlohmann::json &document
+);
+
+/**
  * @brief Get a member a JSON object must have.
  *
  * @param object The object.

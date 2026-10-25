@@ -6,6 +6,8 @@
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
+#include <boost/filesystem/operations.hpp>
+
 #include <fstream>
 #include <limits>
 
@@ -39,6 +41,41 @@ nlohmann::json read_json_document(const std::string &path)
 	}
 
 	return document;
+}
+
+void write_json_document(
+	const std::string &path,
+	const nlohmann::json &document
+)
+{
+	const auto text = document.dump(2) + "\n";
+	const auto partial = path + ".partial";
+	{
+		std::ofstream output(
+			partial.c_str(),
+			std::ios::out | std::ios::binary | std::ios::trunc
+		);
+		output << text;
+		output.flush();
+		if (!output)
+		{
+			throw image_file_error(
+				path + ": write_json_document: The file could not be "
+				"written."
+			);
+		}
+	}
+
+	boost::system::error_code error;
+	boost::filesystem::rename(partial, path, error);
+	if (error)
+	{
+		boost::filesystem::remove(partial, error);
+		throw image_file_error(
+			path + ": write_json_document: The file could not be put in "
+			"place: " + error.message()
+		);
+	}
 }
 
 const nlohmann::json& get_member(

@@ -90,3 +90,38 @@ TEST_CASE( "zarr_codec_pipeline decodes through its codecs in reverse",
 		);
 	}
 }
+
+TEST_CASE( "zarr_codec_pipeline encodes through its codecs in order",
+	"[zarr_codec_pipeline]" )
+{
+	const std::vector<byte> values = {10, 11, 12, 13};
+	const std::vector<byte> middle = {7, 8, 9};
+	const std::vector<byte> stored = {1, 2};
+	std::vector<byte> encoded;
+
+	SECTION( "no codec stores the bytes as they are" )
+	{
+		zarr_codec_pipeline().encode(as_span(values), encoded);
+		REQUIRE( encoded == values );
+	}
+
+	SECTION( "the first codec to encode is the first listed" )
+	{
+		const auto first = std::make_shared<mock_zarr_bytes_codec>();
+		const auto second = std::make_shared<mock_zarr_bytes_codec>();
+		const zarr_codec_pipeline pipeline({first, second});
+
+		trompeloeil::sequence order;
+		REQUIRE_CALL(*first, encode(_, _))
+			.WITH( std::vector<byte>(_1.begin(), _1.end()) == values )
+			.IN_SEQUENCE(order)
+			.LR_SIDE_EFFECT( _2 = middle );
+		REQUIRE_CALL(*second, encode(_, _))
+			.WITH( std::vector<byte>(_1.begin(), _1.end()) == middle )
+			.IN_SEQUENCE(order)
+			.LR_SIDE_EFFECT( _2 = stored );
+
+		pipeline.encode(as_span(values), encoded);
+		REQUIRE( encoded == stored );
+	}
+}

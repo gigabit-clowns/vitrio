@@ -84,6 +84,16 @@ public:
 		std::vector<byte> &decoded
 	) const;
 
+	/**
+	 * @brief Encode the bytes of a chunk through every codec, in order.
+	 *
+	 * @param decoded The bytes of the chunk, its values.
+	 * @param encoded Where they are written as they are to be stored,
+	 * replacing what it held.
+	 * @throws std::runtime_error If a codec fails.
+	 */
+	void encode(span<const byte> decoded, std::vector<byte> &encoded) const;
+
 private:
 	std::vector<std::shared_ptr<const zarr_bytes_codec>> m_codecs;
 };

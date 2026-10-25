@@ -17,7 +17,12 @@ class gzip_zarr_bytes_codec final
 	: public zarr_bytes_codec
 {
 public:
-	gzip_zarr_bytes_codec() noexcept = default;
+	/**
+	 * @brief Construct the codec, with how hard it compresses.
+	 *
+	 * @param level The level of zlib it compresses at, from 0 to 9.
+	 */
+	explicit gzip_zarr_bytes_codec(int level = 6) noexcept;
 	~gzip_zarr_bytes_codec() override = default;
 
 	void decode(
@@ -25,6 +30,14 @@ public:
 		std::size_t limit,
 		std::vector<byte> &decoded
 	) const override;
+
+	void encode(
+		span<const byte> decoded,
+		std::vector<byte> &encoded
+	) const override;
+
+private:
+	int m_level;
 };
 
 } // namespace zarr

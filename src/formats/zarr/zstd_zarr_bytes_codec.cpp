@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <memory>
 #include <new>
+#include <stdexcept>
 #include <string>
 
 namespace vitrio
@@ -37,6 +38,11 @@ struct context_deleter
 };
 
 } // anonymous namespace
+
+zstd_zarr_bytes_codec::zstd_zarr_bytes_codec(int level) noexcept
+	: m_level(level)
+{
+}
 
 void zstd_zarr_bytes_codec::decode(
 	span<const byte> encoded,
@@ -119,6 +125,26 @@ void zstd_zarr_bytes_codec::decode(
 	}
 
 	decoded.resize(output.pos);
+}
+
+void zstd_zarr_bytes_codec::encode(
+	span<const byte> decoded,
+	std::vector<byte> &encoded
+) const
+{
+	encoded.resize(ZSTD_compressBound(decoded.size()));
+	const auto size = ZSTD_compress(
+		encoded.data(), encoded.size(), decoded.data(), decoded.size(),
+		m_level);
+	if (ZSTD_isError(size))
+	{
+		throw std::runtime_error(
+			std::string("zstd_zarr_bytes_codec: zstd could not compress the "
+				"chunk: ") + ZSTD_getErrorName(size)
+		);
+	}
+
+	encoded.resize(size);
 }
 
 } // namespace zarr

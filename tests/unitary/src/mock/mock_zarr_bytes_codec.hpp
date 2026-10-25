@@ -23,6 +23,12 @@ public:
 		void(span<const byte>, std::size_t, std::vector<byte>&),
 		override
 	);
+
+	MAKE_CONST_MOCK2(
+		encode,
+		void(span<const byte>, std::vector<byte>&),
+		override
+	);
 };
 
 } // namespace vitrio

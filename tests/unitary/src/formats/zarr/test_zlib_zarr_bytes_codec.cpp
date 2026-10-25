@@ -36,3 +36,16 @@ TEST_CASE( "zlib_zarr_bytes_codec decodes zlib streams",
 		);
 	}
 }
+
+TEST_CASE( "zlib_zarr_bytes_codec encodes what it decodes",
+	"[zlib_zarr_bytes_codec]" )
+{
+	const zlib_zarr_bytes_codec codec(9);
+	const auto bytes = make_codec_test_bytes(10000);
+
+	std::vector<byte> encoded;
+	codec.encode(as_span(bytes), encoded);
+	std::vector<byte> decoded;
+	codec.decode(as_span(encoded), bytes.size(), decoded);
+	REQUIRE( decoded == bytes );
+}

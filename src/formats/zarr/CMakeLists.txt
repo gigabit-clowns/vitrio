@@ -11,18 +11,25 @@ target_sources(
 		zarr_bytes_codec.cpp
 		zarr_chunk_key_encoding.cpp
 		zarr_chunk_layout.cpp
+		zarr_chunk_store.cpp
 		zarr_codec_pipeline.cpp
 		zarr_core_rank.cpp
 		zarr_data_type.cpp
 		zarr_file_read_format.cpp
+		zarr_file_write_format.cpp
 		zarr_fill_value.cpp
+		zarr_flush_operation.cpp
 		zarr_image_reader.cpp
+		zarr_image_writer.cpp
 		zarr_json.cpp
 		zarr_multiscale.cpp
 		zarr_node.cpp
 		zarr_read_operation.cpp
 		zarr_shard_index.cpp
 		zarr_shard_layout.cpp
+		zarr_store_metadata.cpp
+		zarr_write_operation.cpp
+		zlib_deflate.cpp
 		zlib_inflate.cpp
 		zlib_zarr_bytes_codec.cpp
 		zstd_zarr_bytes_codec.cpp

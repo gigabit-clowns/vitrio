@@ -104,6 +104,18 @@ TEST_CASE(
 		"VITRIO_CHUNKS_IN_FLIGHT",
 		VITRIO_DEFAULT_CHUNKS_IN_FLIGHT
 	) );
+	CHECK( get_zarr_image_chunk_edge() == expected(
+		"VITRIO_ZARR_IMAGE_CHUNK_EDGE",
+		VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE
+	) );
+	CHECK( get_zarr_volume_chunk_edge() == expected(
+		"VITRIO_ZARR_VOLUME_CHUNK_EDGE",
+		VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE
+	) );
+	CHECK( get_chunk_write_byte_budget() == expected(
+		"VITRIO_CHUNK_WRITE_BYTE_BUDGET",
+		VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET
+	) );
 	CHECK( get_file_transfer_queue_capacity() == expected(
 		"VITRIO_FILE_TRANSFER_QUEUE_CAPACITY",
 		VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY

@@ -49,6 +49,19 @@ public:
 		std::size_t limit,
 		std::vector<byte> &decoded
 	) const = 0;
+
+	/**
+	 * @brief Encode some bytes as this codec does.
+	 *
+	 * @param decoded The bytes.
+	 * @param encoded Where what this codec makes of them is written,
+	 * replacing what it held.
+	 * @throws std::runtime_error If the library of the codec fails.
+	 */
+	virtual void encode(
+		span<const byte> decoded,
+		std::vector<byte> &encoded
+	) const = 0;
 };
 
 } // namespace zarr

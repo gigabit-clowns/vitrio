@@ -87,5 +87,28 @@ void zarr_codec_pipeline::decode(
 	}
 }
 
+void zarr_codec_pipeline::encode(
+	span<const byte> decoded,
+	std::vector<byte> &encoded
+) const
+{
+	if (m_codecs.empty())
+	{
+		encoded.assign(decoded.begin(), decoded.end());
+		return;
+	}
+
+	std::vector<byte> buffers[2];
+	auto input = decoded;
+	for (std::size_t step = 0; step < m_codecs.size(); ++step)
+	{
+		const bool last = step + 1 == m_codecs.size();
+		auto &output = last ? encoded : buffers[step % 2];
+		m_codecs[step]->encode(input, output);
+		input = make_span(
+			static_cast<const byte*>(output.data()), output.size());
+	}
+}
+
 } // namespace zarr
 } // namespace vitrio

@@ -22,5 +22,14 @@ target_link_libraries(
 		Catch2::Catch2WithMain
 )
 
+# The tests of ZARR remove the stores they write, which are directories.
+if(VITRIO_ENABLE_ZARR)
+	target_link_libraries(
+		vitrio-integration-tests
+		PRIVATE
+			Boost::filesystem
+	)
+endif()
+
 vitrio_enable_warnings(vitrio-integration-tests)
 vitrio_register_tests(vitrio-integration-tests integration)

@@ -29,5 +29,6 @@ if(VITRIO_ENABLE_ZARR)
 		vitrio-integration-tests
 		PRIVATE
 			test_zarr_real_files.cpp
+			test_zarr_round_trip.cpp
 	)
 endif()

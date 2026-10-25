@@ -229,3 +229,88 @@ def test_shards_encoded_whole_are_refused(tmp_path):
 		compressors=[codecs.ZstdCodec(level=3)])
 	with pytest.raises(Exception):
 		vio.read(path)
+
+
+def __written_by_vitrio(path):
+	"""The array a store written by vitrio holds, and the group over it."""
+	group = zarr.open_group(str(path), mode='r')
+	return group['0'], group
+
+
+# Arrays are written from the order of the system only.
+@pytest.mark.parametrize('dtype', [d for d in DTYPES if d[0] != '>'])
+def test_what_vitrio_writes_zarr_reads(tmp_path, dtype):
+	values = __values((3, 20, 30), dtype)
+	path = tmp_path / 'a.zarr'
+	vio.write_single(values, path)
+
+	array, group = __written_by_vitrio(path)
+	assert array.metadata.zarr_format == 3
+	assert array.dtype == values.dtype.newbyteorder('<')
+	assert np.array_equal(array[...], values)
+	assert group.attrs['ome']['version'] == '0.5'
+
+
+def test_a_stack_written_by_vitrio_is_an_image_of_ome_zarr(tmp_path):
+	values = __values((4, 30, 40), '<u2')
+	path = tmp_path / 'tilts.zarr'
+	vio.write_stack(values, path)
+
+	array, group = __written_by_vitrio(path)
+	assert array.chunks == (1, 30, 40)
+	assert array.metadata.dimension_names == ('n', 'y', 'x')
+	image = group.attrs['ome']['multiscales'][0]
+	assert [axis.get('type') for axis in image['axes']] == [
+		None, 'space', 'space']
+	assert image['datasets'][0]['path'] == '0'
+
+	assert vio.query_descriptor(path).core_rank == 2
+	assert np.array_equal(__read(vio.ImageLocation(path, 2)), values[2])
+
+
+def test_a_volume_written_by_vitrio_is_chunked_in_cubes(tmp_path):
+	values = __values((130, 10, 140), '<f4')
+	path = tmp_path / 'volume.zarr'
+	vio.write_single(values, path)
+
+	array, _ = __written_by_vitrio(path)
+	assert array.chunks == (128, 10, 128)
+	assert np.array_equal(array[...], values)
+	assert vio.query_descriptor(path).core_rank == 3
+	assert np.array_equal(__read(path), values)
+
+
+def test_an_array_ome_zarr_can_not_state_is_written_plainly(tmp_path):
+	values = __values((2, 2, 2, 2, 2, 3), '<i4')
+	path = tmp_path / 'a.zarr'
+	vio.write_single(values, path)
+
+	array = zarr.open_array(str(path), mode='r')
+	assert array.attrs['vitrio']['core_rank'] == 6
+	assert np.array_equal(array[...], values)
+	assert np.array_equal(__read(path), values)
+
+
+def test_vitrio_converts_into_the_type_it_is_asked_to_write(tmp_path):
+	values = __values((6, 7), '<f8')
+	path = tmp_path / 'a.zarr'
+	vio.write_single(values, path, data_type=np.int16)
+
+	array, _ = __written_by_vitrio(path)
+	assert array.dtype == np.int16
+	assert np.array_equal(array[...], values.astype(np.int16))
+
+
+def test_vitrio_replaces_a_store_but_no_other_directory(tmp_path):
+	path = tmp_path / 'a.zarr'
+	__write(path, __values((5, 5), '<u1'), (2, 2), zarr_format=2)
+	vio.write_single(__values((3, 4), '<u1'), path)
+	assert not (path / '.zarray').exists()
+	assert np.array_equal(__read(path), __values((3, 4), '<u1'))
+
+	other = tmp_path / 'other.zarr'
+	other.mkdir()
+	(other / 'notes.txt').write_text('keep me')
+	with pytest.raises(Exception):
+		vio.write_single(__values((3, 4), '<u1'), other)
+	assert (other / 'notes.txt').read_text() == 'keep me'

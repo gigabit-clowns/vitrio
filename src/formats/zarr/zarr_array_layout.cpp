@@ -57,28 +57,74 @@ std::vector<std::size_t> get_chunk_extents(
 	return extents;
 }
 
+// The settings of a codec only encoding uses: decoding needs none of them,
+// so one that is absent, or not a number, keeps what encoding defaults to.
+int get_setting(
+	const nlohmann::json &configuration,
+	const char *key,
+	int fallback
+)
+{
+	const auto found = configuration.is_object()
+		? configuration.find(key)
+		: configuration.end();
+	return found != configuration.end() && found->is_number_integer()
+		? found->get<int>()
+		: fallback;
+}
+
+std::string get_setting(
+	const nlohmann::json &configuration,
+	const char *key,
+	const char *fallback
+)
+{
+	const auto found = configuration.is_object()
+		? configuration.find(key)
+		: configuration.end();
+	return found != configuration.end() && found->is_string()
+		? found->get<std::string>()
+		: std::string(fallback);
+}
+
 // A codec of version 2, its "id" one of numcodecs.
 std::shared_ptr<const zarr_bytes_codec> make_v2_codec(
 	const nlohmann::json &compressor,
+	std::size_t type_size,
 	const std::string &where
 )
 {
 	const auto &id = get_member(compressor, "id", where);
 	if (id == "blosc")
 	{
-		return std::make_shared<blosc_zarr_bytes_codec>();
+		// numcodecs shuffles bits for a type of one byte and bytes for any
+		// other where it is told to choose, as -1.
+		auto shuffle = get_setting(compressor, "shuffle", 1);
+		if (shuffle < 0)
+		{
+			shuffle = type_size == 1 ? 2 : 1;
+		}
+		return std::make_shared<blosc_zarr_bytes_codec>(
+			get_setting(compressor, "cname", "lz4"),
+			get_setting(compressor, "clevel", 5),
+			shuffle,
+			type_size
+		);
 	}
 	if (id == "zstd")
 	{
-		return std::make_shared<zstd_zarr_bytes_codec>();
+		return std::make_shared<zstd_zarr_bytes_codec>(
+			get_setting(compressor, "level", 3));
 	}
 	if (id == "zlib")
 	{
-		return std::make_shared<zlib_zarr_bytes_codec>();
+		return std::make_shared<zlib_zarr_bytes_codec>(
+			get_setting(compressor, "level", 6));
 	}
 	if (id == "gzip")
 	{
-		return std::make_shared<gzip_zarr_bytes_codec>();
+		return std::make_shared<gzip_zarr_bytes_codec>(
+			get_setting(compressor, "level", 6));
 	}
 
 	refuse_metadata(where, "Chunks compressed with " + id.dump() +
@@ -114,20 +160,31 @@ const nlohmann::json& get_configuration(const nlohmann::json &codec)
 }
 
 std::shared_ptr<const zarr_bytes_codec> make_v3_bytes_codec(
-	const std::string &name
+	const std::string &name,
+	const nlohmann::json &configuration,
+	std::size_t type_size
 )
 {
 	if (name == "blosc")
 	{
-		return std::make_shared<blosc_zarr_bytes_codec>();
+		const auto shuffle = get_setting(configuration, "shuffle", "shuffle");
+		return std::make_shared<blosc_zarr_bytes_codec>(
+			get_setting(configuration, "cname", "zstd"),
+			get_setting(configuration, "clevel", 5),
+			shuffle == "bitshuffle" ? 2 : shuffle == "noshuffle" ? 0 : 1,
+			static_cast<std::size_t>(get_setting(
+				configuration, "typesize", static_cast<int>(type_size)))
+		);
 	}
 	if (name == "zstd")
 	{
-		return std::make_shared<zstd_zarr_bytes_codec>();
+		return std::make_shared<zstd_zarr_bytes_codec>(
+			get_setting(configuration, "level", 3));
 	}
 	if (name == "gzip")
 	{
-		return std::make_shared<gzip_zarr_bytes_codec>();
+		return std::make_shared<gzip_zarr_bytes_codec>(
+			get_setting(configuration, "level", 6));
 	}
 	if (name == "crc32c")
 	{
@@ -293,7 +350,9 @@ codec_chain parse_codec_chain(
 			chain.order = parse_endian(
 				configuration, get_size(single) > 1, where);
 		}
-		else if (const auto bytes_codec = make_v3_bytes_codec(name))
+		else if (const auto bytes_codec = make_v3_bytes_codec(
+			name, configuration, get_size(parse_v3_data_type(
+				data_type, get_system_byte_order(), where).type)))
 		{
 			if (!serialized)
 			{
@@ -443,7 +502,8 @@ void zarr_array_layout::read_v2(
 	const auto &compressor = get_member(metadata, "compressor", where);
 	if (!compressor.is_null())
 	{
-		codecs.push_back(make_v2_codec(compressor, where));
+		codecs.push_back(
+			make_v2_codec(compressor, get_size(type.type), where));
 	}
 
 	m_chunk.emplace(std::move(chunks), make_span(axes), type.type,

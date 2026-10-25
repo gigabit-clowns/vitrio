@@ -18,7 +18,12 @@ class zstd_zarr_bytes_codec final
 	: public zarr_bytes_codec
 {
 public:
-	zstd_zarr_bytes_codec() noexcept = default;
+	/**
+	 * @brief Construct the codec, with how hard it compresses.
+	 *
+	 * @param level The level of zstd it compresses at.
+	 */
+	explicit zstd_zarr_bytes_codec(int level = 3) noexcept;
 	~zstd_zarr_bytes_codec() override = default;
 
 	void decode(
@@ -26,6 +31,14 @@ public:
 		std::size_t limit,
 		std::vector<byte> &decoded
 	) const override;
+
+	void encode(
+		span<const byte> decoded,
+		std::vector<byte> &encoded
+	) const override;
+
+private:
+	int m_level;
 };
 
 } // namespace zarr
