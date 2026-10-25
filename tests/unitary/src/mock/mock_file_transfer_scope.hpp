@@ -5,6 +5,7 @@
 #include <file_transfer/file_transfer_scope.hpp>
 
 #include <vitrio/concurrency/task.hpp>
+#include <vitrio/const_memory_range.hpp>
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
@@ -30,6 +31,23 @@ public:
 			span<const memory_range> buffers,
 			std::uint64_t tag
 		),
+		override
+	);
+
+	MAKE_MOCK4(
+		queue_write,
+		void(
+			file_handle_t file,
+			std::uint64_t offset,
+			span<const const_memory_range> buffers,
+			std::uint64_t tag
+		),
+		override
+	);
+
+	MAKE_MOCK2(
+		queue_sync,
+		void(file_handle_t file, std::uint64_t tag),
 		override
 	);
 

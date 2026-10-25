@@ -102,6 +102,42 @@ void write_regions(
 );
 
 /**
+ * @brief Move a run of the regions of a walk out of an array and into a file.
+ *
+ * The mirror of the overload of @ref read_regions that moves a run: the run
+ * is a stretch of the file, which can be written out of a buffer that holds
+ * just that stretch.
+ *
+ * @param walk The regions and the space they are walked in.
+ * @param first_region Index of the first region to move, among those @p walk
+ * holds.
+ * @param region_count How many regions to move from there. The run must not
+ * reach past what @p walk holds.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data Where the values of the file go, from the element at
+ * @p file_origin on. Every element the run reaches lies at or after it.
+ * @param file_origin Which element of the file @p file_data starts at, 0
+ * when it holds the values from their first.
+ * @param file_type Data type of the file.
+ * @param file_order Byte order the file states its values in.
+ * @throws unsupported_operation_error If @p file_type can not be produced
+ * from @p array_type, or if @p file_type is not a data type files are
+ * transferred in.
+ */
+void write_regions(
+	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	const void *array_data,
+	numerical_type array_type,
+	byte *file_data,
+	std::ptrdiff_t file_origin,
+	numerical_type file_type,
+	byte_order file_order
+);
+
+/**
  * @brief Move a run of the regions of a walk out of a file of one
  * statically known element type.
  *
@@ -138,17 +174,20 @@ void read_regions_as(
 );
 
 /**
- * @brief Move the regions of a walk into a file of one statically known
- * element type.
+ * @brief Move a run of the regions of a walk into a file of one statically
+ * known element type.
  *
  * @see read_regions_as
  */
 template <typename Q>
 void write_regions_as(
 	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
 	const void *array_data,
 	numerical_type array_type,
 	Q *file_data,
+	std::ptrdiff_t file_origin,
 	bool swapped
 );
 

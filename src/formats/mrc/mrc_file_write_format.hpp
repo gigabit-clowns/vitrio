@@ -35,7 +35,8 @@ public:
 	std::shared_ptr<image_writer> open(
 		const image_file_probe &probe,
 		const image_descriptor &descriptor,
-		const image_metadata &metadata
+		const image_metadata &metadata,
+		const file_transfer_pool &transfers
 	) const override;
 };
 

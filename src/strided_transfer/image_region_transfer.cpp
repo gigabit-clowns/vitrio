@@ -119,6 +119,31 @@ void write_regions(
 	byte_order file_order
 )
 {
+	write_regions(
+		walk,
+		0,
+		walk.get_offsets().get_region_count(),
+		array_data,
+		array_type,
+		file_data,
+		0,
+		file_type,
+		file_order
+	);
+}
+
+void write_regions(
+	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	const void *array_data,
+	numerical_type array_type,
+	byte *file_data,
+	std::ptrdiff_t file_origin,
+	numerical_type file_type,
+	byte_order file_order
+)
+{
 	const auto swapped = file_order != get_system_byte_order();
 
 	switch (file_type)
@@ -127,9 +152,12 @@ void write_regions(
 		case numerical_type::name: \
 			write_regions_as( \
 				walk, \
+				first_region, \
+				region_count, \
 				array_data, \
 				array_type, \
 				reinterpret_cast<__VA_ARGS__*>(file_data), \
+				file_origin, \
 				swapped \
 			); \
 			break

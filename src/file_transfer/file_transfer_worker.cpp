@@ -97,7 +97,7 @@ boost::optional<file_transfer_completion> file_transfer_worker::wait() noexcept
 			{
 				VITRIO_LOG_CRITICAL(
 					"A thread that transfers files could not wait for its "
-					"reads ({}), which the kernel may still be filling.",
+					"transfers ({}), which the kernel may still be filling.",
 					error.what()
 				);
 				std::terminate();
@@ -107,8 +107,8 @@ boost::optional<file_transfer_completion> file_transfer_worker::wait() noexcept
 		catch (const std::exception &error)
 		{
 			VITRIO_LOG_CRITICAL(
-				"A thread that transfers files could not wait for its reads "
-				"({}), which the kernel may still be filling.",
+				"A thread that transfers files could not wait for its "
+				"transfers ({}), which the kernel may still be filling.",
 				error.what()
 			);
 			std::terminate();

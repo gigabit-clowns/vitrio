@@ -121,9 +121,9 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
  * inner loop is chosen once too, before the first region, as the strides of
  * the innermost axis are the same for all of them.
  *
- * The source may hold its elements from @p source_origin on rather than
- * from its first, as a buffer holding a stretch of a file does, and its
- * offsets are then taken from there.
+ * Either side may hold its elements from an origin on rather than from its
+ * first, as a buffer holding a stretch of a file does, and its offsets are
+ * then taken from there.
  *
  * The destination comes first, as it does in the layout.
  */
@@ -138,6 +138,7 @@ void run_regions(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
 	SourcePointer source_data,
 	std::ptrdiff_t source_origin
 )
@@ -153,7 +154,8 @@ void run_regions(
 					layout,
 					destination_stride,
 					source_stride,
-					destination_data + destination_offsets[i],
+					destination_data +
+						(destination_offsets[i] - destination_origin),
 					source_data + (source_offsets[i] - source_origin)
 				);
 			}
@@ -173,6 +175,7 @@ void run_supported_regions(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
 	SourcePointer source_data,
 	std::ptrdiff_t source_origin
 )
@@ -183,6 +186,7 @@ void run_supported_regions(
 		destination_offsets,
 		source_offsets,
 		destination_data,
+		destination_origin,
 		source_data,
 		source_origin
 	);
@@ -203,6 +207,7 @@ void run_supported_regions(
 	span<const std::ptrdiff_t>,
 	span<const std::ptrdiff_t>,
 	DestinationPointer,
+	std::ptrdiff_t,
 	SourcePointer,
 	std::ptrdiff_t
 )
@@ -235,6 +240,7 @@ void run_regions_in_byte_order(
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
 	SourcePointer source_data,
 	std::ptrdiff_t source_origin
 )
@@ -248,6 +254,7 @@ void run_regions_in_byte_order(
 			destination_offsets,
 			source_offsets,
 			destination_data,
+			destination_origin,
 			source_data,
 			source_origin
 		);
@@ -261,6 +268,7 @@ void run_regions_in_byte_order(
 			destination_offsets,
 			source_offsets,
 			destination_data,
+			destination_origin,
 			source_data,
 			source_origin
 		);
@@ -310,6 +318,7 @@ void read_regions_as(
 				array_offsets,
 				file_offsets,
 				array,
+				0,
 				file_data,
 				file_origin
 			);
@@ -321,16 +330,29 @@ void read_regions_as(
 template <typename Q>
 void write_regions_as(
 	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
 	const void *array_data,
 	numerical_type array_type,
 	Q *file_data,
+	std::ptrdiff_t file_origin,
 	bool swapped
 )
 {
 	const auto &offsets = walk.get_offsets();
 
+	// The run is taken here, as read_regions_as takes it.
+	const auto array_offsets =
+		make_span(offsets.get_array().data() + first_region, region_count);
+	const auto file_offsets =
+		make_span(offsets.get_file().data() + first_region, region_count);
+
 	dispatch_numerical_type(
-		[&offsets, &walk, array_data, file_data, swapped] (auto array_tag)
+		[
+			&walk, array_offsets, file_offsets, array_data, file_data,
+			file_origin, swapped
+		]
+		(auto array_tag)
 		{
 			using T = typename decltype(array_tag)::type;
 			const auto support = region_transfer_support<Q, T>();
@@ -343,9 +365,10 @@ void write_regions_as(
 				region_write_kernel(),
 				byte_swapped_region_write_kernel(),
 				walk.get_layout(),
-				offsets.get_file(),
-				offsets.get_array(),
+				file_offsets,
+				array_offsets,
 				file_data,
+				file_origin,
 				array,
 				0
 			);
@@ -374,9 +397,12 @@ void write_regions_as(
 	); \
 	template void write_regions_as<__VA_ARGS__>( \
 		const image_region_write_walk&, \
+		std::size_t, \
+		std::size_t, \
 		const void*, \
 		numerical_type, \
 		__VA_ARGS__*, \
+		std::ptrdiff_t, \
 		bool \
 	)
 

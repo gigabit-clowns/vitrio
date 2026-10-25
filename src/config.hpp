@@ -36,24 +36,25 @@
 	#define VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET (4UL<<24)
 #endif
 
-// Bytes one step of a read stages in memory of its own, where its values have
-// to be converted on their way to the array.
+// Bytes one step of a read or a write stages in memory of its own, where its
+// values have to be converted on their way between the file and the array.
 //
-// A step is read while the one before it is moved, so a read holds two steps
-// of this at most, unless a single stretch is wider than a step.
+// A step is transferred while the one before it is moved, so a read or a
+// write holds two steps of this at most, unless a single stretch is wider
+// than a step.
 #ifndef VITRIO_DEFAULT_STAGING_BYTE_BUDGET
 	#define VITRIO_DEFAULT_STAGING_BYTE_BUDGET (1UL<<23)
 #endif
 
-// Reads of files the kernel carries out at once for one asynchronous queue or
-// port.
+// Transfers of files the kernel carries out at once for one asynchronous
+// queue or port: reads, writes and syncs.
 //
-// The threads of a file_transfer_pool have this many reads in flight each,
-// and so as many as a disk array needs in all: the reads of scattered
+// The threads of a file_transfer_pool have this many transfers in flight
+// each, and so as many as a disk array needs in all: the reads of scattered
 // regions keep the disks busy, and their schedulers order the reads along
-// their way. More gains nothing, and where a read takes a thread of the
-// kernel, as on ZFS, each read in flight costs one. Past it, queueing a read
-// waits for an earlier one.
+// their way. More gains nothing, and where a transfer takes a thread of the
+// kernel, as on ZFS, each one in flight costs one. Past it, queueing a
+// transfer waits for an earlier one.
 #ifndef VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY
 	#define VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY 16
 #endif

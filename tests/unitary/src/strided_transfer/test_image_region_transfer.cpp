@@ -399,7 +399,10 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 	SECTION( "a run is moved out of a buffer that holds only its stretch" )
 	{
 		// The second image of the file alone, which starts at element 4.
-		const std::vector<float32_t> stretch(file.begin() + 4, file.begin() + 8);
+		const std::vector<float32_t> stretch(
+			file.begin() + 4,
+			file.begin() + 8
+		);
 		std::vector<float32_t> array(12, -1.0F);
 		read_regions(
 			plan, 1, 1,
@@ -426,6 +429,98 @@ TEST_CASE( "a run of the regions of a batch is moved on its own",
 		);
 
 		REQUIRE( array == std::vector<float32_t>(12, -1.0F) );
+	}
+}
+
+TEST_CASE( "a run of the regions of a batch is written on its own",
+	"[image_region_transfer]" )
+{
+	const std::vector<std::size_t> file_extents = {3, 2, 2};
+	const std::vector<std::size_t> region_extents = {2, 2};
+	const auto file_strides = contiguous_strides(file_extents);
+	const auto array = counting<float32_t>(12);
+
+	// Each region lands where it sits in the array, so a run of them leaves
+	// the slots of the others alone.
+	image_transfer_plan regions(image_transfer_shape(region_extents, 3, 3));
+	for (std::size_t i = 0; i < 3; ++i)
+	{
+		regions.add(
+			make_span(std::vector<std::size_t>{i, 0, 0}),
+			make_span(std::vector<std::size_t>{i, 0, 0})
+		);
+	}
+
+	const image_region_write_walk plan(
+		regions,
+		make_span(file_extents), make_span(file_strides),
+		make_span(file_extents), make_span(file_strides),
+		0
+	);
+
+	SECTION( "only the regions of the run are written" )
+	{
+		std::vector<float32_t> file(12, -1.0F);
+		write_regions(
+			plan, 1, 1,
+			array.data(), numerical_type::float32,
+			as_file(file), 0, numerical_type::float32,
+			get_system_byte_order()
+		);
+
+		const std::vector<float32_t> expected = {
+			-1, -1, -1, -1, 4, 5, 6, 7, -1, -1, -1, -1
+		};
+
+		REQUIRE( file == expected );
+	}
+
+	SECTION( "consecutive runs together write the whole batch" )
+	{
+		std::vector<float32_t> file(12, -1.0F);
+		for (std::size_t first = 0; first < 3; ++first)
+		{
+			write_regions(
+				plan, first, 1,
+				array.data(), numerical_type::float32,
+				as_file(file), 0, numerical_type::float32,
+				get_system_byte_order()
+			);
+		}
+
+		REQUIRE( file == array );
+	}
+
+	SECTION( "a run is written into a buffer that holds only its stretch" )
+	{
+		// The second image of the file alone, which starts at element 4.
+		std::vector<float32_t> stretch(4, -1.0F);
+		write_regions(
+			plan, 1, 1,
+			array.data(), numerical_type::float32,
+			as_file(stretch), 4, numerical_type::float32,
+			get_system_byte_order()
+		);
+
+		const std::vector<float32_t> expected(
+			array.begin() + 4,
+			array.begin() + 8
+		);
+
+		REQUIRE( stretch == expected );
+	}
+
+	SECTION( "a run of no region writes nothing" )
+	{
+		std::vector<float32_t> file(12, -1.0F);
+		write_regions(
+			plan, 1, 0,
+			array.data(), numerical_type::float32,
+			as_file(file), 0, numerical_type::float32,
+			get_system_byte_order()
+		);
+
+		REQUIRE( file == std::vector<float32_t>(12, -1.0F) );
 	}
 }
 

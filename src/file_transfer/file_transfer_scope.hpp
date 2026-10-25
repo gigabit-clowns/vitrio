@@ -13,10 +13,10 @@ namespace vitrio
 {
 
 /**
- * @brief What a @ref file_transfer_operation queues its reads and runs its
+ * @brief What a @ref file_transfer_operation queues its transfers and runs its
  * tasks through, during one of its calls.
  *
- * A read it queues is outstanding until its completion reaches
+ * A transfer it queues is outstanding until its completion reaches
  * @ref file_transfer_operation::on_transfer, and a task it runs until its
  * outcome reaches @ref file_transfer_operation::on_task, each carrying the
  * tag it was given.

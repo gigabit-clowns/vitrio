@@ -11,15 +11,14 @@ namespace vitrio
 {
 
 /**
- * @brief Reads of files queued and waited for by one thread, whose wait any
- * thread can end.
+ * @brief Transfers of files queued and waited for by one thread, whose wait
+ * any thread can end.
  *
- * It is what a thread waits on when it waits both for its reads and for work
- * other threads hand it: they hand it the work, then @ref wake the port.
+ * It is what a thread waits on when it waits both for its transfers and for
+ * work other threads hand it: they hand it the work, then @ref wake the port.
  *
- * A read is outstanding until @ref wait returns its completion. Outstanding
- * reads complete in any order. Destroying a port waits for the reads that are
- * outstanding.
+ * A transfer is outstanding until @ref wait returns its completion.
+ * Destroying a port waits for the transfers that are outstanding.
  *
  * @par Thread safety
  * @ref wake may be called from any thread, at any time while the port lives.
@@ -43,15 +42,15 @@ public:
 	virtual void wake() noexcept = 0;
 
 	/**
-	 * @brief Wait until a read completes or the port is woken.
+	 * @brief Wait until a transfer completes or the port is woken.
 	 *
-	 * Reads that are queued are set on their way first. A port with no read
-	 * outstanding waits until it is woken.
+	 * Transfers that are queued are set on their way first. A port with no
+	 * transfer outstanding waits until it is woken.
 	 *
 	 * @return boost::optional<file_transfer_completion> The completion of the
-	 * read, or none if the port was woken.
+	 * transfer, or none if the port was woken.
 	 * @throws std::system_error If the system can not be waited on. The
-	 * reads stay outstanding.
+	 * transfers stay outstanding.
 	 */
 	virtual boost::optional<file_transfer_completion> wait() = 0;
 };

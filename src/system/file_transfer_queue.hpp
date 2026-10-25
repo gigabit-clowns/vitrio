@@ -9,12 +9,11 @@ namespace vitrio
 {
 
 /**
- * @brief Reads of files queued, then waited for by the thread that queued
+ * @brief Transfers of files queued, then waited for by the thread that queued
  * them.
  *
- * A read is outstanding until @ref wait returns its completion. Outstanding
- * reads complete in any order. Destroying a queue waits for the reads that
- * are outstanding.
+ * A transfer is outstanding until @ref wait returns its completion.
+ * Destroying a queue waits for the transfers that are outstanding.
  */
 class file_transfer_queue
 	: public file_transfer_submitter
@@ -24,14 +23,14 @@ public:
 	~file_transfer_queue() override;
 
 	/**
-	 * @brief Wait until a read completes.
+	 * @brief Wait until a transfer completes.
 	 *
-	 * Reads that are queued are set on their way first.
+	 * Transfers that are queued are set on their way first.
 	 *
-	 * @return file_transfer_completion The completion of the read.
-	 * @pre A read is outstanding.
+	 * @return file_transfer_completion The completion of the transfer.
+	 * @pre A transfer is outstanding.
 	 * @throws std::system_error If the system can not be waited on. The
-	 * reads stay outstanding.
+	 * transfers stay outstanding.
 	 */
 	virtual file_transfer_completion wait() = 0;
 };

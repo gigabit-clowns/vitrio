@@ -58,7 +58,8 @@ public:
 	std::shared_ptr<image_writer> open(
 		const image_file_probe &probe,
 		const image_descriptor &descriptor,
-		const image_metadata &metadata
+		const image_metadata &metadata,
+		const file_transfer_pool &transfers
 	) const
 	{
 		const auto *format = get_most_suitable_format(probe);
@@ -71,7 +72,7 @@ public:
 			);
 		}
 
-		return format->open(probe, descriptor, metadata);
+		return format->open(probe, descriptor, metadata, transfers);
 	}
 
 private:
@@ -122,10 +123,16 @@ bool image_file_write_format_selector::register_format(
 std::shared_ptr<image_writer> image_file_write_format_selector::open(
 	const std::string &path,
 	const image_descriptor &descriptor,
-	const image_metadata &metadata
+	const image_metadata &metadata,
+	const file_transfer_pool &transfers
 ) const
 {
-	return m_implementation->open(image_file_probe(path), descriptor, metadata);
+	return m_implementation->open(
+		image_file_probe(path),
+		descriptor,
+		metadata,
+		transfers
+	);
 }
 
 const image_file_write_format*

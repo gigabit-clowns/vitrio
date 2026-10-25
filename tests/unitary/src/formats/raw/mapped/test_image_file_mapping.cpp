@@ -4,13 +4,12 @@
 #include <catch2/matchers/catch_matchers_exception.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <formats/raw/create_image_file.hpp>
 #include <formats/raw/mapped/image_file_mapping.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
 
 #include <vitrio/tests/scoped_path.hpp>
-
-#include <boost/filesystem/operations.hpp>
 
 #include <fstream>
 #include <string>
@@ -37,44 +36,7 @@ std::vector<char> read_file(const std::string &path)
 	);
 }
 
-std::size_t size_on_disk(const std::string &path)
-{
-	return static_cast<std::size_t>(boost::filesystem::file_size(path));
-}
-
 } // anonymous namespace
-
-TEST_CASE( "a file is laid out in full before it is mapped",
-	"[image_file_mapping]" )
-{
-	const scoped_path path("mapping_layout.tmp");
-
-	SECTION( "it is created at exactly the size asked for" )
-	{
-		create_image_file(path.get(), 2048);
-
-		REQUIRE( size_on_disk(path.get()) == 2048 );
-	}
-
-	SECTION( "a file already there is replaced" )
-	{
-		write_file(path.get(), std::vector<char>(8192, 'x'));
-		create_image_file(path.get(), 1024);
-
-		REQUIRE( size_on_disk(path.get()) == 1024 );
-	}
-
-	SECTION( "a file of no bytes is refused" )
-	{
-		REQUIRE_THROWS_MATCHES(
-			create_image_file(path.get(), 0),
-			image_file_error,
-			Catch::Matchers::MessageMatches(
-				Catch::Matchers::StartsWith(path.get() + ": ")
-			)
-		);
-	}
-}
 
 TEST_CASE( "a file is read through its mapping",
 	"[image_file_mapping]" )
@@ -126,7 +88,7 @@ TEST_CASE( "a file is written through its mapping",
 {
 	const scoped_path path("mapping_write.tmp");
 
-	SECTION( "what is written reaches the storage" )
+	SECTION( "what is written is in the file once it is unmapped" )
 	{
 		create_image_file(path.get(), 4);
 
@@ -140,7 +102,6 @@ TEST_CASE( "a file is written through its mapping",
 			data[1] = byte('A');
 			data[2] = byte('P');
 			data[3] = byte(' ');
-			mapping.flush();
 		}
 
 		const auto contents = read_file(path.get());
@@ -154,7 +115,6 @@ TEST_CASE( "a file is written through its mapping",
 
 		image_file_mapping writer(path.get(), image_file_access::read_write);
 		writer.get_data()[0] = byte(0x42);
-		writer.flush();
 
 		const image_file_mapping reader(
 			path.get(),

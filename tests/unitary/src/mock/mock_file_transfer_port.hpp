@@ -5,6 +5,7 @@
 #include <system/file_transfer_completion.hpp>
 #include <system/file_transfer_port.hpp>
 
+#include <vitrio/const_memory_range.hpp>
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
@@ -34,6 +35,23 @@ public:
 			span<const memory_range> buffers,
 			std::uint64_t tag
 		),
+		override
+	);
+
+	MAKE_MOCK4(
+		queue_write,
+		void(
+			file_handle_t file,
+			std::uint64_t offset,
+			span<const const_memory_range> buffers,
+			std::uint64_t tag
+		),
+		override
+	);
+
+	MAKE_MOCK2(
+		queue_sync,
+		void(file_handle_t file, std::uint64_t tag),
 		override
 	);
 
@@ -68,7 +86,7 @@ struct printer<boost::optional<vitrio::file_transfer_completion>>
 			return;
 		}
 
-		os << "the completion of the read tagged " << completion->get_tag();
+		os << "the completion of the transfer tagged " << completion->get_tag();
 	}
 };
 

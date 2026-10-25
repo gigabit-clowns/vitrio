@@ -22,29 +22,35 @@ if(WIN32)
 		vitrio-obj
 		PRIVATE
 			environment_variable_windows.cpp
+			file_sync_windows.cpp
 			page_prefetch_windows.cpp
 			page_size_windows.cpp
 			scattered_file_read_windows.cpp
+			scattered_file_write_windows.cpp
 	)
 elseif(APPLE)
 	target_sources(
 		vitrio-obj
 		PRIVATE
 			environment_variable_posix.cpp
+			file_sync_posix.cpp
 			iovec_gathering.cpp
 			page_prefetch_darwin.cpp
 			page_size_posix.cpp
 			scattered_file_read_posix.cpp
+			scattered_file_write_posix.cpp
 	)
 elseif(UNIX)
 	target_sources(
 		vitrio-obj
 		PRIVATE
 			environment_variable_posix.cpp
+			file_sync_posix.cpp
 			iovec_gathering.cpp
 			page_prefetch_posix.cpp
 			page_size_posix.cpp
 			scattered_file_read_posix.cpp
+			scattered_file_write_posix.cpp
 	)
 else()
 	message(FATAL_ERROR "vitrio does not know this operating system.")

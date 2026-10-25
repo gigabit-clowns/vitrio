@@ -17,6 +17,7 @@
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_writer.hpp>
 
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 
 #include <boost/filesystem/operations.hpp>
@@ -101,7 +102,8 @@ TEST_CASE( "the MRC format claims the files it can create",
 		const auto writer = format.open(
 			image_file_probe(path.get()),
 			descriptor,
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		REQUIRE( writer != nullptr );
@@ -129,7 +131,8 @@ TEST_CASE(
 		const auto writer = format.open(
 			image_file_probe(path.get()),
 			descriptor,
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		REQUIRE( writer->get_descriptor() == descriptor );
@@ -143,7 +146,8 @@ TEST_CASE(
 			format.open(
 				image_file_probe(path.get()),
 				descriptor,
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error,
 			Catch::Matchers::MessageMatches(
@@ -162,7 +166,8 @@ TEST_CASE(
 			format.open(
 				image_file_probe(path.get()),
 				make_descriptor(image, 2),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -180,7 +185,8 @@ TEST_CASE( "the MRC write format creates a file with its header written",
 		const auto writer = format.open(
 			image_file_probe(path.get()),
 			make_descriptor(extents, 2),
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 	}
 
@@ -226,7 +232,8 @@ TEST_CASE( "the MRC write format refuses what the format can not hold",
 			format.open(
 				image_file_probe(path.get()),
 				make_descriptor(line, 1),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -240,7 +247,8 @@ TEST_CASE( "the MRC write format refuses what the format can not hold",
 			format.open(
 				image_file_probe(path.get()),
 				make_descriptor(extents, 2, numerical_type::float64),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);

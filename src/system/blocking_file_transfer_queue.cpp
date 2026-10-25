@@ -2,7 +2,9 @@
 
 #include "blocking_file_transfer_queue.hpp"
 
+#include "file_sync.hpp"
 #include "scattered_file_read.hpp"
+#include "scattered_file_write.hpp"
 
 #include <assert.hpp>
 
@@ -23,6 +25,37 @@ void blocking_file_transfer_queue::queue_read(
 {
 	std::error_code error;
 	const auto size = read_scattered(file, offset, buffers, error);
+	complete(tag, size, error);
+}
+
+void blocking_file_transfer_queue::queue_write(
+	file_handle_t file,
+	std::uint64_t offset,
+	span<const const_memory_range> buffers,
+	std::uint64_t tag
+)
+{
+	std::error_code error;
+	const auto size = write_scattered(file, offset, buffers, error);
+	complete(tag, size, error);
+}
+
+void blocking_file_transfer_queue::queue_sync(
+	file_handle_t file,
+	std::uint64_t tag
+)
+{
+	std::error_code error;
+	sync_file(file, error);
+	complete(tag, 0, error);
+}
+
+void blocking_file_transfer_queue::complete(
+	std::uint64_t tag,
+	std::size_t size,
+	std::error_code error
+)
+{
 	if (error)
 	{
 		m_completions.emplace_back(tag, error);

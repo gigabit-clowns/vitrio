@@ -524,7 +524,8 @@ def prefetch_scratch_async(
 	)
 
 def writer_provider(
-	formats: ImageFileWriteFormatSelector | None = None
+	formats: ImageFileWriteFormatSelector | None = None,
+	transfers: FileTransferPool | None = None
 ) -> FileImageWriterProvider:
 	"""
 	Assemble a writer provider that creates files.
@@ -536,12 +537,18 @@ def writer_provider(
 	Args:
 		formats: The formats to create files with. Defaults to the bundled
 			ones.
+		transfers: The threads that carry out the writes of the files.
+			Defaults to a pool shared by the process, whose conversions
+			run on a thread pool of its own.
 
 	Returns:
 		FileImageWriterProvider: The assembled provider, with no file
 		declared. Its keys are paths.
 	"""
-	return FileImageWriterProvider(_resolve_write_formats(formats))
+	return FileImageWriterProvider(
+		_resolve_write_formats(formats),
+		_resolve_transfers(transfers)
+	)
 
 def saver(
 	writers: ImageWriterProvider,
@@ -683,7 +690,8 @@ def write_single(
 	array: HostArray,
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
-	data_type: object | None = None
+	data_type: object | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as one image or volume.
@@ -694,11 +702,14 @@ def write_single(
 		formats: The formats to choose from. Defaults to the bundled ones.
 		data_type: The type to store the values as. Defaults to the one
 			the array already carries.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
 	_binding.write_single(
 		array,
 		path,
 		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
 		_resolve_data_type(data_type)
 	)
 
@@ -706,7 +717,8 @@ def write_stack(
 	array: HostArray,
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
-	data_type: object | None = None
+	data_type: object | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a stack of images or volumes.
@@ -720,11 +732,14 @@ def write_stack(
 		formats: The formats to choose from. Defaults to the bundled ones.
 		data_type: The type to store the values as. Defaults to the one
 			the array already carries.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
 	_binding.write_stack(
 		array,
 		path,
 		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
 		_resolve_data_type(data_type)
 	)
 
@@ -732,7 +747,8 @@ def write(
 	array: HostArray,
 	path: Key,
 	descriptor: ImageDescriptor,
-	formats: ImageFileWriteFormatSelector | None = None
+	formats: ImageFileWriteFormatSelector | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a descriptor states.
@@ -747,5 +763,13 @@ def write(
 		path: The file to write them to.
 		descriptor: What the file holds.
 		formats: The formats to choose from. Defaults to the bundled ones.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
-	_binding.write(array, path, _resolve_write_formats(formats), descriptor)
+	_binding.write(
+		array,
+		path,
+		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
+		descriptor
+	)

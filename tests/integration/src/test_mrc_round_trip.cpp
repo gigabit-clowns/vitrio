@@ -90,7 +90,12 @@ TEST_CASE(
 
 		{
 			const auto writer =
-				writers.open(path.get(), descriptor, image_metadata());
+				writers.open(
+					path.get(),
+					descriptor,
+					image_metadata(),
+					*test::make_file_transfer_pool()
+				);
 			write_now(*writer, source, whole_of(subject.extents));
 			flush_now(*writer);
 		}
@@ -141,7 +146,8 @@ TEST_CASE(
 			const auto writer = writers.open(
 				path.get(),
 				image_descriptor(make_span(extents), 2, file_type),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			);
 			write_now(*writer, source, whole_of(extents));
 			flush_now(*writer);

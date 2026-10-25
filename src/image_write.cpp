@@ -48,6 +48,7 @@ void write_single(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -64,13 +65,14 @@ void write_single(
 		resolve_data_type(arr, data_type)
 	);
 
-	write(arr, path, formats, descriptor, metadata);
+	write(arr, path, formats, transfers, descriptor, metadata);
 }
 
 void write_stack(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	numerical_type data_type,
 	const image_metadata &metadata
 )
@@ -90,13 +92,14 @@ void write_stack(
 		resolve_data_type(arr, data_type)
 	);
 
-	write(arr, path, formats, descriptor, metadata);
+	write(arr, path, formats, transfers, descriptor, metadata);
 }
 
 void write(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata
 )
@@ -116,7 +119,7 @@ void write(
 		);
 	}
 
-	const auto writer = formats.open(path, descriptor, metadata);
+	const auto writer = formats.open(path, descriptor, metadata, transfers);
 	write_and_wait(
 		*writer,
 		borrow_array(arr),

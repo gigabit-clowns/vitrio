@@ -8,7 +8,8 @@ namespace vitrio
 {
 
 /**
- * @brief Opens ports that read as they are asked, which every system has.
+ * @brief Opens ports that transfer as they are asked, which every system
+ * has.
  */
 class blocking_file_transfer_port_opener final
 	: public file_transfer_port_opener

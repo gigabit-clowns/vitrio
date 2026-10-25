@@ -18,6 +18,7 @@
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_writer.hpp>
 
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
 #include <vitrio/tests/transfers.hpp>
@@ -101,7 +102,8 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 
 		{
 			const auto writer = format.open(
-				image_file_probe(path.get()), descriptor, image_metadata());
+				image_file_probe(path.get()), descriptor, image_metadata(),
+				*test::make_file_transfer_pool());
 
 			REQUIRE( writer != nullptr );
 			REQUIRE( writer->get_descriptor() == descriptor );
@@ -128,7 +130,8 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 
 		{
 			const auto writer = format.open(
-				image_file_probe(path.get()), descriptor, image_metadata());
+				image_file_probe(path.get()), descriptor, image_metadata(),
+				*test::make_file_transfer_pool());
 			write_now(*writer, source, whole_of(extents));
 		}
 
@@ -148,7 +151,8 @@ TEST_CASE( "the TIFF write format creates the file it is asked for",
 
 		{
 			const auto writer = format.open(
-				image_file_probe(path.get()), descriptor, image_metadata());
+				image_file_probe(path.get()), descriptor, image_metadata(),
+				*test::make_file_transfer_pool());
 			write_now(*writer, source, whole_of(extents));
 		}
 
@@ -171,7 +175,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 2, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error,
 			Catch::Matchers::MessageMatches(
@@ -189,7 +194,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 3, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -203,7 +209,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 1, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -217,7 +224,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 2, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -231,7 +239,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 2, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -245,7 +254,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				probe,
 				describe(extents, 2, numerical_type::complex_float16),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -262,7 +272,8 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			format.open(
 				image_file_probe(nowhere),
 				describe(extents, 2, numerical_type::uint8),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			image_file_error
 		);

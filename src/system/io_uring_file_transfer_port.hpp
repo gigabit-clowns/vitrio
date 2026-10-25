@@ -14,8 +14,9 @@ namespace vitrio
 {
 
 /**
- * @brief A port whose reads the kernel carries out through an io_uring, and
- * which is woken through a read of an @ref event_counter in the same ring.
+ * @brief A port whose transfers the kernel carries out through an io_uring,
+ * and which is woken through a read of an @ref event_counter in the same
+ * ring.
  *
  * That read is always outstanding while the port lives: waking the port
  * signals the counter, which completes it, and the port queues it again as
@@ -29,14 +30,14 @@ class io_uring_file_transfer_port final
 {
 public:
 	/**
-	 * @brief Open a ring that has room for a number of reads, besides the
-	 * one the port is woken through.
+	 * @brief Open a ring that has room for a number of transfers, besides
+	 * the read the port is woken through.
 	 *
-	 * More reads may be outstanding than the ring has room for: queueing one
-	 * then waits for an earlier one to complete first.
+	 * More transfers may be outstanding than the ring has room for: queueing
+	 * one then waits for an earlier one to complete first.
 	 *
-	 * @param capacity How many reads the kernel may carry out at once. Not
-	 * zero.
+	 * @param capacity How many transfers the kernel may carry out at once.
+	 * Not zero.
 	 * @throws std::system_error If the kernel can not open the ring or the
 	 * counter.
 	 */
@@ -50,10 +51,24 @@ public:
 		std::uint64_t tag
 	) override;
 
+	void queue_write(
+		file_handle_t file,
+		std::uint64_t offset,
+		span<const const_memory_range> buffers,
+		std::uint64_t tag
+	) override;
+
+	void queue_sync(file_handle_t file, std::uint64_t tag) override;
+
 	void wake() noexcept override;
 	boost::optional<file_transfer_completion> wait() override;
 
 private:
+	// Queues a transfer under a tag of the ring that stands for the one it
+	// is given.
+	template <typename Queue>
+	void queue_tagged(std::uint64_t tag, Queue &&queue);
+
 	void queue_wakeup();
 
 	event_counter m_wakeups;
@@ -61,7 +76,7 @@ private:
 	// Where the read of the counter puts its value.
 	std::uint64_t m_wakeup_count;
 
-	// The tag each read was queued with, at the tag the ring knows it by.
+	// The tag each transfer was queued with, at the tag the ring knows it by.
 	// The first stands for the read of the counter.
 	std::vector<std::uint64_t> m_tags;
 	std::vector<std::uint64_t> m_free_tags;

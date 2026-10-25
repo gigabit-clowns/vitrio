@@ -84,7 +84,8 @@ def test_accepts_explicit_formats(tmp_path):
 
 def test_assembled_by_hand(tmp_path):
 	writers = vio.FileImageWriterProvider(
-		vio.ImageFileWriteFormatSelector.get_shared()
+		vio.ImageFileWriteFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	writers.declare(tmp_path / 'stack.mrcs', __setup_descriptor())
 	assert writers.file_count == 1

@@ -74,29 +74,9 @@ public:
 	 */
 	file_handle_t get_file() const noexcept;
 
-	/**
-	 * @brief Make everything written through the mapping reach the storage.
-	 *
-	 * @throws image_file_error If the mapping could not be flushed.
-	 */
-	void flush();
-
 private:
 	boost::interprocess::file_mapping m_mapping;
 	boost::interprocess::mapped_region m_region;
 };
-
-/**
- * @brief Create a file of a given size, replacing whatever is at that path.
- *
- * A mapping can neither create a file nor resize one, so a file being written
- * is laid out in full before it is mapped. The bytes it is laid out with are
- * unspecified.
- *
- * @param path Path to the file to create.
- * @param size Size of the file in bytes. Must not be zero.
- * @throws image_file_error If the file could not be created or sized.
- */
-void create_image_file(const std::string &path, std::size_t size);
 
 } // namespace vitrio

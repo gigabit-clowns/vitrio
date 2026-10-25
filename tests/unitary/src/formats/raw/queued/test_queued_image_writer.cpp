@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 
-#include <formats/raw/mapped/mapped_image_writer.hpp>
+#include <formats/raw/queued/queued_image_writer.hpp>
+
+#include "../../../fixtures/file_transfer_executors.hpp"
+#include "../../../mock/mock_file_transfer_executor.hpp"
+
+#include <formats/raw/queued/file_sync_operation.hpp>
 
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
-#include <vitrio/array/const_array_ref.hpp>
+#include <vitrio/array/const_array.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/byte.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -18,6 +26,7 @@
 #include <memory/byte_order.hpp>
 
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 
 #include <boost/filesystem/operations.hpp>
 
@@ -26,11 +35,13 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 namespace
 {
@@ -151,37 +162,43 @@ std::vector<float> floats_of(const std::string &path, std::size_t count)
 } // anonymous namespace
 
 TEST_CASE(
-	"a mapped_image_writer reports the descriptor of its layout",
-	"[mapped_image_writer]"
+	"a queued_image_writer reports the descriptor of its layout",
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_descriptor.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_descriptor.raw");
 	const std::vector<std::size_t> extents = {2, 3, 4};
 
-	const mapped_image_writer writer(
+	const queued_image_writer writer(
 		path.get(),
 		make_layout(extents, 2),
-		make_span(preamble.data(), preamble.size())
+		make_span(preamble.data(), preamble.size()),
+		transfers
 	);
 
 	REQUIRE( writer.get_descriptor() == make_descriptor(extents, 2) );
 }
 
 TEST_CASE(
-	"a mapped_image_writer lays its file out in full when it is constructed",
-	"[mapped_image_writer]"
+	"a queued_image_writer lays its file out in full when it is constructed",
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_laid_out.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_laid_out.raw");
 	const std::vector<std::size_t> extents = {2, 3, 4};
 
 	SECTION( "the file has room for the preamble and every value" )
 	{
 		{
-			const mapped_image_writer writer(
+			const queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 		}
 
@@ -192,10 +209,11 @@ TEST_CASE(
 	SECTION( "the file begins with the preamble" )
 	{
 		{
-			const mapped_image_writer writer(
+			const queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 		}
 
@@ -208,10 +226,11 @@ TEST_CASE(
 	SECTION( "a preamble shorter than the gap before the values fits" )
 	{
 		REQUIRE_NOTHROW(
-			mapped_image_writer(
+			queued_image_writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), 4)
+				make_span(preamble.data(), 4),
+				transfers
 			)
 		);
 	}
@@ -227,10 +246,11 @@ TEST_CASE(
 		}
 
 		{
-			const mapped_image_writer writer(
+			const queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 		}
 
@@ -240,20 +260,23 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a mapped_image_writer refuses a preamble that reaches past where the "
+	"a queued_image_writer refuses a preamble that reaches past where the "
 	"values begin, creating nothing",
-	"[mapped_image_writer]"
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_long_preamble.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_long_preamble.raw");
 	const std::vector<std::size_t> extents = {3, 4};
 	const std::vector<vitrio::byte> too_long(20);
 
 	REQUIRE_THROWS_AS(
-		mapped_image_writer(
+		queued_image_writer(
 			path.get(),
 			make_layout(extents, 2),
-			make_span(too_long.data(), too_long.size())
+			make_span(too_long.data(), too_long.size()),
+			transfers
 		),
 		std::invalid_argument
 	);
@@ -261,11 +284,13 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a mapped_image_writer writes its values behind the preamble",
-	"[mapped_image_writer]"
+	"a queued_image_writer writes its values behind the preamble",
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_values.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_values.raw");
 
 	SECTION( "the whole of an array arrives in order" )
 	{
@@ -273,14 +298,15 @@ TEST_CASE(
 		const auto values = counting(24);
 
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(extents, values);
-			writer.write(const_array_ref(source), whole_of(extents));
-			writer.flush();
+			write_now(writer, source, whole_of(extents));
+			flush_now(writer);
 		}
 
 		REQUIRE( floats_of(path.get(), 24) == values );
@@ -293,10 +319,11 @@ TEST_CASE(
 		const auto values = counting(12);
 
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(extents, values);
 
@@ -307,10 +334,10 @@ TEST_CASE(
 					make_span(std::vector<std::size_t>{i, 0, 0}),
 					make_span(std::vector<std::size_t>{i, 0, 0})
 				);
-				writer.write(const_array_ref(source), regions);
+				write_now(writer, source, regions);
 			}
 
-			writer.flush();
+			flush_now(writer);
 		}
 
 		REQUIRE( floats_of(path.get(), 12) == values );
@@ -322,13 +349,14 @@ TEST_CASE(
 		const auto values = counting(12);
 
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				make_layout(extents, 2),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(extents, values);
-			writer.write(const_array_ref(source), whole_of(extents));
+			write_now(writer, source, whole_of(extents));
 		}
 
 		REQUIRE( floats_of(path.get(), 12) == values );
@@ -337,24 +365,27 @@ TEST_CASE(
 	SECTION( "an empty plan writes nothing and succeeds" )
 	{
 		const std::vector<std::size_t> extents = {3, 4};
-		mapped_image_writer writer(
+		queued_image_writer writer(
 			path.get(),
 			make_layout(extents, 2),
-			make_span(preamble.data(), preamble.size())
+			make_span(preamble.data(), preamble.size()),
+			transfers
 		);
 		const auto source = make_host_array(extents, counting(12));
 		const image_transfer_plan regions(image_transfer_shape(extents, 2, 2));
 
-		REQUIRE_NOTHROW( writer.write(const_array_ref(source), regions) );
+		REQUIRE_NOTHROW( write_now(writer, source, regions) );
 	}
 }
 
 TEST_CASE(
-	"a mapped_image_writer writes its values as the layout states them",
-	"[mapped_image_writer]"
+	"a queued_image_writer writes its values as the layout states them",
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_layout.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_layout.raw");
 	const std::vector<std::size_t> extents = {3, 4};
 	const auto values = counting(12);
 
@@ -363,7 +394,7 @@ TEST_CASE(
 		// The file stores its columns one after another, so the element of
 		// row r and column c goes to r + 3 c.
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				raw_image_layout(
 					make_descriptor(extents, 2),
@@ -371,11 +402,12 @@ TEST_CASE(
 					preamble.size(),
 					get_system_byte_order()
 				),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(extents, values);
-			writer.write(const_array_ref(source), whole_of(extents));
-			writer.flush();
+			write_now(writer, source, whole_of(extents));
+			flush_now(writer);
 		}
 
 		std::vector<float> expected(12);
@@ -398,7 +430,7 @@ TEST_CASE(
 				: byte_order::little_endian;
 
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				raw_image_layout(
 					make_descriptor(extents, 2),
@@ -406,11 +438,12 @@ TEST_CASE(
 					preamble.size(),
 					other
 				),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(extents, values);
-			writer.write(const_array_ref(source), whole_of(extents));
-			writer.flush();
+			write_now(writer, source, whole_of(extents));
+			flush_now(writer);
 		}
 
 		auto stored = floats_of(path.get(), 12);
@@ -432,7 +465,7 @@ TEST_CASE(
 		const std::vector<float> wide = {-2.0F, -1.0F, 0.0F, 300.0F};
 
 		{
-			mapped_image_writer writer(
+			queued_image_writer writer(
 				path.get(),
 				raw_image_layout(
 					make_descriptor(square, 2, numerical_type::int16),
@@ -440,11 +473,12 @@ TEST_CASE(
 					preamble.size(),
 					get_system_byte_order()
 				),
-				make_span(preamble.data(), preamble.size())
+				make_span(preamble.data(), preamble.size()),
+				transfers
 			);
 			const auto source = make_host_array(square, wide);
-			writer.write(const_array_ref(source), whole_of(square));
-			writer.flush();
+			write_now(writer, source, whole_of(square));
+			flush_now(writer);
 		}
 
 		const auto raw = bytes_of(path.get());
@@ -460,23 +494,26 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a mapped_image_writer refuses what it can not write",
-	"[mapped_image_writer]"
+	"a queued_image_writer refuses what it can not write",
+	"[queued_image_writer]"
 )
 {
-	const scoped_path path("mapped_writer_refused.raw");
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_refused.raw");
 	const std::vector<std::size_t> extents = {3, 4};
 
-	mapped_image_writer writer(
+	queued_image_writer writer(
 		path.get(),
 		make_layout(extents, 2),
-		make_span(preamble.data(), preamble.size())
+		make_span(preamble.data(), preamble.size()),
+		transfers
 	);
 
 	SECTION( "an uninitialized source" )
 	{
 		REQUIRE_THROWS_AS(
-			writer.write(const_array_ref(), whole_of(extents)),
+			write_now(writer, const_array(), whole_of(extents)),
 			std::invalid_argument
 		);
 	}
@@ -491,8 +528,111 @@ TEST_CASE(
 		);
 
 		REQUIRE_THROWS_AS(
-			writer.write(const_array_ref(source), regions),
+			write_now(writer, source, regions),
 			std::out_of_range
 		);
 	}
+}
+
+TEST_CASE(
+	"a queued_image_writer throws only for a null notifier",
+	"[queued_image_writer]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_null_notifier.raw");
+	const std::vector<std::size_t> extents = {3, 4};
+
+	queued_image_writer writer(
+		path.get(),
+		make_layout(extents, 2),
+		make_span(preamble.data(), preamble.size()),
+		transfers
+	);
+	const auto source = make_host_array(extents, counting(12));
+
+	CHECK_THROWS_AS(
+		writer.write_async(source.share_const(), whole_of(extents), nullptr),
+		std::invalid_argument
+	);
+	CHECK_THROWS_AS( writer.flush_async(nullptr), std::invalid_argument );
+}
+
+TEST_CASE(
+	"a queued_image_writer has writes of regions that do not overlap under "
+	"way at once",
+	"[queued_image_writer]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const scoped_path path("queued_writer_at_once.raw");
+	const std::vector<std::size_t> extents = {8, 2, 2};
+	const std::vector<std::size_t> plane = {2, 2};
+	const auto values = counting(32);
+
+	{
+		queued_image_writer writer(
+			path.get(),
+			make_layout(extents, 2),
+			make_span(preamble.data(), preamble.size()),
+			transfers
+		);
+		const auto source = make_host_array(extents, values);
+
+		const auto done = std::make_shared<counting_completion>(8);
+		for (std::size_t i = 0; i < 8; ++i)
+		{
+			image_transfer_plan regions(image_transfer_shape(plane, 3, 3));
+			regions.add(
+				make_span(std::vector<std::size_t>{i, 0, 0}),
+				make_span(std::vector<std::size_t>{i, 0, 0})
+			);
+			writer.write_async(source.share_const(), regions, done);
+		}
+		done->get();
+		flush_now(writer);
+	}
+
+	REQUIRE( floats_of(path.get(), 32) == values );
+}
+
+TEST_CASE(
+	"a queued_image_writer that is destroyed hands its executor a sync of "
+	"the file, and waits for nothing",
+	"[queued_image_writer]"
+)
+{
+	const scoped_path path("queued_writer_closing_sync.raw");
+	const auto executor = std::make_shared<mock_file_transfer_executor>();
+
+	// Constructing the writer submits nothing, and destroying it submits
+	// the sync.
+	std::unique_ptr<file_transfer_operation> closing;
+	std::shared_ptr<completion_notifier> reported;
+	REQUIRE_CALL(*executor, submit(trompeloeil::_, trompeloeil::_))
+		.LR_SIDE_EFFECT(
+			closing = std::move(_1);
+			reported = _2
+		);
+	{
+		const queued_image_writer writer(
+			path.get(),
+			make_layout({3, 4}, 2),
+			make_span(preamble.data(), preamble.size()),
+			executor
+		);
+		CHECK( closing == nullptr );
+	}
+
+	CHECK( dynamic_cast<file_sync_operation*>(closing.get()) != nullptr );
+	REQUIRE( reported != nullptr );
+
+	// A failure is only logged, since nothing is left to report it to.
+	CHECK_NOTHROW(
+		reported->notify_done(
+			std::make_exception_ptr(std::runtime_error("sync"))
+		)
+	);
 }

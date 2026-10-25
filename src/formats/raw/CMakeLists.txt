@@ -3,7 +3,9 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
+		create_image_file.cpp
 		open_raw_image_reader.cpp
+		open_raw_image_writer.cpp
 		raw_image_layout.cpp
 )
 

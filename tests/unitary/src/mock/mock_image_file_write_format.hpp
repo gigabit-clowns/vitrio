@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_file_write_format.hpp>
 
 #include <vitrio/image_descriptor.hpp>
@@ -28,12 +29,13 @@ public:
 		override
 	);
 
-	MAKE_CONST_MOCK3(
+	MAKE_CONST_MOCK4(
 		open,
 		std::shared_ptr<image_writer>(
 			const image_file_probe &probe,
 			const image_descriptor &descriptor,
-			const image_metadata &metadata
+			const image_metadata &metadata,
+			const file_transfer_pool &transfers
 		),
 		override
 	);

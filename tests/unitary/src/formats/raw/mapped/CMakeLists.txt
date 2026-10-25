@@ -6,6 +6,5 @@ target_sources(
 		test_image_file_mapping.cpp
 		test_image_prefetched_read.cpp
 		test_mapped_image_reader.cpp
-		test_mapped_image_writer.cpp
 		test_unaligned_mapped_image_reader.cpp
 )

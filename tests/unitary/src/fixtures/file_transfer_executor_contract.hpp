@@ -11,9 +11,12 @@
 
 #include <file_transfer/file_transfer_executor.hpp>
 
+#include <formats/raw/mapped/image_file_access.hpp>
+
 #include <vitrio/byte.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/concurrency/thread_pool_executor.hpp>
+#include <vitrio/const_memory_range.hpp>
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
@@ -54,7 +57,8 @@ inline void queue_into(
  * @ref file_transfer_executor, in a section each.
  *
  * @param name The name of the file the operations read, which no other case
- * of the suite may use.
+ * of the suite may use, nor the same name followed by ".written", which the
+ * operations write.
  * @param make_executor Makes an executor whose tasks run on a given
  * executor, as a std::unique_ptr.
  */
@@ -118,6 +122,61 @@ void check_file_transfer_executor_contract(
 		{
 			CHECK( buffers[tag] == bytes_at(1000 * tag, 100) );
 		}
+	}
+
+	SECTION( "an operation writes, then syncs what it wrote" )
+	{
+		const mapped_test_file written(
+			name + ".written",
+			file_size,
+			image_file_access::read_write
+		);
+		const std::vector<byte> values(300, 7);
+		const const_memory_range range(values.data(), values.size());
+
+		auto operation = std::make_unique<mock_file_transfer_operation>();
+		auto &started = *operation;
+		started.expectations.push_back(
+			NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
+				.LR_SIDE_EFFECT(
+					_1.queue_write(
+						written.get_file(),
+						5000,
+						make_span(&range, 1),
+						0
+					)
+				)
+		);
+		started.expectations.push_back(
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
+				.WITH(
+					_1.get_tag() == 0 && !_1.get_error() &&
+					_1.get_size() == values.size()
+				)
+				.LR_SIDE_EFFECT( _2.queue_sync(written.get_file(), 1) )
+		);
+		started.expectations.push_back(
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
+				.WITH( _1.get_tag() == 1 && !_1.get_error() )
+		);
+
+		const auto done = std::make_shared<counting_completion>(1);
+		executor->submit(std::move(operation), done);
+		CHECK_NOTHROW( done->get() );
+
+		const auto bytes = written.get_bytes();
+		CHECK(
+			std::vector<byte>(
+				bytes.begin() + 5000,
+				bytes.begin() + 5000 + values.size()
+			) == values
+		);
 	}
 
 	SECTION( "an operation that starts nothing is reported" )

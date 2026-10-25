@@ -25,9 +25,9 @@ namespace vitrio
  * the completions of what it queued and ran, and reports each once it is
  * done, as @ref file_transfer_executor says.
  *
- * Each read and task of an operation goes under a route of its own, the tag
- * the thread knows it by, which leads back to the operation and to the tag
- * the operation gave it. Reads are queued through a submitter, whose
+ * Each transfer and task of an operation goes under a route of its own, the
+ * tag the thread knows it by, which leads back to the operation and to the
+ * tag the operation gave it. Transfers are queued through a submitter, whose
  * completions the thread hands back with @ref deliver_transfer. Tasks run on an
  * executor and report through a @ref file_transfer_task_notifier to the inbox
  * of the thread, which hands their outcomes back with @ref deliver_task.
@@ -44,7 +44,7 @@ public:
 	/**
 	 * @brief Construct a dispatch with no operation.
 	 *
-	 * @param transfers Where the reads of the operations are queued.
+	 * @param transfers Where the transfers of the operations are queued.
 	 * @param tasks Where the tasks of the operations run.
 	 * @param inbox Where the outcomes of the tasks are posted. Must not be
 	 * null.
@@ -80,11 +80,15 @@ public:
 	) noexcept;
 
 	/**
-	 * @brief Hand the completion of a read to the operation that queued it.
+	 * @brief Hand the completion of a transfer to the operation that queued
+	 * it.
 	 *
-	 * @param completion The completion, tagged with the route of the read.
+	 * @param completion The completion, tagged with the route of the
+	 * transfer.
 	 */
-	void deliver_transfer(const file_transfer_completion &completion) noexcept;
+	void deliver_transfer(
+		const file_transfer_completion &completion
+	) noexcept;
 
 	/**
 	 * @brief Hand the outcome of a task to the operation that ran it.
@@ -110,14 +114,14 @@ private:
 		std::unique_ptr<file_transfer_operation> operation;
 		std::shared_ptr<completion_notifier> done;
 
-		// Its reads and tasks that have not been handed back.
+		// Its transfers and tasks that have not been handed back.
 		std::size_t outstanding;
 
 		// What failed it, if anything did.
 		std::exception_ptr failure;
 	};
 
-	// Where a read or a task leads back to.
+	// Where a transfer or a task leads back to.
 	struct route
 	{
 		std::size_t slot;

@@ -87,7 +87,10 @@ TEST_CASE(
 	const auto writer_formats =
 		image_file_write_format_selector::get_shared();
 	const auto writers =
-		std::make_shared<file_image_writer_provider>(writer_formats);
+		std::make_shared<file_image_writer_provider>(
+			writer_formats,
+			test::make_file_transfer_pool()
+		);
 	const auto saver = std::make_shared<executor_image_saver>(
 		writers,
 		std::make_shared<synchronous_executor>()
@@ -192,7 +195,12 @@ TEST_CASE(
 
 	const auto writer_formats =
 		image_file_write_format_selector::get_shared();
-	write_stack(source, path.get(), *writer_formats);
+	write_stack(
+		source,
+		path.get(),
+		*writer_formats,
+		*test::make_file_transfer_pool()
+	);
 
 	const auto reader_formats =
 		image_file_read_format_selector::get_shared();
@@ -282,7 +290,10 @@ TEST_CASE(
 	const auto writer_formats =
 		image_file_write_format_selector::get_shared();
 	const auto writers =
-		std::make_shared<file_image_writer_provider>(writer_formats);
+		std::make_shared<file_image_writer_provider>(
+			writer_formats,
+			test::make_file_transfer_pool()
+		);
 	const executor_image_saver saver(
 		writers,
 		std::make_shared<synchronous_executor>()

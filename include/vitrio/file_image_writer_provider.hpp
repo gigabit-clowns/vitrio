@@ -13,6 +13,7 @@
 namespace vitrio
 {
 
+class file_transfer_pool;
 class image_descriptor;
 class image_metadata;
 class image_file_write_format_selector;
@@ -54,10 +55,13 @@ public:
 	 * @brief Construct a provider creating files through a format selector.
 	 *
 	 * @param formats The formats a file may be created with.
-	 * @throws std::invalid_argument If @p formats is null.
+	 * @param transfers The threads that carry out the transfers of the
+	 * writers.
+	 * @throws std::invalid_argument If @p formats or @p transfers is null.
 	 */
-	explicit file_image_writer_provider(
-		std::shared_ptr<const image_file_write_format_selector> formats
+	file_image_writer_provider(
+		std::shared_ptr<const image_file_write_format_selector> formats,
+		std::shared_ptr<const file_transfer_pool> transfers
 	);
 
 	~file_image_writer_provider() override;

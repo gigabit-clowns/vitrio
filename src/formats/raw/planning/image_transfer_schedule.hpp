@@ -51,7 +51,7 @@ std::size_t compute_region_span(
  * byte its first region reaches, and is cut short where the file ends.
  *
  * The merged stretches are grouped into steps of a bounded number of bytes,
- * so that one step can be brought in while the one before it is moved.
+ * so that one step can be transferred while the one before it is moved.
  * Regions that fit in the budget are one step, so small scattered regions
  * are all taken before any of them is moved, and their latencies overlap. A
  * step always holds at least one region, so a region wider than the budget is
@@ -60,7 +60,7 @@ std::size_t compute_region_span(
  * The steps tile the regions: every region belongs to exactly one of them,
  * so moving the steps moves every region. A region with no bytes in the
  * file, one that starts past its end, still belongs to a step: this decides
- * what is brought in, not what is moved.
+ * what is transferred, not what is moved.
  *
  * The file offsets it is built from must be ascending.
  */

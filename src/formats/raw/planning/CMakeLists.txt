@@ -4,6 +4,7 @@ target_sources(
 	vitrio-obj
 	PRIVATE
 		file_range.cpp
+		image_region_runs.cpp
 		image_transfer_policy.cpp
 		image_transfer_schedule.cpp
 )

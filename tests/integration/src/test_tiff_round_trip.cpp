@@ -93,7 +93,12 @@ TEST_CASE(
 
 			{
 				const auto writer =
-					writers.open(path.get(), descriptor, image_metadata());
+					writers.open(
+						path.get(),
+						descriptor,
+						image_metadata(),
+						*test::make_file_transfer_pool()
+					);
 				write_now(*writer, source, whole_of(extents));
 				flush_now(*writer);
 			}
@@ -155,7 +160,8 @@ TEST_CASE(
 			const auto writer = writers.open(
 				path.get(),
 				image_descriptor(make_span(extents), 2, file_type),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			);
 			write_now(*writer, source, whole_of(extents));
 			flush_now(*writer);
@@ -203,7 +209,8 @@ TEST_CASE(
 		const auto writer = writers.open(
 			path.get(),
 			image_descriptor(make_span(extents), 2, numerical_type::int16),
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		for (std::size_t index = 0; index < extents[0]; ++index)
@@ -259,7 +266,12 @@ TEST_CASE(
 			values.size() * sizeof(float)
 		);
 
-		write_stack(source, path.get(), *writers);
+		write_stack(
+			source,
+			path.get(),
+			*writers,
+			*test::make_file_transfer_pool()
+		);
 
 		const auto read = vitrio::read(path.get(), *readers);
 
@@ -282,7 +294,12 @@ TEST_CASE(
 			values.size() * sizeof(float)
 		);
 
-		write_single(source, path.get(), *writers);
+		write_single(
+			source,
+			path.get(),
+			*writers,
+			*test::make_file_transfer_pool()
+		);
 
 		const auto read = vitrio::read(path.get(), *readers);
 
@@ -308,7 +325,8 @@ TEST_CASE(
 				path.get(),
 				image_descriptor(
 					make_span(extents), 2, numerical_type::float32),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -323,7 +341,8 @@ TEST_CASE(
 				path.get(),
 				image_descriptor(
 					make_span(extents), 3, numerical_type::float32),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -338,7 +357,8 @@ TEST_CASE(
 		const auto writer = writers.open(
 			path.get(),
 			image_descriptor(make_span(extents), 2, numerical_type::float32),
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		image_transfer_plan regions(image_transfer_shape(half, 2, 2));

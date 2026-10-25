@@ -21,7 +21,7 @@ namespace vitrio
 
 /**
  * @brief A thread that carries out file transfer operations, waiting on one
- * port for their reads and for its mail.
+ * port for their transfers and for its mail.
  *
  * Destroying the worker waits until every operation submitted to it has been
  * reported, then destroys the port.
@@ -73,10 +73,10 @@ public:
 private:
 	void run() noexcept;
 
-	// Waits on the port until a read completes or the port is woken. Only
-	// a shortage of the kernel is waited out: the kernel may still be filling
-	// buffers of reads it could not be waited for, which nothing could then
-	// release safely, so any other failure ends the process.
+	// Waits on the port until a transfer completes or the port is woken.
+	// Only a shortage of the kernel is waited out: the kernel may still be
+	// filling buffers of reads it could not be waited for, which nothing
+	// could then release safely, so any other failure ends the process.
 	boost::optional<file_transfer_completion> wait() noexcept;
 
 	std::unique_ptr<file_transfer_port> m_port;

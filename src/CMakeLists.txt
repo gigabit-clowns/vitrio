@@ -62,6 +62,7 @@ target_sources(
 		builtin_image_file_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
+		const_memory_range.cpp
 		counting_detector_event_renderer.cpp
 		detector_event_binning.cpp
 		detector_event_fractionation.cpp

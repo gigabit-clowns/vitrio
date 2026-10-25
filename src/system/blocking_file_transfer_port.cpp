@@ -24,6 +24,26 @@ void blocking_file_transfer_port::queue_read(
 	++m_outstanding;
 }
 
+void blocking_file_transfer_port::queue_write(
+	file_handle_t file,
+	std::uint64_t offset,
+	span<const const_memory_range> buffers,
+	std::uint64_t tag
+)
+{
+	m_queue.queue_write(file, offset, buffers, tag);
+	++m_outstanding;
+}
+
+void blocking_file_transfer_port::queue_sync(
+	file_handle_t file,
+	std::uint64_t tag
+)
+{
+	m_queue.queue_sync(file, tag);
+	++m_outstanding;
+}
+
 void blocking_file_transfer_port::wake() noexcept
 {
 	// Notified under the lock, so that the port may be destroyed as soon as
@@ -35,7 +55,7 @@ void blocking_file_transfer_port::wake() noexcept
 
 boost::optional<file_transfer_completion> blocking_file_transfer_port::wait()
 {
-	// Each read was carried out as it was queued, so its completion is
+	// Each transfer was carried out as it was queued, so its completion is
 	// returned without waiting.
 	if (m_outstanding > 0)
 	{

@@ -128,7 +128,8 @@ def test_saver_returns_an_image_saver():
 def test_assembled_by_hand(tmp_path):
 	path = tmp_path / 'stack.mrcs'
 	writers = vio.FileImageWriterProvider(
-		vio.ImageFileWriteFormatSelector.get_shared()
+		vio.ImageFileWriteFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	writers.declare(path, STACK_DESCRIPTOR)
 	executor = vio.ThreadPoolExecutor(2)

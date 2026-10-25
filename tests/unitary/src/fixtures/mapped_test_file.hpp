@@ -20,18 +20,23 @@ namespace vitrio
 {
 
 /**
- * @brief A file of known bytes, mapped for reading, which is removed when a
- * case leaves it.
+ * @brief A file of known bytes, mapped, which is removed when a case leaves
+ * it.
  *
  * Its byte at offset n holds n modulo 251, a prime, so that no two pages
- * of it hold the same bytes.
+ * of it hold the same bytes. Opened for writing, what is written to its
+ * file is seen in its bytes.
  */
 class mapped_test_file
 {
 public:
-	mapped_test_file(const std::string &name, std::size_t size)
+	mapped_test_file(
+		const std::string &name,
+		std::size_t size,
+		image_file_access access = image_file_access::read_only
+	)
 		: m_path(name)
-		, m_mapping(write(m_path.get(), size), image_file_access::read_only)
+		, m_mapping(write(m_path.get(), size), access)
 	{
 	}
 

@@ -12,6 +12,7 @@
 namespace vitrio
 {
 
+class file_transfer_pool;
 class image_descriptor;
 class image_metadata;
 class image_file_probe;
@@ -72,6 +73,8 @@ public:
 	 * stores rather than what a write will supply, since a write converts.
 	 * @param metadata How its samples map onto physical space. A format
 	 * writes what of it it can carry and ignores the rest.
+	 * @param transfers The threads that carry out the transfers of the
+	 * writer.
 	 * @return std::shared_ptr<image_writer> The opened writer, never null.
 	 * @throws unsupported_operation_error If this format can not represent
 	 * the requested file, such as a rank or a data type it has no encoding
@@ -81,7 +84,8 @@ public:
 	virtual std::shared_ptr<image_writer> open(
 		const image_file_probe &probe,
 		const image_descriptor &descriptor,
-		const image_metadata &metadata
+		const image_metadata &metadata,
+		const file_transfer_pool &transfers
 	) const = 0;
 };
 

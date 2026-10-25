@@ -11,6 +11,7 @@
 #include <system/file_transfer_queue.hpp>
 
 #include <vitrio/byte.hpp>
+#include <vitrio/const_memory_range.hpp>
 #include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
@@ -50,12 +51,29 @@ public:
 		m_port->queue_read(file, offset, buffers, tag);
 	}
 
+	void queue_write(
+		file_handle_t file,
+		std::uint64_t offset,
+		span<const const_memory_range> buffers,
+		std::uint64_t tag
+	) override
+	{
+		m_port->queue_write(file, offset, buffers, tag);
+	}
+
+	void queue_sync(file_handle_t file, std::uint64_t tag) override
+	{
+		m_port->queue_sync(file, tag);
+	}
+
 	file_transfer_completion wait() override
 	{
 		const auto completion = m_port->wait();
 		if (!completion)
 		{
-			throw std::logic_error("A port nothing woke returned no read.");
+			throw std::logic_error(
+				"A port nothing woke returned no transfer."
+			);
 		}
 		return *completion;
 	}

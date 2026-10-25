@@ -20,18 +20,18 @@ in the same commit that causes it.
 | `include/vitrio/exceptions/` | The exception types |
 | `src/` | The implementation, plus the headers that are not public. Its directories are those of `include/vitrio/` |
 | `src/formats/` | The image formats, each in a directory and a namespace of its own, such as `vitrio::mrc`, and in `raw/` what the formats whose values lie in the file as they are share |
-| `src/formats/raw/` | What the formats whose values lie in the file as they are share. Such a format resolves its header into a `raw_image_layout` and opens its reader with `open_raw_image_reader`, which picks the reader that suits the system and the values: one that queues its reads through the `file_transfer_pool` it is given where the process can have asynchronous ports, and one over a mapping otherwise |
-| `src/formats/raw/planning/` | Gathers the regions of a read into the stretches of the file they reach, merged across small gaps and grouped into steps of a bounded number of bytes, on a grid of pages or of elements |
-| `src/formats/raw/queued/` | Reads a file whose values lie as they are through an executor of file transfers. A read is planned on the thread that starts it into an operation: one that reads straight into the array where nothing is converted, and otherwise one that reads into memory of its own a step at a time, as the read planning groups the regions, and converts each stretch on the executor of computations as it arrives |
-| `src/formats/raw/mapped/` | Reads and writes a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead, and a scratch reads its copies the same way. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
+| `src/formats/raw/` | What the formats whose values lie in the file as they are share. Such a format resolves its header into a `raw_image_layout`, opens its reader with `open_raw_image_reader`, which picks the reader that suits the system and the values: one that queues its reads through the `file_transfer_pool` it is given where the process can have asynchronous ports, and one over a mapping otherwise. It creates its files with `open_raw_image_writer`, whose writer queues its writes through the pool wherever it runs, since writes the system carries out as they are asked still beat writes through a mapping. A file being written is laid out in full first, by `create_image_file` |
+| `src/formats/raw/planning/` | Gathers the regions of a transfer into the stretches of the file they reach, merged across small gaps, or only where they touch for a write, and grouped into steps of a bounded number of bytes, on a grid of pages or of elements. A write covers only the runs of bytes its regions take, which planning works out too |
+| `src/formats/raw/queued/` | Reads and writes a file whose values lie as they are through an executor of file transfers. A read or a write is planned on the thread that starts it into an operation: one that moves straight between the file and the array where nothing is converted, and otherwise one that stages its values in memory of its own a step at a time, as the planning groups the regions, and converts each stretch on the executor of computations: as it arrives for a read, and before its runs are written for a write. A flush is an operation that syncs the file, and a writer that is destroyed hands the executor one, which waits for nothing |
+| `src/formats/raw/mapped/` | Reads a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead, and a scratch reads its copies the same way. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
 | `src/formats/dm/` | The DigitalMicrograph format, versions 3 and 4, read only: its header, the tree of tags it is parsed into, how the size of a value follows from its encoding, how the image is found among the tags, and the format that registers itself |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
 | `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
-| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file reads: one through io_uring, built only with liburing, and one that reads as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that reads as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
-| `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the reads of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
+| `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
+| `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the transfers of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
 | `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
@@ -258,10 +258,14 @@ since the archive of a commit lacks its libraries, which are submodules.
     that starts a transfer is submitted with a `failure_forwarding_notifier`
     (`src/concurrency/`), so that the transfer reports its outcome and the
     task only its failure.
-  - Files are read through a `file_transfer_pool`, which a file format is
-    given when it opens a file, and whose executor the reader keeps. Only
-    what is about files takes one: `file_image_reader_provider` holds it,
-    so that `image_reader_provider::acquire` stays a key alone.
+  - Files are read and written through a `file_transfer_pool`, which a file
+    format is given when it opens or creates a file, and whose executor the
+    reader or writer keeps. Only what is about files takes one:
+    `file_image_reader_provider` and `file_image_writer_provider` hold it,
+    so that `acquire` stays a key alone.
+  - A write covers the runs of bytes its regions take in the file and
+    nothing between them, which a concurrent write of other regions may be
+    writing: it never bridges a gap, nor reads what it writes around.
   - A scratch takes in what it is offered as a transfer:
     `image_scratch_entry::store_async` reports the same way. A run is read
     from the file once, and a store that needs a run already being taken in
@@ -373,8 +377,8 @@ since the archive of a commit lacks its libraries, which are submodules.
   image loader it goes through, a scratch included, and a read given none
   goes through the one `_default_loader.py` shares across the process.
 - **File transfers in Python.** A provider assembled without a
-  `FileTransferPool` takes the one `_default_transfers.py` shares across the
-  process, whose conversions run on a thread pool of its own, apart from the
+  `FileTransferPool`, and a write given none, take the one
+  `_default_transfers.py` shares across the process, whose conversions run on a thread pool of its own, apart from the
   threads of the loaders, which may wait for reads. The work of a scratch
   given no executor, opening its files, prefetching and copying out what it
   took in, runs on that thread pool too. A child of a fork makes its own, as

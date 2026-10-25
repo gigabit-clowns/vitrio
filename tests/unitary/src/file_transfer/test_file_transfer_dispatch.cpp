@@ -37,8 +37,8 @@ span<const memory_range> no_buffers()
 	return span<const memory_range>();
 }
 
-// A dispatch whose reads go to a mocked submitter and whose tasks go to a
-// mocked executor, which a case completes by hand.
+// A dispatch whose transfers go to a mocked submitter and whose tasks go to
+// a mocked executor, which a case completes by hand.
 class dispatch_fixture
 {
 public:
@@ -134,6 +134,95 @@ TEST_CASE_METHOD(
 	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[0], 3));
 	REQUIRE( done->is_ready() );
 	CHECK_NOTHROW( done->get() );
+	CHECK( m_dispatch.is_idle() );
+}
+
+TEST_CASE_METHOD(
+	dispatch_fixture,
+	"a file_transfer_dispatch routes the writes and syncs of an operation as "
+	"it routes its reads",
+	"[file_transfer_dispatch]"
+)
+{
+	std::vector<std::uint64_t> routes;
+	const auto writes = NAMED_REQUIRE_CALL(
+		m_transfers,
+		queue_write(file_handle_t(), 300u, trompeloeil::_, trompeloeil::_)
+	).LR_SIDE_EFFECT( routes.push_back(_4) );
+	const auto syncs = NAMED_REQUIRE_CALL(
+		m_transfers,
+		queue_sync(file_handle_t(), trompeloeil::_)
+	).LR_SIDE_EFFECT( routes.push_back(_2) );
+
+	auto operation = std::make_unique<mock_file_transfer_operation>();
+	auto &started = *operation;
+	started.expectations.push_back(
+		NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
+			.SIDE_EFFECT(
+				_1.queue_write(
+					file_handle_t(),
+					300,
+					span<const const_memory_range>(),
+					20
+				);
+				_1.queue_sync(file_handle_t(), 21)
+			)
+	);
+	started.expectations.push_back(
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
+			.WITH( _1.get_tag() == 20 && _1.get_size() == 5 )
+	);
+	started.expectations.push_back(
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
+			.WITH( _1.get_tag() == 21 && !_1.get_error() )
+	);
+
+	const auto done = std::make_shared<counting_completion>(1);
+	m_dispatch.admit(std::move(operation), done);
+	REQUIRE( routes.size() == 2 );
+	CHECK( routes[0] != routes[1] );
+
+	m_dispatch.deliver_transfer(file_transfer_completion(routes[0], 5));
+	CHECK_FALSE( done->is_ready() );
+	m_dispatch.deliver_transfer(file_transfer_completion(routes[1], 0));
+	REQUIRE( done->is_ready() );
+	CHECK_NOTHROW( done->get() );
+}
+
+TEST_CASE_METHOD(
+	dispatch_fixture,
+	"a file_transfer_dispatch frees the route of a write the submitter "
+	"refuses, and fails the operation with what it threw",
+	"[file_transfer_dispatch]"
+)
+{
+	const auto writes = NAMED_REQUIRE_CALL(
+		m_transfers,
+		queue_write(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
+	).THROW( std::system_error(std::make_error_code(std::errc::io_error)) );
+
+	auto operation = std::make_unique<mock_file_transfer_operation>();
+	operation->expectations.push_back(
+		NAMED_REQUIRE_CALL(*operation, start(trompeloeil::_))
+			.SIDE_EFFECT(
+				_1.queue_write(
+					file_handle_t(),
+					0,
+					span<const const_memory_range>(),
+					0
+				)
+			)
+	);
+
+	const auto done = std::make_shared<counting_completion>(1);
+	m_dispatch.admit(std::move(operation), done);
+	REQUIRE( done->is_ready() );
+	CHECK_THROWS_AS( done->get(), std::system_error );
 	CHECK( m_dispatch.is_idle() );
 }
 

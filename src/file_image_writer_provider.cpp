@@ -3,6 +3,7 @@
 #include <vitrio/file_image_writer_provider.hpp>
 
 #include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -24,10 +25,12 @@ namespace vitrio
 class file_image_writer_provider::implementation
 {
 public:
-	explicit implementation(
-		std::shared_ptr<const image_file_write_format_selector> formats
+	implementation(
+		std::shared_ptr<const image_file_write_format_selector> formats,
+		std::shared_ptr<const file_transfer_pool> transfers
 	)
 		: m_formats(std::move(formats))
+		, m_transfers(std::move(transfers))
 	{
 	}
 
@@ -107,7 +110,8 @@ public:
 				m_formats->open(
 					ite->first,
 					file.get_descriptor(),
-					file.get_metadata()
+					file.get_metadata(),
+					*m_transfers
 				)
 			);
 			VITRIO_ASSERT(file.get_writer());
@@ -181,11 +185,13 @@ private:
 
 	mutable std::mutex m_mutex;
 	std::shared_ptr<const image_file_write_format_selector> m_formats;
+	std::shared_ptr<const file_transfer_pool> m_transfers;
 	std::unordered_map<std::string, declared_file> m_files;
 };
 
 file_image_writer_provider::file_image_writer_provider(
-	std::shared_ptr<const image_file_write_format_selector> formats
+	std::shared_ptr<const image_file_write_format_selector> formats,
+	std::shared_ptr<const file_transfer_pool> transfers
 )
 {
 	if (!formats)
@@ -196,7 +202,18 @@ file_image_writer_provider::file_image_writer_provider(
 		);
 	}
 
-	m_implementation = std::make_unique<implementation>(std::move(formats));
+	if (!transfers)
+	{
+		throw std::invalid_argument(
+			"file_image_writer_provider: The pool of file transfers must not "
+			"be null."
+		);
+	}
+
+	m_implementation = std::make_unique<implementation>(
+		std::move(formats),
+		std::move(transfers)
+	);
 }
 
 file_image_writer_provider::~file_image_writer_provider() = default;

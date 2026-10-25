@@ -179,7 +179,8 @@ TEST_CASE(
 	write_stack(
 		stack,
 		path.get(),
-		*image_file_write_format_selector::get_shared()
+		*image_file_write_format_selector::get_shared(),
+		*test::make_file_transfer_pool()
 	);
 
 	const auto loader = std::make_shared<executor_image_loader>(

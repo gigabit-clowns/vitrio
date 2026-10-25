@@ -12,6 +12,7 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -46,7 +47,19 @@ TEST_CASE( "a file writer provider needs a format selector",
 	"[file_image_writer_provider]" )
 {
 	REQUIRE_THROWS_AS(
-		file_image_writer_provider(nullptr),
+		file_image_writer_provider(nullptr, test::make_file_transfer_pool()),
+		std::invalid_argument
+	);
+}
+
+TEST_CASE( "a file writer provider needs a pool of file transfers",
+	"[file_image_writer_provider]" )
+{
+	REQUIRE_THROWS_AS(
+		file_image_writer_provider(
+			image_file_write_format_selector::get_shared(),
+			nullptr
+		),
 		std::invalid_argument
 	);
 }
@@ -59,7 +72,10 @@ TEST_CASE_METHOD(
 {
 	// No expectation on open: creating any file would violate.
 	add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 
 	SECTION( "it starts serving nothing" )
 	{
@@ -104,12 +120,20 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
 	// Once, with what was declared: creating it again would replace it.
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_0.mrcs" && _2 == stack_descriptor )
 		.RETURN(writer);
 
@@ -133,7 +157,10 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
@@ -152,7 +179,12 @@ TEST_CASE_METHOD(
 	{
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.RETURN(writer);
 		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
@@ -168,7 +200,12 @@ TEST_CASE_METHOD(
 		// and strand everything already written to it.
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.RETURN(writer);
 		ALLOW_CALL(*writer, flush_async(trompeloeil::_))
@@ -199,13 +236,23 @@ TEST_CASE_METHOD(
 
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.IN_SEQUENCE(order)
 			.RETURN(writer);
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.IN_SEQUENCE(order)
 			.RETURN(again);
@@ -227,7 +274,10 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	declare_stack(provider, "stack_1.mrcs");
 	declare_stack(provider, "stack_2.mrcs");
@@ -235,10 +285,20 @@ TEST_CASE_METHOD(
 	// Nothing lets stack_2.mrcs be opened, so creating it would violate.
 	const auto zero = std::make_shared<mock_image_writer>();
 	const auto one = std::make_shared<mock_image_writer>();
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_0.mrcs" )
 		.RETURN(zero);
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_1.mrcs" )
 		.RETURN(one);
 

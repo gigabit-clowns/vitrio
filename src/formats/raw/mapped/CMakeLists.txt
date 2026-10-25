@@ -5,6 +5,5 @@ target_sources(
 	PRIVATE
 		image_file_mapping.cpp
 		mapped_image_reader.cpp
-		mapped_image_writer.cpp
 		unaligned_mapped_image_reader.cpp
 )

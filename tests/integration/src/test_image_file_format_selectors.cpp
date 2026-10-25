@@ -63,7 +63,12 @@ TEST_CASE( "a file that is not there is claimed by no bundled format",
 
 		REQUIRE( selector->get_most_suitable_format(other) == nullptr );
 		REQUIRE_THROWS_AS(
-			selector->open("absent.eer", descriptor, image_metadata()),
+			selector->open(
+				"absent.eer",
+				descriptor,
+				image_metadata(),
+				*test::make_file_transfer_pool()
+			),
 			unsupported_operation_error
 		);
 	}

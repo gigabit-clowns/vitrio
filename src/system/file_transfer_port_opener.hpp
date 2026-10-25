@@ -10,7 +10,7 @@ namespace vitrio
 {
 
 /**
- * @brief Opens the ports of file reads that threads wait on.
+ * @brief Opens the ports of file transfers that threads wait on.
  *
  * @par Thread safety
  * @ref open may be called concurrently.
@@ -31,8 +31,8 @@ public:
 	/**
 	 * @brief Open a port.
 	 *
-	 * @return std::unique_ptr<file_transfer_port> The port, with no read
-	 * outstanding. Never null.
+	 * @return std::unique_ptr<file_transfer_port> The port, with no
+	 * transfer outstanding. Never null.
 	 */
 	virtual std::unique_ptr<file_transfer_port> open() const = 0;
 };

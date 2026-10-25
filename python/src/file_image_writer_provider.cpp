@@ -5,6 +5,7 @@
 #include "utf8_string.hpp"
 
 #include <vitrio/file_image_writer_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -59,14 +60,18 @@ void bind_file_image_writer_provider(nb::module_ &m)
 	)
 		.def(
 			nb::init<
-				std::shared_ptr<const image_file_write_format_selector>
+				std::shared_ptr<const image_file_write_format_selector>,
+				std::shared_ptr<const file_transfer_pool>
 			>(),
 			nb::arg("formats"),
+			nb::arg("transfers"),
 			"Make a provider with no file declared.\n"
 			"\n"
 			"Args:\n"
 			"    formats: The `ImageFileWriteFormatSelector` that creates the "
-			"files."
+			"files.\n"
+			"    transfers: The `FileTransferPool` whose threads carry out the "
+			"writes."
 		)
 		.def(
 			"declare", &declare, nb::arg("key"), nb::arg("descriptor"),

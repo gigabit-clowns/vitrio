@@ -12,8 +12,8 @@ namespace vitrio
 {
 
 /**
- * @brief A queue that puts its reads on another one, and keeps a record of
- * them.
+ * @brief A queue that puts its transfers on another one, and keeps a record
+ * of its reads.
  */
 class recording_file_transfer_queue final
 	: public file_transfer_queue
@@ -50,6 +50,23 @@ public:
 			size += buffer.get_size();
 		}
 		m_reads.push_back({offset, buffers.size(), size});
+		++m_outstanding;
+	}
+
+	void queue_write(
+		file_handle_t file,
+		std::uint64_t offset,
+		span<const const_memory_range> buffers,
+		std::uint64_t tag
+	) override
+	{
+		m_queue.queue_write(file, offset, buffers, tag);
+		++m_outstanding;
+	}
+
+	void queue_sync(file_handle_t file, std::uint64_t tag) override
+	{
+		m_queue.queue_sync(file, tag);
 		++m_outstanding;
 	}
 

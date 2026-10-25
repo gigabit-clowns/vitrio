@@ -64,16 +64,45 @@ public:
 		std::uint64_t tag
 	) override
 	{
-		const auto route = m_dispatch.open_route(m_slot, tag);
-		try
-		{
-			m_dispatch.m_transfers.queue_read(file, offset, buffers, route);
-		}
-		catch (...)
-		{
-			m_dispatch.close_route(route);
-			throw;
-		}
+		route_to(
+			tag,
+			[&](std::uint64_t route)
+			{
+				m_dispatch.m_transfers.queue_read(file, offset, buffers, route);
+			}
+		);
+	}
+
+	void queue_write(
+		file_handle_t file,
+		std::uint64_t offset,
+		span<const const_memory_range> buffers,
+		std::uint64_t tag
+	) override
+	{
+		route_to(
+			tag,
+			[&](std::uint64_t route)
+			{
+				m_dispatch.m_transfers.queue_write(
+					file,
+					offset,
+					buffers,
+					route
+				);
+			}
+		);
+	}
+
+	void queue_sync(file_handle_t file, std::uint64_t tag) override
+	{
+		route_to(
+			tag,
+			[&](std::uint64_t route)
+			{
+				m_dispatch.m_transfers.queue_sync(file, route);
+			}
+		);
 	}
 
 	void run(std::unique_ptr<task> work, std::uint64_t tag) override
@@ -104,6 +133,23 @@ public:
 	}
 
 private:
+	// Queues a transfer under a route that leads back to the operation, and
+	// frees the route if the transfer is refused.
+	template <typename Queue>
+	void route_to(std::uint64_t tag, Queue &&queue)
+	{
+		const auto route = m_dispatch.open_route(m_slot, tag);
+		try
+		{
+			queue(route);
+		}
+		catch (...)
+		{
+			m_dispatch.close_route(route);
+			throw;
+		}
+	}
+
 	file_transfer_dispatch &m_dispatch;
 	std::size_t m_slot;
 };
@@ -190,11 +236,11 @@ void file_transfer_dispatch::deliver_transfer(
 
 	call(
 		target.slot,
-		[&](file_transfer_operation &reading, file_transfer_scope &scope)
+		[&](file_transfer_operation &transferring, file_transfer_scope &scope)
 		{
 			if (completion.get_error())
 			{
-				reading.on_transfer(
+				transferring.on_transfer(
 					file_transfer_completion(
 						target.tag,
 						completion.get_error()
@@ -204,7 +250,7 @@ void file_transfer_dispatch::deliver_transfer(
 			}
 			else
 			{
-				reading.on_transfer(
+				transferring.on_transfer(
 					file_transfer_completion(
 						target.tag,
 						completion.get_size()

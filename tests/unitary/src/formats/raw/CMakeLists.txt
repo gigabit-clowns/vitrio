@@ -3,7 +3,9 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
+		test_create_image_file.cpp
 		test_open_raw_image_reader.cpp
+		test_open_raw_image_writer.cpp
 		test_raw_image_layout.cpp
 )
 

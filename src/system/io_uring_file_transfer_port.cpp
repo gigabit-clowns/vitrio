@@ -29,27 +29,26 @@ io_uring_file_transfer_port::io_uring_file_transfer_port(std::size_t capacity)
 
 io_uring_file_transfer_port::~io_uring_file_transfer_port()
 {
-	// The queue waits for its reads as it is destroyed, the read of the
+	// The queue waits for its transfers as it is destroyed, the read of the
 	// counter among them.
 	m_wakeups.signal();
 }
 
-void io_uring_file_transfer_port::queue_read(
-	file_handle_t file,
-	std::uint64_t offset,
-	span<const memory_range> buffers,
-	std::uint64_t tag
+template <typename Queue>
+void io_uring_file_transfer_port::queue_tagged(
+	std::uint64_t tag,
+	Queue &&queue
 )
 {
 	if (m_free_tags.empty())
 	{
 		// The free list gets room for every tag up front, so that freeing
-		// one as its read completes never fails.
+		// one as its transfer completes never fails.
 		m_free_tags.reserve(m_tags.size() + 1);
 		m_tags.push_back(tag);
 		try
 		{
-			m_queue.queue_read(file, offset, buffers, m_tags.size() - 1);
+			queue(m_tags.size() - 1);
 		}
 		catch (...)
 		{
@@ -59,12 +58,58 @@ void io_uring_file_transfer_port::queue_read(
 		return;
 	}
 
-	// The tag is taken only once the read is, so a read the system refuses
-	// leaves it free.
+	// The tag is taken only once the transfer is, so a transfer the system
+	// refuses leaves it free.
 	const auto ring_tag = m_free_tags.back();
-	m_queue.queue_read(file, offset, buffers, ring_tag);
+	queue(ring_tag);
 	m_free_tags.pop_back();
 	m_tags[ring_tag] = tag;
+}
+
+void io_uring_file_transfer_port::queue_read(
+	file_handle_t file,
+	std::uint64_t offset,
+	span<const memory_range> buffers,
+	std::uint64_t tag
+)
+{
+	queue_tagged(
+		tag,
+		[&](std::uint64_t ring_tag)
+		{
+			m_queue.queue_read(file, offset, buffers, ring_tag);
+		}
+	);
+}
+
+void io_uring_file_transfer_port::queue_write(
+	file_handle_t file,
+	std::uint64_t offset,
+	span<const const_memory_range> buffers,
+	std::uint64_t tag
+)
+{
+	queue_tagged(
+		tag,
+		[&](std::uint64_t ring_tag)
+		{
+			m_queue.queue_write(file, offset, buffers, ring_tag);
+		}
+	);
+}
+
+void io_uring_file_transfer_port::queue_sync(
+	file_handle_t file,
+	std::uint64_t tag
+)
+{
+	queue_tagged(
+		tag,
+		[&](std::uint64_t ring_tag)
+		{
+			m_queue.queue_sync(file, ring_tag);
+		}
+	);
 }
 
 void io_uring_file_transfer_port::wake() noexcept

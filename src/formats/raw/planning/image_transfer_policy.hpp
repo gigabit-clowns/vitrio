@@ -8,14 +8,15 @@ namespace vitrio
 {
 
 /**
- * @brief How the regions of a read are gathered into stretches of the file:
- * which gaps between them are bridged, how many bytes one step takes, and
- * the grid every stretch starts on.
+ * @brief How the regions of a transfer are gathered into stretches of the
+ * file: which gaps between them are bridged, how many bytes one step takes,
+ * and the grid every stretch starts on.
  *
  * A stretch starts on the grid, at or before the first byte its first region
  * reaches: on a page where it is advised, so that the advice starts where
- * the system takes it, and on an element of the values where it is read
- * into memory of its own, so that the values land aligned there.
+ * the system takes it, and on an element of the values where it is staged
+ * in memory of its own, so that the values lie aligned there. A write
+ * bridges no gap, since it would overwrite what lies in it.
  */
 class image_transfer_policy
 {

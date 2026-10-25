@@ -234,7 +234,8 @@ private:
 		write_stack(
 			const_array_ref(values),
 			get_path(stack),
-			*image_file_write_format_selector::get_shared()
+			*image_file_write_format_selector::get_shared(),
+			*test::make_file_transfer_pool()
 		);
 	}
 

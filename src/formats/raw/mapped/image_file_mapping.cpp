@@ -4,10 +4,7 @@
 
 #include <vitrio/exceptions/image_file_error.hpp>
 
-#include <boost/filesystem/operations.hpp>
-
 #include <cstddef>
-#include <fstream>
 
 namespace vitrio
 {
@@ -94,53 +91,6 @@ std::size_t image_file_mapping::get_size() const noexcept
 file_handle_t image_file_mapping::get_file() const noexcept
 {
 	return m_mapping.get_mapping_handle().handle;
-}
-
-void image_file_mapping::flush()
-{
-	if (!m_region.flush())
-	{
-		throw image_file_error(
-			std::string(m_mapping.get_name()) +
-			": image_file_mapping: The mapping could not be flushed."
-		);
-	}
-}
-
-void create_image_file(const std::string &path, std::size_t size)
-{
-	if (size == 0)
-	{
-		throw image_file_error(
-			path + ": create_image_file: A file of no bytes can not be "
-			"mapped."
-		);
-	}
-
-	{
-		std::filebuf file;
-		const auto opened = file.open(
-			path,
-			std::ios_base::in | std::ios_base::out |
-			std::ios_base::trunc | std::ios_base::binary
-		);
-		if (opened == nullptr)
-		{
-			throw image_file_error(
-				path + ": create_image_file: The file could not be created."
-			);
-		}
-	}
-
-	boost::system::error_code code;
-	boost::filesystem::resize_file(path, size, code);
-	if (code)
-	{
-		throw image_file_error(
-			path + ": create_image_file: The file could not be sized: " +
-			code.message()
-		);
-	}
 }
 
 } // namespace vitrio

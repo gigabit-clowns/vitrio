@@ -92,8 +92,8 @@ asynchronous_file_transfer_port_opener::open() const
 		// The system may refuse one more, short of the memory it lets the
 		// process lock or of the files it lets it open.
 		VITRIO_LOG_WARN(
-			"A port of asynchronous file reads could not be opened ({}), and "
-			"its reads are carried out as they are asked instead.",
+			"A port of asynchronous file transfers could not be opened ({}), "
+			"and its transfers are carried out as they are asked instead.",
 			error.what()
 		);
 		return std::make_unique<blocking_file_transfer_port>();
