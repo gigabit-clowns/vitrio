@@ -43,6 +43,11 @@ void file_transfer_worker::submit(
 	);
 }
 
+bool file_transfer_worker::runs_on_this_thread() const noexcept
+{
+	return std::this_thread::get_id() == m_thread.get_id();
+}
+
 void file_transfer_worker::run() noexcept
 {
 	for (;;)

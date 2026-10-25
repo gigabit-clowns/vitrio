@@ -22,6 +22,7 @@ if(WIN32)
 		vitrio-obj
 		PRIVATE
 			environment_variable_windows.cpp
+			file_space_reservation_unsupported.cpp
 			file_sync_windows.cpp
 			page_prefetch_windows.cpp
 			page_size_windows.cpp
@@ -33,6 +34,7 @@ elseif(APPLE)
 		vitrio-obj
 		PRIVATE
 			environment_variable_posix.cpp
+			file_space_reservation_unsupported.cpp
 			file_sync_posix.cpp
 			iovec_gathering.cpp
 			page_prefetch_darwin.cpp
@@ -52,6 +54,21 @@ elseif(UNIX)
 			scattered_file_read_posix.cpp
 			scattered_file_write_posix.cpp
 	)
+
+	# Only Linux reserves the room of a file without writing it.
+	if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		target_sources(
+			vitrio-obj
+			PRIVATE
+				file_space_reservation_linux.cpp
+		)
+	else()
+		target_sources(
+			vitrio-obj
+			PRIVATE
+				file_space_reservation_unsupported.cpp
+		)
+	endif()
 else()
 	message(FATAL_ERROR "vitrio does not know this operating system.")
 endif()

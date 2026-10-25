@@ -2,26 +2,25 @@
 
 #include "indexed_image_scratch_entry.hpp"
 
-#include <formats/raw/mapped/image_prefetched_read.hpp>
+#include "image_scratch_storage_bounds.hpp"
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
-#include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_scratch_storage.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
-#include <vitrio/memory_range.hpp>
 #include <vitrio/span.hpp>
 
 #include <vitrio/concurrency/counting_notifier.hpp>
 
-#include <array/array_data.hpp>
 #include <assert.hpp>
-#include <memory/byte_order.hpp>
+
+#include <boost/optional.hpp>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -65,16 +64,10 @@ check_storage(std::shared_ptr<image_scratch_storage> storage)
 	return storage;
 }
 
-array place(
-	const std::shared_ptr<image_scratch_storage> &storage,
-	array_descriptor descriptor
-)
+// The bytes of a run flag, as the storage holds it.
+span<const byte> as_bytes(const std::uint64_t &flag) noexcept
 {
-	return array(
-		make_span(storage->get_data(), storage->get_size()),
-		storage,
-		std::move(descriptor)
-	);
+	return make_span(reinterpret_cast<const byte*>(&flag), sizeof(flag));
 }
 
 // A range that reaches past the largest index ends at it, which is an index
@@ -87,6 +80,12 @@ compute_end_index(std::size_t first_index, std::size_t index_count) noexcept
 }
 
 } // anonymous namespace
+
+struct indexed_image_scratch_entry::held_split
+{
+	image_transfer_plan held;
+	image_transfer_plan missing;
+};
 
 // What the read that loads a run reports to: it settles the run. It keeps
 // the entry, whose storage the read fills, until it has.
@@ -126,8 +125,10 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 	, m_run_length(run_length)
 	, m_loaded(compute_run_count(m_indices.size(), run_length))
 	, m_storage(check_storage(std::move(storage)))
-	, m_values(place(m_storage, std::move(values)))
-	, m_flags(place(m_storage, std::move(flags)))
+	, m_values(std::move(values))
+	, m_flags_offset(
+		static_cast<std::size_t>(flags.get_offset()) * sizeof(std::uint64_t)
+	)
 	, m_modification_time(modification_time)
 	, m_waiters(m_loaded.size())
 {
@@ -144,8 +145,7 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 		);
 	}
 
-	const auto &values_descriptor = m_values.get_descriptor();
-	const auto strides = values_descriptor.get_strides();
+	const auto strides = m_values.get_strides();
 	const auto descends = std::any_of(
 		strides.begin(),
 		strides.end(),
@@ -158,7 +158,7 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 		);
 	}
 
-	const auto extents = values_descriptor.get_extents();
+	const auto extents = m_values.get_extents();
 	if (extents.empty() || extents.front() != m_indices.size())
 	{
 		throw std::invalid_argument(
@@ -167,10 +167,9 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 		);
 	}
 
-	const auto &flags_descriptor = m_flags.get_descriptor();
-	const auto flag_extents = flags_descriptor.get_extents();
+	const auto flag_extents = flags.get_extents();
 	if (
-		flags_descriptor.get_data_type() != numerical_type::uint64 ||
+		flags.get_data_type() != numerical_type::uint64 ||
 		flag_extents.size() != 1 ||
 		flag_extents.front() != m_loaded.size()
 	)
@@ -181,13 +180,24 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 		);
 	}
 
+	const auto size = m_storage->get_size();
+	check_values_within(m_values, size, "indexed_image_scratch_entry");
+	check_values_within(flags, size, "indexed_image_scratch_entry");
+
 	if (mode == image_scratch_open_mode::empty)
 	{
 		reset();
 		return;
 	}
 
-	const auto *run_flags = get_flags();
+	std::vector<std::uint64_t> run_flags(m_loaded.size());
+	m_storage->read(
+		m_flags_offset,
+		make_span(
+			reinterpret_cast<byte*>(run_flags.data()),
+			run_flags.size() * sizeof(std::uint64_t)
+		)
+	);
 	for (std::size_t run = 0; run < m_loaded.size(); ++run)
 	{
 		const auto is_loaded =
@@ -199,71 +209,55 @@ indexed_image_scratch_entry::indexed_image_scratch_entry(
 
 indexed_image_scratch_entry::~indexed_image_scratch_entry() = default;
 
-image_transfer_plan indexed_image_scratch_entry::read(
-	array_ref destination,
-	const image_transfer_plan &regions
+image_transfer_plan indexed_image_scratch_entry::read_async(
+	array destination,
+	image_transfer_plan regions,
+	std::shared_ptr<completion_notifier> done
 ) const
 {
-	get_array_data(destination);
-
-	const auto &shape = regions.get_shape();
-	const auto rank = m_values.get_descriptor().get_extents().size();
-	if (shape.get_file_rank() != rank)
+	if (!done)
 	{
+		throw std::invalid_argument(
+			"indexed_image_scratch_entry: The notifier must not be null."
+		);
+	}
+
+	if (regions.get_shape().get_file_rank() != m_values.get_extents().size())
+	{
+		done->notify_done();
 		return regions;
 	}
 
-	image_transfer_plan loaded(shape);
-	image_transfer_plan missing(shape);
-	std::vector<std::size_t> slot_offset(rank);
-
-	const auto index_count = shape.get_extent(rank, 0);
-	const auto region_count = regions.get_region_count();
-	for (std::size_t region = 0; region < region_count; ++region)
+	// Nothing is read when the regions can not be told apart, so every one
+	// of them is answered.
+	boost::optional<held_split> split;
+	try
 	{
-		const auto file_offset = regions.get_file_offset(region);
-		const auto array_offset = regions.get_array_offset(region);
-
-		const auto first_index = file_offset.front();
-		const auto first_slot = find_slot(first_index);
-		const auto end_slot =
-			find_slot(compute_end_index(first_index, index_count));
-		const auto is_held =
-			index_count > 0 && end_slot - first_slot == index_count;
-		if (!is_held || !are_loaded(first_slot, end_slot))
-		{
-			missing.add(file_offset, array_offset);
-			continue;
-		}
-
-		slot_offset.assign(file_offset.begin(), file_offset.end());
-		slot_offset.front() = first_slot;
-		loaded.add(make_span(slot_offset), array_offset);
+		split = split_held(regions);
+	}
+	catch (...)
+	{
+		done->notify_done(std::current_exception());
+		return regions;
 	}
 
-	if (loaded.get_region_count() == 0)
+	if (split->held.get_region_count() == 0)
 	{
-		return missing;
+		done->notify_done();
+		return std::move(split->missing);
 	}
 
-	const image_scratch_storage &storage = *m_storage;
-	read_prefetched_regions(
-		make_span(storage.get_data(), storage.get_size()),
-		m_values.get_descriptor(),
-		get_system_byte_order(),
-		destination,
-		loaded,
-		[&storage](span<const memory_range> ranges)
-		{
-			storage.prefetch(ranges);
-		}
+	m_storage->serve_async(
+		m_values,
+		std::move(destination),
+		std::move(split->held),
+		std::move(done)
 	);
-
-	return missing;
+	return std::move(split->missing);
 }
 
 void indexed_image_scratch_entry::store_async(
-	const image_reader &file,
+	std::shared_ptr<const image_reader> file,
 	image_transfer_plan regions,
 	std::shared_ptr<completion_notifier> done
 )
@@ -284,6 +278,12 @@ void indexed_image_scratch_entry::store_async(
 	std::vector<std::size_t> started;
 	try
 	{
+		if (!file)
+		{
+			throw std::invalid_argument(
+				"indexed_image_scratch_entry: The file must not be null."
+			);
+		}
 		runs = find_runs(regions);
 		waiting = std::make_shared<counting_notifier>(runs.size(), done);
 		joining.resize(runs.size());
@@ -343,22 +343,22 @@ void indexed_image_scratch_entry::store_async(
 	}
 }
 
-void indexed_image_scratch_entry::reset() noexcept
+void indexed_image_scratch_entry::reset()
 {
-	auto *run_flags = get_flags();
 	for (std::size_t run = 0; run < m_loaded.size(); ++run)
 	{
 		VITRIO_ASSERT(m_waiters[run].empty());
-		run_flags[run] = 0;
 		m_loaded[run].store(false, std::memory_order_relaxed);
 	}
-}
 
-std::uint64_t* indexed_image_scratch_entry::get_flags() noexcept
-{
-	auto *storage = reinterpret_cast<std::uint64_t*>(m_flags.get_data());
-
-	return storage + m_flags.get_descriptor().get_offset();
+	const std::vector<std::uint64_t> run_flags(m_loaded.size(), 0);
+	m_storage->write(
+		m_flags_offset,
+		make_span(
+			reinterpret_cast<const byte*>(run_flags.data()),
+			run_flags.size() * sizeof(std::uint64_t)
+		)
+	);
 }
 
 std::size_t
@@ -389,13 +389,52 @@ bool indexed_image_scratch_entry::are_loaded(
 	return true;
 }
 
+indexed_image_scratch_entry::held_split
+indexed_image_scratch_entry::split_held(
+	const image_transfer_plan &regions
+) const
+{
+	const auto &shape = regions.get_shape();
+	const auto rank = m_values.get_extents().size();
+	VITRIO_ASSERT(shape.get_file_rank() == rank);
+
+	held_split split{image_transfer_plan(shape), image_transfer_plan(shape)};
+	std::vector<std::size_t> slot_offset(rank);
+
+	const auto index_count = shape.get_extent(rank, 0);
+	const auto region_count = regions.get_region_count();
+	for (std::size_t region = 0; region < region_count; ++region)
+	{
+		const auto file_offset = regions.get_file_offset(region);
+		const auto array_offset = regions.get_array_offset(region);
+
+		const auto first_index = file_offset.front();
+		const auto first_slot = find_slot(first_index);
+		const auto end_slot =
+			find_slot(compute_end_index(first_index, index_count));
+		const auto is_held =
+			index_count > 0 && end_slot - first_slot == index_count;
+		if (!is_held || !are_loaded(first_slot, end_slot))
+		{
+			split.missing.add(file_offset, array_offset);
+			continue;
+		}
+
+		slot_offset.assign(file_offset.begin(), file_offset.end());
+		slot_offset.front() = first_slot;
+		split.held.add(make_span(slot_offset), array_offset);
+	}
+
+	return split;
+}
+
 std::vector<std::size_t> indexed_image_scratch_entry::find_runs(
 	const image_transfer_plan &regions
 ) const
 {
 	std::vector<std::size_t> runs;
 	const auto &shape = regions.get_shape();
-	const auto rank = m_values.get_descriptor().get_extents().size();
+	const auto rank = m_values.get_extents().size();
 	if (shape.get_file_rank() != rank)
 	{
 		return runs;
@@ -427,7 +466,7 @@ std::vector<std::size_t> indexed_image_scratch_entry::find_runs(
 }
 
 void indexed_image_scratch_entry::start_load(
-	const image_reader &file,
+	const std::shared_ptr<const image_reader> &file,
 	std::size_t run
 ) noexcept
 {
@@ -435,8 +474,9 @@ void indexed_image_scratch_entry::start_load(
 
 	try
 	{
-		file.read_async(
-			m_values.share(),
+		m_storage->load_async(
+			file,
+			m_values,
 			make_load_plan(run),
 			std::make_shared<run_load_notifier>(shared_from_this(), run)
 		);
@@ -452,12 +492,28 @@ void indexed_image_scratch_entry::finish_load(
 	std::exception_ptr error
 )
 {
+	// The flag is written outside the lock, which guards no transfer. A
+	// run whose flag can not be written is not held.
+	if (!error)
+	{
+		try
+		{
+			m_storage->write(
+				m_flags_offset + run * sizeof(std::uint64_t),
+				as_bytes(m_modification_time)
+			);
+		}
+		catch (...)
+		{
+			error = std::current_exception();
+		}
+	}
+
 	waiter_list waiters;
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);
 		if (!error)
 		{
-			get_flags()[run] = m_modification_time;
 			m_loaded[run].store(true, std::memory_order_release);
 		}
 		waiters.swap(m_waiters[run]);
@@ -473,7 +529,7 @@ image_transfer_plan
 indexed_image_scratch_entry::make_load_plan(std::size_t run) const
 {
 	// The first axis counts the images held. The rest are those of one.
-	const auto held = m_values.get_descriptor().get_extents();
+	const auto held = m_values.get_extents();
 	const auto rank = held.size();
 	std::vector<std::size_t> extents(held.begin() + 1, held.end());
 	image_transfer_plan plan(

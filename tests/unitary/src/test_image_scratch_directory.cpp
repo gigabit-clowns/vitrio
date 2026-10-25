@@ -8,6 +8,8 @@
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_scratch_storage.hpp>
+#include <vitrio/span.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <atomic>
@@ -25,6 +27,13 @@ using namespace vitrio;
 namespace
 {
 
+// The pool the files of the cases are opened with.
+const file_transfer_pool& get_transfers()
+{
+	static const auto pool = test::make_file_transfer_pool();
+	return *pool;
+}
+
 const std::string extension = ".vitrio-scratch";
 
 // Maps the file of a scratch and lets it go, expecting it to fit.
@@ -35,7 +44,9 @@ void make_file(
 )
 {
 	std::size_t room = 0;
-	REQUIRE( directory.acquire(fingerprint, size, room) != nullptr );
+	REQUIRE(
+		directory.acquire(fingerprint, size, get_transfers(), room) != nullptr
+	);
 }
 
 void write_file(const std::string &path, std::size_t size)
@@ -98,7 +109,7 @@ TEST_CASE(
 	image_scratch_directory directory(path.get(), 1024);
 
 	std::size_t room = 0;
-	const auto storage = directory.acquire(7, 256, room);
+	const auto storage = directory.acquire(7, 256, get_transfers(), room);
 
 	REQUIRE( storage != nullptr );
 	CHECK( storage->get_size() == 256 );
@@ -115,12 +126,16 @@ TEST_CASE(
 	image_scratch_directory directory(path.get(), 1024);
 
 	std::size_t room = 0;
-	directory.acquire(7, 256, room)->get_data()[100] = 42;
+	const vitrio::byte written = 42;
+	directory.acquire(7, 256, get_transfers(), room)
+		->write(100, make_span(&written, 1));
 
-	const auto storage = directory.acquire(7, 256, room);
+	const auto storage = directory.acquire(7, 256, get_transfers(), room);
 
 	REQUIRE( storage != nullptr );
-	CHECK( storage->get_data()[100] == 42 );
+	vitrio::byte read = 0;
+	storage->read(100, make_span(&read, 1));
+	CHECK( read == 42 );
 	CHECK( path.list_files(extension).size() == 1 );
 }
 
@@ -142,7 +157,7 @@ TEST_CASE(
 	SECTION( "as many as it takes and no more" )
 	{
 		std::size_t room = 0;
-		REQUIRE( directory.acquire(4, 150, room) != nullptr );
+		REQUIRE( directory.acquire(4, 150, get_transfers(), room) != nullptr );
 
 		CHECK_FALSE( boost::filesystem::exists(directory.get_file_path(2)) );
 		CHECK_FALSE( boost::filesystem::exists(directory.get_file_path(1)) );
@@ -153,7 +168,7 @@ TEST_CASE(
 	SECTION( "none when the file fits beside them" )
 	{
 		std::size_t room = 0;
-		REQUIRE( directory.acquire(1, 100, room) != nullptr );
+		REQUIRE( directory.acquire(1, 100, get_transfers(), room) != nullptr );
 
 		CHECK( path.list_files(extension).size() == 3 );
 		CHECK( room == 100 );
@@ -164,7 +179,7 @@ TEST_CASE(
 		make_file(directory, 2, 100);
 
 		std::size_t room = 0;
-		REQUIRE( directory.acquire(4, 100, room) != nullptr );
+		REQUIRE( directory.acquire(4, 100, get_transfers(), room) != nullptr );
 
 		CHECK( boost::filesystem::exists(directory.get_file_path(2)) );
 		CHECK_FALSE( boost::filesystem::exists(directory.get_file_path(1)) );
@@ -183,7 +198,7 @@ TEST_CASE(
 	age_file(path.get("notes.txt"), 100);
 
 	std::size_t room = 0;
-	REQUIRE( directory.acquire(1, 200, room) != nullptr );
+	REQUIRE( directory.acquire(1, 200, get_transfers(), room) != nullptr );
 
 	CHECK( boost::filesystem::file_size(path.get("notes.txt")) == 1000 );
 	CHECK( room == 200 );
@@ -200,7 +215,7 @@ TEST_CASE(
 	make_file(directory, 1, 100);
 
 	std::size_t room = 0;
-	CHECK( directory.acquire(2, 301, room) == nullptr );
+	CHECK( directory.acquire(2, 301, get_transfers(), room) == nullptr );
 
 	CHECK( room == 300 );
 	CHECK_FALSE( boost::filesystem::exists(directory.get_file_path(1)) );
@@ -217,16 +232,22 @@ TEST_CASE(
 	image_scratch_directory directory(path.get(), 400);
 
 	std::vector<std::thread> threads;
-	std::atomic<std::size_t> mapped(0);
+	std::atomic<std::size_t> opened(0);
 	for (std::uint64_t fingerprint = 1; fingerprint <= 8; ++fingerprint)
 	{
 		threads.emplace_back(
-			[&directory, &mapped, fingerprint]
+			[&directory, &opened, fingerprint]
 			{
 				std::size_t room = 0;
-				if (directory.acquire(fingerprint, 100, room) != nullptr)
+				const auto storage = directory.acquire(
+					fingerprint,
+					100,
+					get_transfers(),
+					room
+				);
+				if (storage != nullptr)
 				{
-					++mapped;
+					++opened;
 				}
 			}
 		);
@@ -237,6 +258,6 @@ TEST_CASE(
 		thread.join();
 	}
 
-	CHECK( mapped == 8 );
+	CHECK( opened == 8 );
 	CHECK( path.list_files(extension).size() == 4 );
 }

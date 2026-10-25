@@ -71,4 +71,17 @@ void thread_pool_file_transfer_executor::submit(
 	);
 }
 
+bool thread_pool_file_transfer_executor::runs_on_this_thread() const noexcept
+{
+	for (const auto &worker : m_workers)
+	{
+		if (worker->runs_on_this_thread())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 } // namespace vitrio

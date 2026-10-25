@@ -74,7 +74,7 @@ def test_every_scratch_delivers_the_same_batches(tmp_path, reader):
 	layout = '--dataset.layout=per-micrograph:7'
 	harness('generate', '--datadir', str(tmp_path), *DATASET, layout)
 	records_file = tmp_path / 'results.jsonl'
-	for scratch in ('none', 'host', 'mapped', 'directory'):
+	for scratch in ('none', 'host', 'file', 'directory'):
 		harness(
 			'run', 'epochs', '--datadir', str(tmp_path),
 			'--results', str(records_file), *DATASET, layout,

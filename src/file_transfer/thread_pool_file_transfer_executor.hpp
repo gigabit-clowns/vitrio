@@ -55,6 +55,16 @@ public:
 		std::shared_ptr<completion_notifier> done
 	) override;
 
+	/**
+	 * @brief Tell whether the calling thread is one of the executor's own.
+	 *
+	 * Destroying the executor waits for its threads, so it is not destroyed
+	 * on one of them.
+	 *
+	 * @return bool Whether it is.
+	 */
+	bool runs_on_this_thread() const noexcept;
+
 private:
 	std::vector<std::unique_ptr<file_transfer_worker>> m_workers;
 	std::atomic<std::size_t> m_next_worker;

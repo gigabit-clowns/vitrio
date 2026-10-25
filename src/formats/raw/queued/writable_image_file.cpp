@@ -52,4 +52,10 @@ file_handle_t writable_image_file::get_file() const noexcept
 	return m_file.get_mapping_handle().handle;
 }
 
+const boost::interprocess::file_mapping&
+writable_image_file::get_open_file() const noexcept
+{
+	return m_file;
+}
+
 } // namespace vitrio

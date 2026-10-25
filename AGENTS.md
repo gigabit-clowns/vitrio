@@ -23,7 +23,7 @@ in the same commit that causes it.
 | `src/formats/raw/` | What the formats whose values lie in the file as they are share. Such a format resolves its header into a `raw_image_layout`, opens its reader with `open_raw_image_reader`, which picks the reader that suits the system and the values: one that queues its reads through the `file_transfer_pool` it is given where the process can have asynchronous ports, and one over a mapping otherwise. It creates its files with `open_raw_image_writer`, whose writer queues its writes through the pool wherever it runs, since writes the system carries out as they are asked still beat writes through a mapping. A file being written is laid out in full first, by `create_image_file` |
 | `src/formats/raw/planning/` | Gathers the regions of a transfer into the stretches of the file they reach, merged across small gaps, or only where they touch for a write, and grouped into steps of a bounded number of bytes, on a grid of pages or of elements. A write covers only the runs of bytes its regions take, which planning works out too |
 | `src/formats/raw/queued/` | Reads and writes a file whose values lie as they are through an executor of file transfers. A read or a write is planned on the thread that starts it into an operation: one that moves straight between the file and the array where nothing is converted, and otherwise one that stages its values in memory of its own a step at a time, as the planning groups the regions, and converts each stretch on the executor of computations: as it arrives for a read, and before its runs are written for a write. A flush is an operation that syncs the file, and a writer that is destroyed hands the executor one, which waits for nothing |
-| `src/formats/raw/mapped/` | Reads a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead, and a scratch reads its copies the same way. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
+| `src/formats/raw/mapped/` | Reads a file through a mapping of it, for the formats whose values lie in the file as they are. A read of values out of memory advises the pages it is about to touch a step ahead. Values that are not aligned for their data type are read through a page copied out of the mapping instead |
 | `src/formats/dm/` | The DigitalMicrograph format, versions 3 and 4, read only: its header, the tree of tags it is parsed into, how the size of a value follows from its encoding, how the image is found among the tags, and the format that registers itself |
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
@@ -273,6 +273,22 @@ since the archive of a commit lacks its libraries, which are submodules.
     being taken in or held, never a read. What a reader copies out of an
     entry once it has taken that in is a task on the executor the reader
     was given.
+  - A scratch keeps its copies through the operations of its storage,
+    never through a pointer: it serves values and loads them as transfers,
+    and reads and writes its flags and fingerprint on the calling thread.
+    Storage in memory serves with one strided copy and loads straight into
+    memory. Storage in a file serves through the read operation of the
+    queued reader, and loads through staging and the write operation of the
+    queued writer, so a full disk is a reported failure. Its loads go in
+    pieces of a step of staging, and pieces wait, in the order they came,
+    while two steps' worth are staged: a shuffled batch starts a load for
+    nearly every run, and staging them all at once held most of a dataset
+    in memory. A load may start after it is asked for, so it keeps the
+    reader it was given, as `store_async` does.
+  - The executor of a `file_transfer_pool` may be let go last on one of its
+    own threads, when a transfer held what held it, as a load holds a file
+    storage. It is then destroyed on a thread of its own, since a thread
+    can not wait for itself to end.
   - Work that waits for the tasks of an executor says so, and must not run
     on a thread of it. Creating an `indexed_image_scratch` opens its files
     that way, all at once.

@@ -181,7 +181,7 @@ class ReaderBenchmark(VitrioBenchmark):
 	cache = parameter([READER_DEFAULT], type=int)
 	#: Batches `vitrio-loader` reads ahead.
 	in_flight = parameter([2], type=int)
-	#: Where a vitrio reader keeps copies: `none`, `host`, `mapped`,
+	#: Where a vitrio reader keeps copies: `none`, `host`, `file`,
 	#: `directory`.
 	scratch = parameter(['none'], type=str)
 	#: Particles of a file a scratch takes in together.

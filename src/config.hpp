@@ -41,7 +41,9 @@
 //
 // A step is transferred while the one before it is moved, so a read or a
 // write holds two steps of this at most, unless a single stretch is wider
-// than a step.
+// than a step. A scratch kept in a file loads in pieces of a step, and its
+// loads hold two steps of this at once at most, unless a single image is
+// wider than a step.
 #ifndef VITRIO_DEFAULT_STAGING_BYTE_BUDGET
 	#define VITRIO_DEFAULT_STAGING_BYTE_BUDGET (1UL<<23)
 #endif

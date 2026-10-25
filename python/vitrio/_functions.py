@@ -362,27 +362,32 @@ def create_host_image_scratch(
 		max_size
 	)
 
-def create_mapped_file_image_scratch(
+def create_file_image_scratch(
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
 	path: Key,
 	run_length: int,
 	max_size: int | None = None,
 	files: ImageReaderProvider | None = None,
-	executor: Executor | None = None
+	executor: Executor | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageScratch:
 	"""
-	Create a scratch that keeps its copies in a file mapped into memory.
+	Create a scratch that keeps its copies in a file.
 
 	Holds what `create_host_image_scratch` would, with the same
-	arguments, but in a file at `path`. The file may be larger than the
-	main memory, and it outlives the scratch: a scratch created later
-	over the same file, for the same images, resumes from what was taken
-	in before, except for the images whose files have been modified
-	since. Programs that hold the same images may use the file at the
-	same time, and share it.
+	arguments, but in a file at `path`, which the threads of `transfers`
+	read and write. The file may be larger than the main memory, and it
+	outlives the scratch: a scratch created later over the same file, for
+	the same images, resumes from what was taken in before, except for
+	the images whose files have been modified since. Programs that hold
+	the same images may use the file at the same time, and share it.
 
 	A file at `path` that holds anything else is overwritten, and the
 	scratch starts empty.
+
+	The file is read and written by threads, which the child of a fork
+	does not have. A child creates a scratch of its own over the same
+	file, and resumes from what is in it.
 
 	vitrio never removes the file. Remove it once no program is using it
 	any more. On Windows it can be removed only once nothing holds the
@@ -401,6 +406,8 @@ def create_mapped_file_image_scratch(
 			provider that opens the file at the path each key is.
 		executor: Where the image files are opened, as
 			`create_host_image_scratch` opens them.
+		transfers: The threads that read and write the file of copies.
+			Defaults to a pool shared by the process.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -410,10 +417,11 @@ def create_mapped_file_image_scratch(
 			hold. No file is created then.
 		IndexError: If a location has an index its stack does not have.
 	"""
-	return _binding.create_mapped_file_image_scratch(
+	return _binding.create_file_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
 		_resolve_scratch_executor(executor),
+		_resolve_transfers(transfers),
 		path,
 		run_length,
 		max_size
@@ -425,13 +433,14 @@ def create_directory_image_scratch(
 	run_length: int,
 	budget: int,
 	files: ImageReaderProvider | None = None,
-	executor: Executor | None = None
+	executor: Executor | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in a file of a directory kept
 	within a budget.
 
-	Holds what `create_mapped_file_image_scratch` would, in a file of
+	Holds what `create_file_image_scratch` would, in a file of
 	`directory` named after the images and how they are laid out. A later
 	scratch of the same images, with the same `run_length`, finds that
 	file and resumes from it, and programs that hold the same images may
@@ -450,8 +459,10 @@ def create_directory_image_scratch(
 	A file that is in use elsewhere can not be removed on Windows, and
 	keeps its room. On Linux and macOS it is removed, but its space on
 	the disk is freed only once nothing uses it. The disk must have room
-	for the budget: the space is taken as images are taken in, and a
-	program that finds the disk full then is ended.
+	for the budget. On Linux a new file is given its room on the disk at
+	once, where its file system can, so a full disk fails the creation.
+	Elsewhere the room is taken as images are taken in, and a disk that
+	is full by then fails the reads that take them in.
 
 	Args:
 		locations: The images to hold, as `create_host_image_scratch`
@@ -466,6 +477,8 @@ def create_directory_image_scratch(
 			provider that opens the file at the path each key is.
 		executor: Where the image files are opened, as
 			`create_host_image_scratch` opens them.
+		transfers: The threads that read and write the files of
+			scratches. Defaults to a pool shared by the process.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -480,6 +493,7 @@ def create_directory_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
 		_resolve_scratch_executor(executor),
+		_resolve_transfers(transfers),
 		directory,
 		run_length,
 		budget

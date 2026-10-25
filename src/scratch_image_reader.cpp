@@ -2,7 +2,7 @@
 
 #include "scratch_image_reader.hpp"
 
-#include <vitrio/array/array_ref.hpp>
+#include <vitrio/concurrency/counting_notifier.hpp>
 #include <vitrio/concurrency/task.hpp>
 #include <vitrio/image_scratch_entry.hpp>
 
@@ -21,7 +21,8 @@ namespace
 {
 
 // What a read does once the entry has taken in what it was offered: read
-// from the entry what it now holds, and from the file whatever it does not.
+// from the entry what it now holds, and from the file whatever it does not,
+// which report as one.
 class held_read final
 	: public task
 {
@@ -43,14 +44,19 @@ public:
 
 	void run() override
 	{
-		const auto unheld = m_entry->read(array_ref(m_destination), m_regions);
+		const auto both = std::make_shared<counting_notifier>(2, m_done);
+		const auto unheld = m_entry->read_async(
+			m_destination.share(),
+			std::move(m_regions),
+			both
+		);
 		if (unheld.get_region_count() == 0)
 		{
-			m_done->notify_done();
+			both->notify_done();
 			return;
 		}
 
-		m_file->read_async(std::move(m_destination), unheld, std::move(m_done));
+		m_file->read_async(std::move(m_destination), unheld, both);
 	}
 
 private:
@@ -157,27 +163,13 @@ void scratch_image_reader::read_async(
 		);
 	}
 
-	// What the entry does not hold is offered to it, and read once it has
-	// taken that in. Each step reports what fails it, and nothing throws.
-	std::shared_ptr<completion_notifier> continuation;
+	// What the entry holds is read from it, and what it does not is offered
+	// to it and read once it has taken that in. The two report as one, and
+	// each reports what fails it.
+	std::shared_ptr<completion_notifier> both;
 	try
 	{
-		auto missing = m_entry->read(array_ref(destination), regions);
-		if (missing.get_region_count() == 0)
-		{
-			done->notify_done();
-			return;
-		}
-
-		continuation = std::make_shared<scratch_read_continuation>(
-			m_entry,
-			m_file,
-			m_tasks,
-			std::move(destination),
-			missing,
-			done
-		);
-		regions = std::move(missing);
+		both = std::make_shared<counting_notifier>(2, done);
 	}
 	catch (...)
 	{
@@ -185,7 +177,36 @@ void scratch_image_reader::read_async(
 		return;
 	}
 
-	m_entry->store_async(*m_file, std::move(regions), std::move(continuation));
+	auto missing = m_entry->read_async(
+		destination.share(),
+		std::move(regions),
+		both
+	);
+	if (missing.get_region_count() == 0)
+	{
+		both->notify_done();
+		return;
+	}
+
+	std::shared_ptr<completion_notifier> continuation;
+	try
+	{
+		continuation = std::make_shared<scratch_read_continuation>(
+			m_entry,
+			m_file,
+			m_tasks,
+			std::move(destination),
+			missing,
+			both
+		);
+	}
+	catch (...)
+	{
+		both->notify_done(std::current_exception());
+		return;
+	}
+
+	m_entry->store_async(m_file, std::move(missing), std::move(continuation));
 }
 
 } // namespace vitrio

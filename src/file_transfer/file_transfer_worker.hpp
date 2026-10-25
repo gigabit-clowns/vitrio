@@ -70,6 +70,13 @@ public:
 		std::shared_ptr<completion_notifier> done
 	);
 
+	/**
+	 * @brief Tell whether the calling thread is the worker's own.
+	 *
+	 * @return bool Whether it is.
+	 */
+	bool runs_on_this_thread() const noexcept;
+
 private:
 	void run() noexcept;
 

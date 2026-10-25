@@ -229,7 +229,7 @@ The loader's parameters, shared by vitrio's readers:
 |---|---|---|
 | `workers` | the machine's CPUs | Threads of the pool |
 | `cache` | 0 (`vitrio-data`: the shared loader's 64) | Open readers kept |
-| `scratch` | `none` | Copies of what has been read: `host` memory, a `mapped` file, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
+| `scratch` | `none` | Copies of what has been read: `host` memory, a `file`, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
 | `run_length` | 64 | Particles of a file a scratch takes in together |
 | `budget` | what the dataset takes, and a margin | Bytes a directory scratch may take |
 
@@ -253,7 +253,7 @@ the defaults do not account for.
 | `dtype` | `read_batches` | Reading fewer bytes: float16 or int16 on disk, delivered as float32 |
 | `scratch` | `epochs` | **H2**: a scratch is opened through the file it copies, so without a cache every batch still opens its files. **H5**: a scratch takes in the runs of a file one after another, so filling it from one stack is serial |
 | `run_length` | `epochs` | How many particles of a file a scratch should take in together |
-| `larger_than_ram` | `epochs` | **H6**: past the memory, a mapped scratch is read with the advice vitrio gives the pages of a stack. Does it read no more than reading the stack does? |
+| `larger_than_ram` | `epochs` | **H6**: past the memory, a file scratch is read as vitrio reads a stack. Does it read no more than reading the stack does? |
 | `overlap` | `epochs` | How many batches to read ahead, against the length of a step |
 | `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |

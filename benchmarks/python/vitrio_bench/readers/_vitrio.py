@@ -15,7 +15,7 @@ from typing import Any
 
 from . import Reader, default_workers
 
-SCRATCHES = ('none', 'host', 'mapped', 'directory')
+SCRATCHES = ('none', 'host', 'file', 'directory')
 
 # The parameters of a loader, and their defaults, which are those of
 # `vio.loader`: as many threads as the machine reports, no open readers
@@ -68,10 +68,10 @@ def make_loader(reader: Reader) -> tuple[Any, list[Any]]:
 	run_length = params['run_length']
 	if kind == 'host':
 		scratch = vio.create_host_image_scratch(locations, run_length)
-	elif kind == 'mapped':
+	elif kind == 'file':
 		path = scratch_path(reader)
 		path.unlink(missing_ok=True)
-		scratch = vio.create_mapped_file_image_scratch(
+		scratch = vio.create_file_image_scratch(
 			locations, path, run_length
 		)
 	elif kind == 'directory':
@@ -102,7 +102,7 @@ def _disk_bytes(path: Path) -> int:
 
 def scratch_bytes(reader: Reader) -> int | None:
 	"""The bytes the files of a reader's scratch take on disk."""
-	if reader.params['scratch'] not in ('mapped', 'directory'):
+	if reader.params['scratch'] not in ('file', 'directory'):
 		return None
 	path = scratch_path(reader)
 	paths = path.rglob('*') if path.is_dir() else [path]
@@ -110,7 +110,7 @@ def scratch_bytes(reader: Reader) -> int | None:
 
 def remove_scratch(reader: Reader) -> None:
 	"""Remove the files of a reader's scratch, once nothing holds it."""
-	if reader.params['scratch'] in ('mapped', 'directory'):
+	if reader.params['scratch'] in ('file', 'directory'):
 		path = scratch_path(reader)
 		if path.is_dir():
 			shutil.rmtree(path, ignore_errors=True)

@@ -10,7 +10,7 @@
 namespace vitrio
 {
 
-class array_ref;
+class array;
 class completion_notifier;
 class image_reader;
 
@@ -43,32 +43,36 @@ public:
 	image_scratch_entry& operator=(image_scratch_entry &&other) = delete;
 
 	/**
-	 * @brief Read the regions of a plan that are held, and answer the rest.
+	 * @brief Start reading the regions of a plan that are held, and answer
+	 * the rest.
 	 *
 	 * The file is the file side of the plan and @p destination its array
-	 * side, as in @ref image_reader::read_async, and a region that is held is read
-	 * as that would read it: the same values land on the same elements,
-	 * converted the same way.
+	 * side, as in @ref image_reader::read_async, and a region that is held
+	 * is read as that would read it: the same values land on the same
+	 * elements, converted the same way.
 	 *
 	 * A region is held when everything it spans is. One that is held only
 	 * in part is not read at all, and neither is a plan that does not have
 	 * the rank of the file.
 	 *
-	 * @param destination Where the regions that are held are written. Must
-	 * be initialized.
+	 * The read of what is held may still be under way when this returns. It
+	 * reports to @p done exactly once, as a read of a file does: when every
+	 * region that is held has landed, at once if none is, or with what made
+	 * it fail. It keeps @p destination until then.
+	 *
+	 * @param destination Where the regions that are held are written.
 	 * @param regions The regions to read and where each one lands.
-	 * @return image_transfer_plan The regions that were not read, of the
+	 * @param done Where the outcome is reported. Must not be null.
+	 * @return image_transfer_plan The regions that are not read, of the
 	 * shape of @p regions and in the order they have in it. Empty when every
-	 * region was read.
-	 * @throws std::invalid_argument If @p destination is not initialized.
-	 * @throws std::out_of_range If a region that is held does not fit in
-	 * @p destination where it is placed.
-	 * @throws unsupported_operation_error If the data type of @p destination
-	 * can not be produced from the one of the file.
+	 * region is, and all of them when the read fails at once.
+	 * @throws std::invalid_argument If @p done is null. Every other failure
+	 * is reported to @p done, as that of a read of a file is.
 	 */
-	virtual image_transfer_plan read(
-		array_ref destination,
-		const image_transfer_plan &regions
+	virtual image_transfer_plan read_async(
+		array destination,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) const = 0;
 
 	/**
@@ -89,14 +93,14 @@ public:
 	 * that turns out to be malformed or truncated where it is read. Only a
 	 * null notifier throws.
 	 *
-	 * @param file A reader over the file this entry is of. It is only used
-	 * before this returns.
+	 * @param file A reader over the file this entry is of, which is kept
+	 * until the outcome is reported. Must not be null.
 	 * @param regions The regions to take in.
 	 * @param done Where the outcome is reported. Must not be null.
 	 * @throws std::invalid_argument If @p done is null.
 	 */
 	virtual void store_async(
-		const image_reader &file,
+		std::shared_ptr<const image_reader> file,
 		image_transfer_plan regions,
 		std::shared_ptr<completion_notifier> done
 	) = 0;

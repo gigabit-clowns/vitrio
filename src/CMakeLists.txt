@@ -80,6 +80,7 @@ target_sources(
 		executor_image_saver.cpp
 		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
+		file_image_scratch_storage.cpp
 		file_image_writer_provider.cpp
 		file_transfer_pool.cpp
 		file_transfer_pool_implementation.cpp
@@ -106,6 +107,7 @@ target_sources(
 		image_scratch_directory.cpp
 		image_scratch_entry.cpp
 		image_scratch_storage.cpp
+		image_scratch_storage_bounds.cpp
 		image_transaction_plan.cpp
 		image_transfer_plan.cpp
 		image_transfer_sanitizer.cpp
@@ -119,7 +121,6 @@ target_sources(
 		interned_key_list.cpp
 		library_version.cpp
 		logger.cpp
-		mapped_file_image_scratch_storage.cpp
 		memory_range.cpp
 		scratch_image_reader.cpp
 		scratch_image_reader_provider.cpp

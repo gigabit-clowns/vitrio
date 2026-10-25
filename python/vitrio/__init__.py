@@ -77,8 +77,8 @@ from . import _numerical_type as _numerical_type
 
 from ._functions import (
 	create_directory_image_scratch as create_directory_image_scratch,
+	create_file_image_scratch as create_file_image_scratch,
 	create_host_image_scratch as create_host_image_scratch,
-	create_mapped_file_image_scratch as create_mapped_file_image_scratch,
 	detector_event_image_reader_provider as
 		detector_event_image_reader_provider,
 	detector_event_timeline_reader_provider as
@@ -134,8 +134,8 @@ __all__ = [
 	'SynchronousExecutor',
 	'ThreadPoolExecutor',
 	'create_directory_image_scratch',
+	'create_file_image_scratch',
 	'create_host_image_scratch',
-	'create_mapped_file_image_scratch',
 	'detector_event_image_reader_provider',
 	'detector_event_timeline_reader_provider',
 	'get_core_extents',
