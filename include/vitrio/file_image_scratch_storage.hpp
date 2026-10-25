@@ -26,9 +26,10 @@ class image_scratch_storage;
  * memory does. Its values are served by reads of the file and taken in by
  * writes of it, which the threads of @p transfers carry out, so a disk that
  * turns out full is a failure of the load that finds it so. What is taken
- * in passes through memory of its own, a few megabytes for all the loads of
- * the storage at once, and loads beyond that wait their turn. Nothing is
- * synced: the file is a cache, which a scratch checks before it trusts it.
+ * in passes through memory of its own, as much for all the loads of the
+ * storage at once as the library is tuned to, whatever the storage holds,
+ * and loads beyond that wait their turn. Nothing is synced: the file is a
+ * cache, which a scratch checks before it trusts it.
  * The file is not removed when the storage is destroyed.
  *
  * @param path Path of the file.

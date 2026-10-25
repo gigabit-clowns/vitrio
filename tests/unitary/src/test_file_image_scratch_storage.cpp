@@ -186,15 +186,16 @@ TEST_CASE(
 				path.get(),
 				size,
 				pool->get_implementation().get_executor(),
-				16
+				16,
+				32
 			);
 		}
 	);
 }
 
 TEST_CASE(
-	"a file image scratch storage stages two pieces of its loads at once at "
-	"most",
+	"a file image scratch storage stages as much of its loads at once as it "
+	"is given",
 	"[file_image_scratch_storage]"
 )
 {
@@ -204,10 +205,11 @@ TEST_CASE(
 		path.get(),
 		4096,
 		pool->get_implementation().get_executor(),
-		16
+		16,
+		32
 	);
 
-	// Six images of 2 by 2 float32, a piece each.
+	// Six images of 2 by 2 float32, a piece each, two pieces at once.
 	const array_descriptor values(
 		{6, 2, 2},
 		{4, 2, 1},

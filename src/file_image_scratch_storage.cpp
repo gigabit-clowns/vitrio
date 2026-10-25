@@ -29,6 +29,7 @@
 #include <system/file_space_reservation.hpp>
 #include <system/scattered_file_read.hpp>
 #include <system/scattered_file_write.hpp>
+#include <system/system_memory.hpp>
 #include <tuning.hpp>
 
 #include <boost/filesystem/operations.hpp>
@@ -327,7 +328,10 @@ private:
 };
 
 // Starts a piece: makes its staging, and reads its regions of the file into
-// it.
+// it. The staging is memory straight from the system: threads that allocate
+// and free a piece after another through the allocator of the process leave
+// each of its arenas holding the most it ever held, which kept several times
+// the budget of the loads resident.
 class piece_start_task final
 	: public task
 {
@@ -339,7 +343,14 @@ public:
 
 	void run() override
 	{
-		auto staging = make_array(m_piece->load.staging);
+		const auto bytes = std::max<std::size_t>(m_piece->bytes, 1);
+		auto memory = allocate_system_memory(bytes);
+		auto *data = memory.get();
+		array staging(
+			make_span(data, bytes),
+			std::move(memory),
+			m_piece->load.staging
+		);
 		auto into_staging = std::move(m_piece->load.into_staging);
 		const auto file = m_piece->file;
 		auto staged = std::make_shared<staged_write_notifier>(
@@ -525,21 +536,20 @@ public:
 		const std::string &path,
 		std::size_t size,
 		std::shared_ptr<file_transfer_executor> transfers,
-		std::size_t piece_bytes
+		std::size_t piece_bytes,
+		std::size_t load_bytes
 	)
 		: m_file(lay_out_file(path, size))
 		, m_size(size)
 		, m_transfers(std::move(transfers))
 		, m_piece_bytes(piece_bytes)
 		, m_admission(
-			std::make_shared<staged_load_admission>(
-				2 * piece_bytes,
-				m_transfers
-			)
+			std::make_shared<staged_load_admission>(load_bytes, m_transfers)
 		)
 	{
 		VITRIO_ASSERT(m_transfers);
 		VITRIO_ASSERT(m_piece_bytes > 0);
+		VITRIO_ASSERT(load_bytes > 0);
 	}
 
 	~file_image_scratch_storage() override = default;
@@ -636,7 +646,7 @@ public:
 
 	// The regions are read out of the file into memory of their own, and
 	// written from there into the block, a piece at a time. The pieces of
-	// the loads of the storage stage two pieces' worth at once at most.
+	// the loads of the storage stage a budget at once at most.
 	void load_async(
 		std::shared_ptr<const image_reader> file,
 		const array_descriptor &values,
@@ -732,14 +742,16 @@ std::shared_ptr<image_scratch_storage> create_file_image_scratch_storage(
 	const std::string &path,
 	std::size_t size,
 	std::shared_ptr<file_transfer_executor> transfers,
-	std::size_t piece_bytes
+	std::size_t piece_bytes,
+	std::size_t load_bytes
 )
 {
 	return std::make_shared<file_image_scratch_storage>(
 		path,
 		size,
 		std::move(transfers),
-		piece_bytes
+		piece_bytes,
+		load_bytes
 	);
 }
 
@@ -753,7 +765,8 @@ std::shared_ptr<image_scratch_storage> create_file_image_scratch_storage(
 		path,
 		size,
 		transfers.get_implementation().get_executor(),
-		get_staging_byte_budget()
+		get_staging_byte_budget(),
+		get_scratch_load_byte_budget()
 	);
 }
 

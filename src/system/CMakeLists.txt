@@ -28,6 +28,7 @@ if(WIN32)
 			page_size_windows.cpp
 			scattered_file_read_windows.cpp
 			scattered_file_write_windows.cpp
+			system_memory_windows.cpp
 	)
 elseif(APPLE)
 	target_sources(
@@ -41,6 +42,7 @@ elseif(APPLE)
 			page_size_posix.cpp
 			scattered_file_read_posix.cpp
 			scattered_file_write_posix.cpp
+			system_memory_posix.cpp
 	)
 elseif(UNIX)
 	target_sources(
@@ -53,6 +55,7 @@ elseif(UNIX)
 			page_size_posix.cpp
 			scattered_file_read_posix.cpp
 			scattered_file_write_posix.cpp
+			system_memory_posix.cpp
 	)
 
 	# Only Linux reserves the room of a file without writing it.

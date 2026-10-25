@@ -281,10 +281,13 @@ since the archive of a commit lacks its libraries, which are submodules.
     queued reader, and loads through staging and the write operation of the
     queued writer, so a full disk is a reported failure. Its loads go in
     pieces of a step of staging, and pieces wait, in the order they came,
-    while two steps' worth are staged: a shuffled batch starts a load for
-    nearly every run, and staging them all at once held most of a dataset
-    in memory. A load may start after it is asked for, so it keeps the
-    reader it was given, as `store_async` does.
+    while `VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET` is staged: a shuffled
+    batch starts a load for nearly every run, and staging them all at once
+    held most of a dataset in memory, while hard disks under ZFS need about
+    64 MiB in flight. The staging is memory straight from the system,
+    `allocate_system_memory`, since the arenas of the allocator kept
+    several times the budget resident. A load may start after it is asked
+    for, so it keeps the reader it was given, as `store_async` does.
   - The executor of a `file_transfer_pool` may be let go last on one of its
     own threads, when a transfer held what held it, as a load holds a file
     storage. It is then destroyed on a thread of its own, since a thread
