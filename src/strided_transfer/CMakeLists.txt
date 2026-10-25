@@ -3,6 +3,7 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
+		image_chunk_regions.cpp
 		image_page_regions.cpp
 		image_region_bounds.cpp
 		image_region_layout.cpp

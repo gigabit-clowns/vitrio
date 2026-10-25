@@ -3,6 +3,7 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
+		test_image_chunk_regions.cpp
 		test_image_page_regions.cpp
 		test_image_region_bounds.cpp
 		test_image_region_layout.cpp

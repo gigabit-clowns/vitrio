@@ -812,6 +812,47 @@ TEST_CASE( "a file holds a boolean as a byte, true unless it is zero",
 	}
 }
 
+TEST_CASE( "one value of a file fills a region through strides of zero",
+	"[image_region_transfer]" )
+{
+	// What a chunk a file does not hold is read as: its fill value, one
+	// element, stated as a file of the extents of a chunk whose every
+	// stride is zero.
+	const std::vector<std::size_t> chunk = {4, 5};
+	const std::vector<std::ptrdiff_t> broadcast = {0, 0};
+	const std::vector<std::size_t> array_extents = {3, 6};
+	const auto array_strides = contiguous_strides(array_extents);
+	const std::vector<float32_t> fill = {reversed(7.5F)};
+
+	image_transfer_plan regions(image_transfer_shape({2, 3}, 2, 2));
+	regions.add(make_span(std::vector<std::size_t>{1, 2}),
+		make_span(std::vector<std::size_t>{1, 3}));
+	regions.add(make_span(std::vector<std::size_t>{0, 0}),
+		make_span(std::vector<std::size_t>{0, 0}));
+
+	const image_region_read_walk reader(
+		regions,
+		make_span(chunk), make_span(broadcast),
+		make_span(array_extents), make_span(array_strides),
+		0
+	);
+
+	std::vector<float64_t> array(18, -1.0);
+	read_regions(
+		reader,
+		array.data(), numerical_type::float64,
+		as_file(fill), numerical_type::float32,
+		other_byte_order()
+	);
+
+	const std::vector<float64_t> expected = {
+		7.5, 7.5, 7.5, -1.0, -1.0, -1.0,
+		7.5, 7.5, 7.5, 7.5, 7.5, 7.5,
+		-1.0, -1.0, -1.0, 7.5, 7.5, 7.5,
+	};
+	REQUIRE( array == expected );
+}
+
 TEST_CASE( "a file of the other byte order is read in it",
 	"[image_region_transfer]" )
 {
