@@ -107,7 +107,7 @@ private:
 	// The first stretch of each step, and one past the last.
 	std::vector<std::size_t> m_step_first_ranges;
 
-	std::vector<byte> m_staging;
+	std::unique_ptr<byte[]> m_staging;
 
 	// One group a stretch, so a group and its stretch share their index.
 	file_write_plan m_plan;

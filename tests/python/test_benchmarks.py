@@ -24,7 +24,9 @@ BENCHMARKS = Path(__file__).parents[2] / 'benchmarks'
 HARNESS = BENCHMARKS / 'python'
 sys.path.insert(0, str(HARNESS))
 
-from vitrio_bench import datasets, manifests, readers, results    # noqa: E402
+from vitrio_bench import (    # noqa: E402
+	datasets, manifests, readers, results, writers,
+)
 
 DATASET = ['--dataset.count=120', '--dataset.box=16']
 LAYOUTS = ['single-stack', 'per-micrograph:7']
@@ -231,6 +233,74 @@ def test_every_patch_reader_crops_the_same_patches(tmp_path):
 	assert len(succeeded) >= 2
 	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
 	assert all(record['metrics']['images'] == 30 for record in succeeded)
+
+VOLUME = [
+	'--dataset.count=24', '--dataset.box=20', '--dataset.layout=single-stack',
+]
+
+@pytest.mark.parametrize('axis', ['z', 'y', 'x'])
+def test_every_slice_reader_reads_the_same_slices(tmp_path, axis):
+	harness('generate', '--datadir', str(tmp_path), *VOLUME)
+	records_file = tmp_path / 'results.jsonl'
+	for name, reader in readers.READERS.items():
+		if not reader.reads_slices:
+			continue
+		harness(
+			'run', 'slices', '--datadir', str(tmp_path),
+			'--results', str(records_file), *VOLUME,
+			f'--reader.name={name}', f'--workload.axis={axis}',
+			'--workload.batch=7', '--workload.verify=true'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert len(succeeded) >= 2
+	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
+	slices = 24 if axis == 'z' else 20
+	assert all(record['metrics']['images'] == slices for record in succeeded)
+
+@pytest.mark.parametrize(
+	'dataset',
+	[
+		['--dataset.count=40', '--dataset.layout=single-stack'],
+		['--dataset.count=40', '--dataset.layout=per-micrograph:7'],
+		[
+			'--dataset.count=40', '--dataset.layout=single-stack',
+			'--dataset.dtype=float16',
+		],
+		['--dataset.count=3', '--dataset.layout=one-per-file'],
+	]
+)
+def test_every_writer_writes_a_dataset_and_leaves_nothing(tmp_path, dataset):
+	records_file = tmp_path / 'results.jsonl'
+	for name in writers.WRITERS:
+		harness(
+			'run', 'write_batches', '--datadir', str(tmp_path),
+			'--results', str(records_file), '--dataset.box=16', *dataset,
+			f'--reader.name={name}', '--workload.batch=8'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert succeeded
+	count = int(dataset[0].partition('=')[2])
+	assert all(record['metrics']['images'] == count for record in succeeded)
+	assert not any(tmp_path.glob('writes-*'))
+
+def test_a_scratch_on_the_storage_of_its_data_is_flagged(tmp_path):
+	datadir = tmp_path / 'data'
+	harness('generate', '--datadir', str(datadir), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	completed = run(
+		datadir, records_file, '--reader.scratch=file',
+		f'--environment.scratchdir={tmp_path / "scratch"}'
+	)
+	[record] = results.load(records_file)
+	assert record['status'] == 'ok'
+	assert record['environment']['scratch_target']['shares_storage'] is True
+	assert 'warning: the scratch directory' in completed.stderr
 
 def write_star(path, names):
 	starfile = pytest.importorskip('starfile')

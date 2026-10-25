@@ -12,6 +12,7 @@ and campaigns of runs are left to ReFrame.
 |---|---|
 | `python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON |
 | `python/vitrio_bench/readers/` | The readers: vitrio's, and the baselines that read as other software does |
+| `python/vitrio_bench/writers.py` | The writers of the procedure that writes: vitrio's, and mrcfile's |
 | `python/vitrio_bench/procedures/` | The procedures |
 | `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
 | `reframe/` | The ReFrame tests: a base test per procedure, and its named sweeps |
@@ -20,7 +21,8 @@ and campaigns of runs are left to ReFrame.
 
 The harness is not part of the package and is not built. CI runs none of
 the benchmarks, apart from two smoke tests: `tests/python/test_benchmarks.py`
-checks that every reader and every scratch delivers the same batches and
+checks that every reader and every scratch delivers the same batches, every
+reader of slices the same slices, that every writer writes each layout, and
 that every record follows its schema, and the C++ benchmark runs each of its
 benchmarks for a moment.
 
@@ -93,9 +95,9 @@ left for the next. The point is given part by part, as
 
 | Part | What | Examples |
 |---|---|---|
-| `dataset` | What is read | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
-| `reader` | Who reads it, with which settings | `name`, and the reader's own (below) |
-| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `verify` |
+| `dataset` | What is read, or written | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
+| `reader` | Who reads it, or writes it, with which settings | `name`, and the reader's own (below), or the writer's |
+| `workload` | How it is read, or written | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `axis`, `sync`, `verify` |
 | `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
@@ -122,6 +124,7 @@ can; a variant that asks for one its machine lacks is skipped.
 |---|---|---|
 | Drop the dataset's pages, and those of a reader's copies, from the cache, with `POSIX_FADV_DONTNEED` (Linux) | `--environment.cold=fadvise` | |
 | Drop every clean page of the machine (root) | `--environment.cold=drop` | `root` |
+| Drop every clean page of the machine and empty the ARC of ZFS, which keeps what ZFS reads apart from the page cache and ignores the other two (root) | `--environment.cold=zfs` | `root` |
 | Run on some CPUs only (Linux) | `--environment.cpus=0-3` | |
 | Limit the memory of the run, page cache included, with a scope of systemd | `--environment.memory_max=8G` | `cgroup-memory` |
 | Measure the storage's ceiling with fio | the procedure `ceiling` | `fio` |
@@ -136,6 +139,16 @@ can; a variant that asks for one its machine lacks is skipped.
   itself, so the command that started it records it as failed. The scope
   starts empty, and pages another process cached are not counted against
   it, so a limited run should be a cold one.
+- **The ARC.** Emptying it lowers its limits to their floor, drops the
+  caches until it gets there or stops shrinking, and gives it back the
+  limits it had; the record keeps what it held before and after, as
+  `emptied`. A run killed half way leaves the limits low, which the next
+  one refuses to start from.
+- **Scratches in files.** The record describes the storage of the scratch
+  directory, as `scratch_target`, and whether it is that of the dataset:
+  the same disk, whatever the partition, or the same ZFS pool. A scratch
+  there only copies the data where it already is, which no one sets up, so
+  the run warns, and its numbers say nothing of what a scratch is worth.
 
 ## Datasets
 
@@ -199,6 +212,32 @@ many each image has (100). The readers that crop patches are
 `vitrio-loader`, with one `read_patches_async` per image of a batch, and
 the readers of mrcfile, numpy and Python's files, one patch at a time.
 
+### `slices`
+
+Slices of a volume along one of its axes, as a viewer of a tomogram shows
+them. The volume is the single stack of a dataset, whose images are its
+planes along `z`: a slice along `z` is one image, one along `y` takes a row
+of every image, and one along `x` a value of every row. Its workload is
+that of `read_batches`, whose rows are the slices, and `axis` (`z`). The
+readers that take slices are `vitrio-loader`, with one `read_patches_async`
+per batch, a slice being a patch one value deep, and the maps of numpy and
+mrcfile.
+
+### `write_batches`
+
+A dataset written from memory, a batch of images at a time in the order of
+its stacks: what extraction, conversion and reconstruction write. The
+dataset is not generated: its files are written into a directory under the
+data directory, on the storage measured, and removed after. Its layout
+decides the files, an image a file being written as a micrograph is, and its
+data type is the one the files hold, so `float16` from `float32` images
+converts every value. Its workload is `batch` (256) and `sync` (true): the
+time runs until a sync of the system returns, since a writer that leaves
+what it wrote in the page cache, as a map does, is not done. It reports
+`write_s`, until the files are closed, `sync_s`, `images_per_s`,
+`file_bytes_per_s` and the CPU and memory it took. Its writers come next to
+the readers.
+
 ### `ceiling`
 
 What the storage behind a dataset can deliver, measured with fio on its
@@ -233,6 +272,13 @@ The loader's parameters, shared by vitrio's readers:
 | `run_length` | 64 | Particles of a file a scratch takes in together |
 | `budget` | what the dataset takes, and a margin | Bytes a directory scratch may take |
 
+The writers of `write_batches`:
+
+| Writer | Stands for | Parameters |
+|---|---|---|
+| `vitrio-saver` | `vio.saver` and `write_batch_async` over a writer provider the stacks are declared to, a few batches in flight, each stack finished with `close_async` as soon as it is complete, a few at once; `write_single` for an image a file. A build without `close_async` closes each stack as it is complete, which syncs nothing | `workers`, `in_flight`, `finishing` (16) |
+| `mrcfile-mmap` | `mrcfile.new_mmap` for each stack, its images assigned a batch at a time; `mrcfile.new` for an image a file | |
+
 The readers that read files themselves are named
 `<library>-<call>-<how long a file stays open>`: `per-read` opens it for
 each read, `kept` keeps every file open, and `last` the last one.
@@ -262,6 +308,9 @@ the defaults do not account for.
 | `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value |
 | `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET`. A build per value |
 | `ceiling` | `ceiling` | What the storage delivers |
+| `slice_readers` | `slices` | Slices of a tomogram along each axis: a plane of the file along `z`, pieces of every plane along `y` and `x` |
+| `writers` | `write_batches` | Where vitrio stands against mrcfile's maps writing a stack, a stack per micrograph and micrographs, until they are on the storage |
+| `write_dtype` | `write_batches` | Writing fewer bytes: float16 or int16 stored from float32 images, every value converted |
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,
 C2 and C4; `epochs` C3, C7 and the loader side of A6; `ceiling` its storage

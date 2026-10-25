@@ -12,20 +12,26 @@ A procedure is a module with:
   `time.time`, from which the time to the first batch is counted;
 - `make_reader(dataset, params, scratchdir)`, optionally: the reader of a
   procedure that does not read with those of `vitrio_bench.readers`, such
-  as fio for the ceiling.
+  as fio for the ceiling, or the writer of one that writes;
+- `writes`, optionally true: the procedure writes its dataset rather than
+  reading one generated beforehand.
 """
 
 from __future__ import annotations
 
 from types import ModuleType
 
-from . import ceiling, epochs, patches, read_batches
+from . import (
+	ceiling, epochs, patches, read_batches, slices, write_batches,
+)
 
 PROCEDURES: dict[str, ModuleType] = {
 	'ceiling': ceiling,
 	'epochs': epochs,
 	'patches': patches,
 	'read_batches': read_batches,
+	'slices': slices,
+	'write_batches': write_batches,
 }
 
 def get(name: str) -> ModuleType:

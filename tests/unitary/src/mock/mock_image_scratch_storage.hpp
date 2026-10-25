@@ -40,6 +40,16 @@ public:
 		override
 	);
 
+	MAKE_MOCK3(
+		write_async,
+		void(
+			std::size_t offset,
+			span<const byte> bytes,
+			std::shared_ptr<completion_notifier> done
+		),
+		override
+	);
+
 	MAKE_CONST_MOCK4(
 		serve_async,
 		void(

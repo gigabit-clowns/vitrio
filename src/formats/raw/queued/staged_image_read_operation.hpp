@@ -98,7 +98,7 @@ private:
 	std::vector<std::size_t> m_first_regions;
 	std::vector<std::size_t> m_region_counts;
 
-	std::vector<byte> m_staging;
+	std::unique_ptr<byte[]> m_staging;
 
 	// One read a stretch, so a read and its stretch share their index.
 	file_read_plan m_plan;

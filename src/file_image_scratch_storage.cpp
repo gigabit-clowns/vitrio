@@ -7,9 +7,11 @@
 #include "image_scratch_storage_bounds.hpp"
 
 #include <vitrio/array/array_descriptor.hpp>
+#include <vitrio/byte.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/concurrency/counting_notifier.hpp>
 #include <vitrio/concurrency/task.hpp>
+#include <vitrio/const_memory_range.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -221,6 +223,63 @@ staged_load stage(
 
 	return load;
 }
+
+// Writes bytes of the block, which it holds a copy of.
+class byte_write_operation final
+	: public file_transfer_operation
+{
+public:
+	byte_write_operation(
+		std::shared_ptr<writable_image_file> file,
+		std::size_t offset,
+		std::vector<byte> bytes
+	) noexcept
+		: m_file(std::move(file))
+		, m_offset(offset)
+		, m_bytes(std::move(bytes))
+		, m_buffer(m_bytes.data(), m_bytes.size())
+	{
+	}
+
+	void start(file_transfer_scope &scope) override
+	{
+		scope.queue_write(
+			m_file->get_file(),
+			m_offset,
+			make_span(&m_buffer, 1),
+			0
+		);
+	}
+
+	void on_transfer(
+		const file_transfer_completion &completion,
+		file_transfer_scope &
+	) override
+	{
+		if (completion.get_error())
+		{
+			throw image_file_error(
+				m_file->get_path() + ": file_image_scratch_storage: The file "
+				"could not be written: " + completion.get_error().message()
+			);
+		}
+	}
+
+	void on_task(
+		std::uint64_t,
+		std::exception_ptr,
+		file_transfer_scope &
+	) override
+	{
+		VITRIO_ASSERT(false);
+	}
+
+private:
+	std::shared_ptr<writable_image_file> m_file;
+	std::size_t m_offset;
+	std::vector<byte> m_bytes;
+	const_memory_range m_buffer;
+};
 
 // The regions of a load in pieces of consecutive regions, each of which
 // stages at most a number of bytes, or a single region that alone stages
@@ -600,6 +659,48 @@ public:
 				"could not be written: " + error.message()
 			);
 		}
+	}
+
+	// The bytes are queued as a write of the file, from a copy of them.
+	void write_async(
+		std::size_t offset,
+		span<const byte> bytes,
+		std::shared_ptr<completion_notifier> done
+	) override
+	{
+		if (!done)
+		{
+			throw std::invalid_argument(
+				"file_image_scratch_storage: The notifier must not be null."
+			);
+		}
+
+		std::unique_ptr<file_transfer_operation> operation;
+		try
+		{
+			check_bytes_within(offset, bytes.size(), m_size, name);
+			if (bytes.size() > 0)
+			{
+				operation = std::make_unique<byte_write_operation>(
+					m_file,
+					offset,
+					std::vector<byte>(bytes.begin(), bytes.end())
+				);
+			}
+		}
+		catch (...)
+		{
+			done->notify_done(std::current_exception());
+			return;
+		}
+
+		if (!operation)
+		{
+			done->notify_done();
+			return;
+		}
+
+		m_transfers->submit(std::move(operation), std::move(done));
 	}
 
 	// The values are read out of the file, as a reader of a raw file reads

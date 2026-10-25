@@ -71,9 +71,12 @@ def make_loader(reader: Reader) -> tuple[Any, list[Any]]:
 	elif kind == 'file':
 		path = scratch_path(reader)
 		path.unlink(missing_ok=True)
-		scratch = vio.create_file_image_scratch(
-			locations, path, run_length
-		)
+		# Builds before the storage of a scratch went through transfers
+		# keep one in a file through a mapping, which is how they compare.
+		create = getattr(
+			vio, 'create_file_image_scratch', None
+		) or vio.create_mapped_file_image_scratch
+		scratch = create(locations, path, run_length)
 	elif kind == 'directory':
 		directory = scratch_path(reader)
 		shutil.rmtree(directory, ignore_errors=True)

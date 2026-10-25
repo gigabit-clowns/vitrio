@@ -40,6 +40,7 @@ class Reader:
 	defaults: ClassVar[dict[str, Any]] = {}
 	#: Whether the reader crops patches, which `patches` asks of it.
 	reads_patches: ClassVar[bool] = False
+	reads_slices: ClassVar[bool] = False
 
 	def __init__(
 		self,
@@ -99,6 +100,42 @@ class Reader:
 		rows of a batch come in the order of their images.
 		"""
 		raise NotImplementedError
+
+	def new_slices(self, size: int, axis: str) -> np.ndarray:
+		"""
+		An array for a batch of `size` slices along `axis` of the volume
+		that the single stack of the dataset is.
+		"""
+		box = self.dataset.box
+		shape = (box, box) if axis == 'z' else (self.dataset.count, box)
+		return np.empty((size, *shape), dtype=self.dtype)
+
+	def slices(
+		self,
+		batches: Iterable[np.ndarray],
+		axis: str
+	) -> Iterator[np.ndarray]:
+		"""
+		Hand out the slices along `axis` of each batch of rows, in order, of
+		the volume that the single stack of the dataset is: the planes of
+		its images along `z`, and those across them along `y` and `x`.
+		"""
+		raise NotImplementedError
+
+	@staticmethod
+	def take_slices(
+		volume: np.ndarray,
+		rows: np.ndarray,
+		axis: str,
+		out: np.ndarray
+	) -> None:
+		"""Copy the slices `rows` along `axis` of a volume into `out`."""
+		if axis == 'z':
+			out[...] = volume[rows]
+		elif axis == 'y':
+			out[...] = np.moveaxis(volume[:, rows, :], 1, 0)
+		else:
+			out[...] = np.moveaxis(volume[:, :, rows], 2, 0)
 
 	def crop_patches(
 		self,

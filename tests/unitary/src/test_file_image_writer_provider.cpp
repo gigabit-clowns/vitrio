@@ -9,6 +9,9 @@
 #include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_writer.hpp"
 
+#include <vitrio/concurrency/completion_notifier.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -264,6 +267,114 @@ TEST_CASE_METHOD(
 		declare_stack(provider, "stack_0.mrcs");
 
 		REQUIRE( provider.acquire("stack_0.mrcs") == again );
+	}
+}
+
+TEST_CASE_METHOD(
+	write_format_selector_fixture,
+	"closing a file asynchronously forgets it at once and finishes it once "
+	"its flush reports",
+	"[file_image_writer_provider]"
+)
+{
+	auto &format = add_format(image_file_format_suitability::normal);
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
+	declare_stack(provider, "stack_0.mrcs");
+	const auto done = std::make_shared<counting_completion>(1);
+
+	SECTION( "closing what was never declared is reported" )
+	{
+		provider.close_async("absent.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_THROWS_AS( done->get(), std::out_of_range );
+	}
+
+	SECTION( "a file never acquired is finished at once" )
+	{
+		// No expectation on open: creating the file would violate.
+		provider.close_async("stack_0.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_NOTHROW( done->get() );
+		CHECK( provider.get_file_count() == 0 );
+	}
+
+	SECTION( "the writer is flushed, and dropped once the flush reports" )
+	{
+		auto writer = std::make_shared<mock_image_writer>();
+		REQUIRE_CALL(
+			format,
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
+		)
+			.LR_RETURN(writer);
+		std::shared_ptr<completion_notifier> flushed;
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.LR_SIDE_EFFECT( flushed = _1 );
+
+		provider.acquire("stack_0.mrcs");
+		provider.close_async("stack_0.mrcs", done);
+
+		// Forgotten before the flush reports, and the writer kept for it.
+		CHECK( provider.get_file_count() == 0 );
+		CHECK_THROWS_AS(
+			provider.acquire("stack_0.mrcs"),
+			std::out_of_range
+		);
+		REQUIRE( flushed != nullptr );
+		CHECK_FALSE( done->is_ready() );
+		CHECK( writer.use_count() > 1 );
+
+		flushed->notify_done();
+		flushed.reset();
+
+		REQUIRE( done->is_ready() );
+		CHECK_NOTHROW( done->get() );
+		CHECK( writer.use_count() == 1 );
+	}
+
+	SECTION( "a flush that fails is reported" )
+	{
+		const auto writer = std::make_shared<mock_image_writer>();
+		REQUIRE_CALL(
+			format,
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
+		)
+			.RETURN(writer);
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT(
+				_1->notify_done(
+					std::make_exception_ptr(image_file_error("flush"))
+				)
+			);
+
+		provider.acquire("stack_0.mrcs");
+		provider.close_async("stack_0.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_THROWS_AS( done->get(), image_file_error );
+	}
+
+	SECTION( "a null notifier is refused" )
+	{
+		CHECK_THROWS_AS(
+			provider.close_async("stack_0.mrcs", nullptr),
+			std::invalid_argument
+		);
+		CHECK( provider.get_file_count() == 1 );
 	}
 }
 

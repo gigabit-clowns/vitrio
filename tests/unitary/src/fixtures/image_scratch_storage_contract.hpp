@@ -147,6 +147,41 @@ void check_image_scratch_storage_contract(
 		CHECK( back == text );
 	}
 
+	SECTION( "what is written as a transfer is read back" )
+	{
+		const std::string text = "written as a transfer";
+		const auto done = std::make_shared<counting_completion>(1);
+		storage->write_async(
+			100,
+			make_span(
+				reinterpret_cast<const byte*>(text.data()),
+				text.size()
+			),
+			done
+		);
+		done->get();
+
+		std::string back(text.size(), ' ');
+		storage->read(
+			100,
+			make_span(reinterpret_cast<byte*>(&back[0]), back.size())
+		);
+		CHECK( back == text );
+	}
+
+	SECTION( "bytes written as a transfer past the storage are reported" )
+	{
+		const std::vector<byte> bytes(8);
+		const auto done = std::make_shared<counting_completion>(1);
+		storage->write_async(
+			size - 4,
+			make_span(bytes.data(), bytes.size()),
+			done
+		);
+
+		CHECK_THROWS_AS( done->get(), std::out_of_range );
+	}
+
 	SECTION( "bytes that reach past the storage are refused" )
 	{
 		std::vector<byte> bytes(8);
@@ -281,6 +316,10 @@ void check_image_scratch_storage_contract(
 				images_into_slots({0}, {0}),
 				nullptr
 			),
+			std::invalid_argument
+		);
+		CHECK_THROWS_AS(
+			storage->write_async(0, span<const byte>(), nullptr),
 			std::invalid_argument
 		);
 	}

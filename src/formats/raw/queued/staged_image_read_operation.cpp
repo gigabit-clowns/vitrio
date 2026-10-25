@@ -88,21 +88,27 @@ staging_layout lay_out_staging(const image_transfer_schedule &schedule)
 // take turns at two halves of the memory, which this sizes.
 file_read_plan plan_reads(
 	const image_transfer_schedule &schedule,
-	std::vector<byte> &staging
+	std::unique_ptr<byte[]> &staging
 )
 {
 	const auto ranges = schedule.get_ranges();
 	const auto step_count = schedule.get_step_count();
 	const auto layout = lay_out_staging(schedule);
 
-	staging.resize(layout.half * std::min<std::size_t>(step_count, 2));
+	// Not filled with zeros: every byte a conversion reads is read from the
+	// file first, and filling the megabytes a patch of a micrograph stages
+	// took most of the time its read spent in the program, rather than in
+	// the kernel, where the cache held the file.
+	staging.reset(
+		new byte[layout.half * std::min<std::size_t>(step_count, 2)]
+	);
 
 	file_read_plan plan;
 	for (std::size_t step = 0; step < step_count; ++step)
 	{
 		const auto first = schedule.get_step_first_range(step);
 		const auto count = schedule.get_step_ranges(step).size();
-		auto *half = staging.data() + (step % 2) * layout.half;
+		auto *half = staging.get() + (step % 2) * layout.half;
 
 		for (auto range = first; range < first + count; ++range)
 		{

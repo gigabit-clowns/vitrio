@@ -5,6 +5,7 @@
 #include "direct_image_read_operation.hpp"
 #include "staged_image_read_operation.hpp"
 
+#include <formats/raw/planning/image_region_split.hpp>
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <strided_transfer/image_region_read_walk.hpp>
@@ -15,6 +16,7 @@
 
 #include <array/array_data.hpp>
 #include <memory/byte_order.hpp>
+#include <system/page_size.hpp>
 #include <tuning.hpp>
 
 #include <algorithm>
@@ -108,8 +110,20 @@ std::unique_ptr<file_transfer_operation> make_image_read_operation(
 	get_array_data(array_ref(destination));
 	const auto &target = destination.get_descriptor();
 
-	image_region_read_walk walk(
+	// A region whose parts lie far apart, such as a slice across the planes
+	// of a volume or the rows of a patch of a micrograph, is read a part at
+	// a time, rather than with everything between its parts.
+	const auto parts = split_scattered_regions(
 		regions,
+		layout.get_strides(),
+		layout.get_descriptor().get_data_type(),
+		get_page_size(),
+		get_prefetch_gap_cap(),
+		byte_budget
+	);
+
+	image_region_read_walk walk(
+		parts,
 		layout.get_descriptor().get_extents(),
 		layout.get_strides(),
 		target.get_extents(),
@@ -135,7 +149,7 @@ std::unique_ptr<file_transfer_operation> make_image_read_operation(
 	}
 
 	const auto schedule = schedule_stretches(
-		regions,
+		parts,
 		walk,
 		layout,
 		file_size,

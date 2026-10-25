@@ -31,7 +31,7 @@ class image_reader;
  * either reports exactly once, a failure is reported rather than thrown, and
  * only a null notifier throws. Besides them the block holds a few bytes of
  * the scratch's own, such as which copies are whole, which are read and
- * written on the calling thread.
+ * written on the calling thread, or written as a transfer.
  *
  * @par Thread safety
  * Every method may be called concurrently, on different bytes of the block.
@@ -75,6 +75,22 @@ public:
 	 * @throws image_file_error If the block can not be written.
 	 */
 	virtual void write(std::size_t offset, span<const byte> bytes) = 0;
+
+	/**
+	 * @brief Start writing bytes of the block, as a transfer.
+	 *
+	 * @param offset Where the bytes start, from the first of the block.
+	 * @param bytes What is written, which is copied before this returns.
+	 * @param done Where the outcome is reported: once the bytes are written,
+	 * or with what failed them, such as an std::out_of_range for bytes that
+	 * reach past the block. Must not be null.
+	 * @throws std::invalid_argument If @p done is null.
+	 */
+	virtual void write_async(
+		std::size_t offset,
+		span<const byte> bytes,
+		std::shared_ptr<completion_notifier> done
+	) = 0;
 
 	/**
 	 * @brief Start reading regions of values the block holds into an array.

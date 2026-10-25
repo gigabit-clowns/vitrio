@@ -112,7 +112,8 @@ staged_image_write_operation::staged_image_write_operation(
 		half = std::max(half, offset);
 	}
 	m_step_first_ranges.push_back(ranges.size());
-	m_staging.resize(half * std::min<std::size_t>(step_count, 2));
+	// Not filled with zeros: only the runs a conversion fills are written.
+	m_staging.reset(new byte[half * std::min<std::size_t>(step_count, 2)]);
 
 	const auto element_size = get_size(m_file_type);
 	const auto file_offsets = m_walk.get_offsets().get_file();
@@ -124,7 +125,7 @@ staged_image_write_operation::staged_image_write_operation(
 	for (std::size_t range = 0; range < ranges.size(); ++range)
 	{
 		const auto range_offset = ranges[range].get_offset();
-		auto *staged = m_staging.data() +
+		auto *staged = m_staging.get() +
 			(m_range_steps[range] % 2) * half + offsets_in_half[range];
 
 		m_range_offsets.push_back(range_offset);

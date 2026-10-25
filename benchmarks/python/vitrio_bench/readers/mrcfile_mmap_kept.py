@@ -21,6 +21,7 @@ class MrcfileMmapKept(Reader):
 	name = 'mrcfile-mmap-kept'
 	requires = ('mrcfile',)
 	reads_patches = True
+	reads_slices = True
 
 	def open(self) -> None:
 		import mrcfile
@@ -57,6 +58,22 @@ class MrcfileMmapKept(Reader):
 		picks: Picks
 	) -> Iterator[np.ndarray]:
 		return self.crop_patches(batches, picks, self._crop)
+
+	def slices(
+		self,
+		batches: Iterable[np.ndarray],
+		axis: str
+	) -> Iterator[np.ndarray]:
+		"""Copies the slices of a batch out of the map one at a time."""
+		for rows in batches:
+			slices = self.new_slices(len(rows), axis)
+			data = self._data(0)
+			for position, row in enumerate(rows):
+				self.take_slices(
+					data, rows[position:position + 1], axis,
+					slices[position:position + 1]
+				)
+			yield slices
 
 	def close(self) -> None:
 		for mrc in self._open.values():

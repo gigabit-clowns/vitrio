@@ -127,6 +127,7 @@ public:
 
 private:
 	class run_load_notifier;
+	class run_flag_notifier;
 	struct held_split;
 
 	using waiter_list = std::list<std::shared_ptr<completion_notifier>>;
@@ -187,13 +188,22 @@ private:
 	) noexcept;
 
 	/**
-	 * @brief Settle a run whose read reported: it is loaded, or absent
-	 * again if the read failed, and its waiters are told so.
+	 * @brief Carry on from a run whose read reported: write its flag if the
+	 * read succeeded, then settle it.
 	 *
 	 * @param run Index of the run.
 	 * @param error What the read failed with, or null.
 	 */
 	void finish_load(std::size_t run, std::exception_ptr error);
+
+	/**
+	 * @brief Settle a run: it is loaded, or absent again if its read or the
+	 * write of its flag failed, and its waiters are told so.
+	 *
+	 * @param run Index of the run.
+	 * @param error What failed it, or null.
+	 */
+	void settle(std::size_t run, std::exception_ptr error);
 
 	/**
 	 * @brief Make the plan that reads a run from the file.

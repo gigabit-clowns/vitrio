@@ -108,6 +108,38 @@ def target(path: str | Path) -> dict[str, Any]:
 		'options': best.opts,
 	}
 
+def _storage(path: str | Path) -> str | None:
+	"""
+	What holds a path, as far as it can be told: the pool of a ZFS dataset,
+	the whole disk of a partition, or the device number of the file system.
+	"""
+	described = target(path)
+	if described.get('filesystem') == 'zfs':
+		return 'zfs:' + described['device'].split('/')[0]
+	try:
+		device = os.stat(path).st_dev
+	except OSError:
+		return None
+	block = Path(f'/sys/dev/block/{os.major(device)}:{os.minor(device)}')
+	try:
+		resolved = block.resolve(strict=True)
+	except OSError:
+		return f'device:{device}'
+	if (resolved / 'partition').exists():
+		resolved = resolved.parent
+	return 'disk:' + resolved.name
+
+def shares_storage(first: str | Path, second: str | Path) -> bool | None:
+	"""
+	Whether two paths are on the same storage: the same ZFS pool or the same
+	disk, whichever partitions or file systems they are in. None where it
+	cannot be told.
+	"""
+	held = _storage(first), _storage(second)
+	if None in held:
+		return None
+	return held[0] == held[1]
+
 def _find_cmake_cache(directory: Path) -> Path | None:
 	for parent in (directory, *directory.parents):
 		candidate = parent / 'CMakeCache.txt'

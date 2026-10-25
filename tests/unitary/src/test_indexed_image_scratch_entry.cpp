@@ -1239,6 +1239,11 @@ TEST_CASE(
 	const auto storage = std::make_shared<mock_image_scratch_storage>();
 	ALLOW_CALL(*storage, get_size()).RETURN(std::size_t{1} << 20);
 	ALLOW_CALL(*storage, write(trompeloeil::_, trompeloeil::_));
+	ALLOW_CALL(
+		*storage,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 	const array_descriptor values(
 		{3, 2, 2},
 		{4, 2, 1},
@@ -1443,8 +1448,15 @@ TEST_CASE(
 	);
 
 	// The flag of the second run, the one of image 4, is not written.
-	REQUIRE_CALL(*storage, write(sizeof(std::uint64_t), trompeloeil::_))
-		.THROW( image_file_error("flag") );
+	REQUIRE_CALL(
+		*storage,
+		write_async(sizeof(std::uint64_t), trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT(
+			_3->notify_done(
+				std::make_exception_ptr(image_file_error("flag"))
+			)
+		);
 	REQUIRE_CALL(
 		*storage,
 		load_async(trompeloeil::_, values, trompeloeil::_, trompeloeil::_)

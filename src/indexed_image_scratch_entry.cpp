@@ -112,6 +112,30 @@ private:
 	std::size_t m_run;
 };
 
+// What the write of the flag of a run reports to: it settles the run.
+class indexed_image_scratch_entry::run_flag_notifier final
+	: public completion_notifier
+{
+public:
+	run_flag_notifier(
+		std::shared_ptr<indexed_image_scratch_entry> entry,
+		std::size_t run
+	) noexcept
+		: m_entry(std::move(entry))
+		, m_run(run)
+	{
+	}
+
+	void notify_done(std::exception_ptr error) override
+	{
+		m_entry->settle(m_run, std::move(error));
+	}
+
+private:
+	std::shared_ptr<indexed_image_scratch_entry> m_entry;
+	std::size_t m_run;
+};
+
 indexed_image_scratch_entry::indexed_image_scratch_entry(
 	std::vector<std::size_t> indices,
 	std::shared_ptr<image_scratch_storage> storage,
@@ -492,16 +516,19 @@ void indexed_image_scratch_entry::finish_load(
 	std::exception_ptr error
 )
 {
-	// The flag is written outside the lock, which guards no transfer. A
-	// run whose flag can not be written is not held.
+	// The flag is written as a transfer, since the read may report on a
+	// thread that carries out transfers, which a write that blocks would
+	// hold up. A run whose flag can not be written is not held.
 	if (!error)
 	{
 		try
 		{
-			m_storage->write(
+			m_storage->write_async(
 				m_flags_offset + run * sizeof(std::uint64_t),
-				as_bytes(m_modification_time)
+				as_bytes(m_modification_time),
+				std::make_shared<run_flag_notifier>(shared_from_this(), run)
 			);
+			return;
 		}
 		catch (...)
 		{
@@ -509,6 +536,14 @@ void indexed_image_scratch_entry::finish_load(
 		}
 	}
 
+	settle(run, std::move(error));
+}
+
+void indexed_image_scratch_entry::settle(
+	std::size_t run,
+	std::exception_ptr error
+)
+{
 	waiter_list waiters;
 	{
 		const std::lock_guard<std::mutex> lock(m_mutex);

@@ -269,6 +269,15 @@ def load(datadir: str | Path, spec: dict[str, Any]) -> Dataset:
 	recorded = json.loads(description.read_text())
 	return Dataset(path, recorded['spec'], recorded['sizes'])
 
+def plan(datadir: str | Path, spec: dict[str, Any], label: str) -> Dataset:
+	"""
+	A dataset to be written under `datadir`, rather than generated: its
+	files are to go to a directory of their own, named after it and `label`,
+	which does not exist yet.
+	"""
+	path = Path(datadir) / f'writes-{name(spec)}-{label}'
+	return Dataset(path, spec, stack_sizes(spec))
+
 def _noise(rng: np.random.Generator, shape: tuple, dtype: str) -> np.ndarray:
 	if dtype == 'int16':
 		return rng.integers(-32768, 32768, size=shape, dtype=np.int16)

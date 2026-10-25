@@ -88,6 +88,33 @@ public:
 		std::memcpy(m_memory.get() + offset, bytes.data(), bytes.size());
 	}
 
+	// The bytes are copied before this returns, which reports.
+	void write_async(
+		std::size_t offset,
+		span<const byte> bytes,
+		std::shared_ptr<completion_notifier> done
+	) override
+	{
+		if (!done)
+		{
+			throw std::invalid_argument(
+				"host_image_scratch_storage: The notifier must not be null."
+			);
+		}
+
+		try
+		{
+			write(offset, bytes);
+		}
+		catch (...)
+		{
+			done->notify_done(std::current_exception());
+			return;
+		}
+
+		done->notify_done();
+	}
+
 	// The values are in memory, so they are copied out before this
 	// returns, which is when it reports.
 	void serve_async(
