@@ -116,6 +116,10 @@ def _storage(path: str | Path) -> str | None:
 	described = target(path)
 	if described.get('filesystem') == 'zfs':
 		return 'zfs:' + described['device'].split('/')[0]
+	# Windows numbers no block device: the volume is what holds a path.
+	if not hasattr(os, 'major'):
+		volume = described.get('device') or described.get('mountpoint')
+		return f'volume:{volume.lower()}' if volume else None
 	try:
 		device = os.stat(path).st_dev
 	except OSError:
@@ -135,7 +139,11 @@ def shares_storage(first: str | Path, second: str | Path) -> bool | None:
 	disk, whichever partitions or file systems they are in. None where it
 	cannot be told.
 	"""
-	held = _storage(first), _storage(second)
+	# It only warns, so what it can not tell never fails a run.
+	try:
+		held = _storage(first), _storage(second)
+	except Exception:
+		return None
 	if None in held:
 		return None
 	return held[0] == held[1]
