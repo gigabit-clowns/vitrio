@@ -134,6 +134,17 @@ if(VITRIO_ENABLE_TIFF)
 	target_link_libraries(vitrio-obj PUBLIC TIFF::TIFF)
 endif()
 
+if(VITRIO_ENABLE_ZARR)
+	target_link_libraries(
+		vitrio-obj
+		PUBLIC
+			nlohmann_json::nlohmann_json
+			blosc::blosc
+			zstd::zstd
+			ZLIB::ZLIB
+	)
+endif()
+
 if(VITRIO_ENABLE_IO_URING)
 	target_link_libraries(vitrio-obj PUBLIC liburing::liburing)
 endif()

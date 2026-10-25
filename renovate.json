@@ -64,6 +64,30 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_nlohmann_json\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
+      "depNameTemplate": "nlohmann-json",
+      "packageNameTemplate": "nlohmann/json",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_zstd\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
+      "depNameTemplate": "zstd",
+      "packageNameTemplate": "facebook/zstd",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_blosc\\([^)]*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
+      "depNameTemplate": "c-blosc",
+      "packageNameTemplate": "Blosc/c-blosc",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
       "matchStrings": ["vitrio_fetch_catch2\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
       "depNameTemplate": "catch2",
       "packageNameTemplate": "catchorg/Catch2",

@@ -39,6 +39,11 @@ option(
 	"Read and write TIFF and EER files, which needs libtiff"
 	ON
 )
+option(
+	VITRIO_ENABLE_ZARR
+	"Read ZARR arrays, which needs nlohmann/json, c-blosc, zstd and zlib"
+	ON
+)
 cmake_dependent_option(
 	VITRIO_ENABLE_IO_URING
 	"Read the values of raw image files through io_uring where the kernel \
@@ -117,6 +122,18 @@ cmake_dependent_option(
 	VITRIO_BUILD_LIBURING "Fetch liburing and build it with vitrio" ON
 	"VITRIO_BUILD_DEPENDENCIES" OFF
 )
+cmake_dependent_option(
+	VITRIO_BUILD_NLOHMANN_JSON "Fetch nlohmann/json and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_ZSTD "Fetch zstd and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
+cmake_dependent_option(
+	VITRIO_BUILD_BLOSC "Fetch c-blosc and build it with vitrio" ON
+	"VITRIO_BUILD_DEPENDENCIES" OFF
+)
 
 # The library and its public headers are C++14. The standard is required
 # rather than preferred, so that nothing newer gets in unnoticed.
@@ -152,15 +169,15 @@ else()
 	find_package(spdlog 1.4 REQUIRED CONFIG)
 endif()
 
-# Only the TIFF and EER formats need libtiff, and zlib is libtiff's. libtiff
-# looks zlib up itself, so zlib comes first: built here, it is the one
-# libtiff finds.
-if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_ZLIB)
+# zlib is libtiff's, and decodes the gzip and zlib chunks of ZARR arrays.
+# libtiff and c-blosc look it up themselves, so zlib comes first: built here,
+# it is the one they find.
+if((VITRIO_ENABLE_TIFF OR VITRIO_ENABLE_ZARR) AND VITRIO_BUILD_ZLIB)
 	include(vitrio_fetch_zlib)
 	vitrio_fetch_zlib(
 		COMMIT da607da739fa6047df13e66a2af6b8bec7c2a498
 	) # v1.3.2
-elseif(VITRIO_ENABLE_TIFF)
+elseif(VITRIO_ENABLE_TIFF OR VITRIO_ENABLE_ZARR)
 	find_package(ZLIB REQUIRED)
 endif()
 
@@ -173,6 +190,46 @@ if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_TIFF)
 	) # v4.7.2
 elseif(VITRIO_ENABLE_TIFF)
 	find_package(TIFF 4.5 REQUIRED)
+endif()
+
+# Only the ZARR format needs nlohmann/json, zstd and c-blosc. contains(),
+# which tells a key that is absent, arrived in nlohmann/json 3.6.
+if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_NLOHMANN_JSON)
+	include(vitrio_fetch_nlohmann_json)
+	vitrio_fetch_nlohmann_json(
+		COMMIT 55f93686c01528224f448c19128836e7df245f72
+	) # v3.12.0
+elseif(VITRIO_ENABLE_ZARR)
+	find_package(nlohmann_json 3.6 REQUIRED CONFIG)
+endif()
+
+# zstd is found through pkg-config, since the targets its CMake package names
+# changed between releases. Built here, it is the one c-blosc links, so that
+# its functions are defined once.
+if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_ZSTD)
+	include(vitrio_fetch_zstd)
+	vitrio_fetch_zstd(
+		COMMIT f8745da6ff1ad1e7bab384bd1f9d742439278e99
+	) # v1.5.7
+elseif(VITRIO_ENABLE_ZARR)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(zstd REQUIRED IMPORTED_TARGET libzstd>=1.4)
+	add_library(zstd::zstd ALIAS PkgConfig::zstd)
+endif()
+
+# c-blosc installs a file for pkg-config rather than a CMake package. Built
+# here, it takes the zstd and zlib above rather than copies of its own.
+if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_BLOSC)
+	include(vitrio_fetch_blosc)
+	vitrio_fetch_blosc(
+		ZSTD zstd::zstd
+		ZLIB ZLIB::ZLIB
+		COMMIT 616f4b7343a8479f7e71dd3d7025bd92c9a6bbd0
+	) # v1.21.6
+elseif(VITRIO_ENABLE_ZARR)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(blosc REQUIRED IMPORTED_TARGET blosc>=1.14)
+	add_library(blosc::blosc ALIAS PkgConfig::blosc)
 endif()
 
 # liburing installs a file for pkg-config rather than a CMake package.

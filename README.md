@@ -220,6 +220,7 @@ static, inside its own library:
 - spdlog
 - libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
   too
+- nlohmann/json, c-blosc, zstd and zlib, unless ZARR is turned off
 - liburing, on Linux, unless io_uring is turned off
 - Catch2 and trompeloeil, for the tests
 
@@ -232,11 +233,13 @@ cmake --install build --prefix <where>
 
 To use the libraries installed on the system instead, turn
 `VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
-`find_package`, or pkg-config for liburing, and CMake 3.18 is enough. They
-have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0 and Catch2 3 or
-newer. One of them alone is found rather than built by turning its own option
-off, such as `-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
+`find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
+is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
+nlohmann/json 3.6, c-blosc 1.14, zstd 1.4 and Catch2 3 or newer. One of them
+alone is found rather than built by turning its own option off, such as
+`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
 `VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_LIBURING`,
+`VITRIO_BUILD_NLOHMANN_JSON`, `VITRIO_BUILD_BLOSC`, `VITRIO_BUILD_ZSTD`,
 `VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
@@ -250,6 +253,7 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
+| `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
 | `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
