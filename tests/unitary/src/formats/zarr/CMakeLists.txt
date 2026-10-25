@@ -11,9 +11,11 @@ target_sources(
 		test_zarr_chunk_key_encoding.cpp
 		test_zarr_chunk_layout.cpp
 		test_zarr_codec_pipeline.cpp
+		test_zarr_core_rank.cpp
 		test_zarr_data_type.cpp
 		test_zarr_fill_value.cpp
 		test_zarr_json.cpp
+		test_zarr_multiscale.cpp
 		test_zarr_node.cpp
 		test_zlib_inflate.cpp
 		test_zlib_zarr_bytes_codec.cpp

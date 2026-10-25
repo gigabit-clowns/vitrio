@@ -12,9 +12,11 @@ target_sources(
 		zarr_chunk_key_encoding.cpp
 		zarr_chunk_layout.cpp
 		zarr_codec_pipeline.cpp
+		zarr_core_rank.cpp
 		zarr_data_type.cpp
 		zarr_fill_value.cpp
 		zarr_json.cpp
+		zarr_multiscale.cpp
 		zarr_node.cpp
 		zlib_inflate.cpp
 		zlib_zarr_bytes_codec.cpp
