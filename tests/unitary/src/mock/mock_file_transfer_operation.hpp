@@ -5,7 +5,7 @@
 #include <file_transfer/file_transfer_operation.hpp>
 #include <file_transfer/file_transfer_scope.hpp>
 
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <trompeloeil.hpp>
 
@@ -28,9 +28,9 @@ public:
 	MAKE_MOCK1(start, void(file_transfer_scope &scope), override);
 
 	MAKE_MOCK2(
-		on_read,
+		on_transfer,
 		void(
-			const file_read_completion &completion,
+			const file_transfer_completion &completion,
 			file_transfer_scope &scope
 		),
 		override

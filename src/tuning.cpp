@@ -124,11 +124,11 @@ std::size_t get_staging_byte_budget() noexcept
 	return value;
 }
 
-std::size_t get_file_read_queue_capacity() noexcept
+std::size_t get_file_transfer_queue_capacity() noexcept
 {
 	static const auto value = read_value(
-		"VITRIO_FILE_READ_QUEUE_CAPACITY",
-		VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY
+		"VITRIO_FILE_TRANSFER_QUEUE_CAPACITY",
+		VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY
 	);
 	return value;
 }

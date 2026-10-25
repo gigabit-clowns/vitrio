@@ -4,8 +4,8 @@
 
 #include "image_prefetched_read.hpp"
 
-#include <formats/raw/planning/image_read_policy.hpp>
-#include <formats/raw/planning/image_read_schedule.hpp>
+#include <formats/raw/planning/image_transfer_policy.hpp>
+#include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <strided_transfer/image_region_read_walk.hpp>
 #include <strided_transfer/image_region_transfer.hpp>
 
@@ -49,7 +49,7 @@ inline void read_prefetched_regions(
 		target.get_offset()
 	);
 
-	const image_read_schedule schedule(
+	const image_transfer_schedule schedule(
 		regions,
 		values.get_strides(),
 		data_type,

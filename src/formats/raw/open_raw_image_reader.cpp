@@ -10,7 +10,7 @@
 #include <vitrio/image_reader.hpp>
 #include <vitrio/file_transfer_pool.hpp>
 
-#include <system/asynchronous_file_read_port_opener.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
 #include <file_transfer_pool_implementation.hpp>
 
 #include <memory>
@@ -26,7 +26,7 @@ std::shared_ptr<image_reader> open_raw_image_reader(
 	const file_transfer_pool &transfers
 )
 {
-	if (asynchronous_file_read_port_opener::is_supported())
+	if (asynchronous_file_transfer_port_opener::is_supported())
 	{
 		return std::make_shared<queued_image_reader>(
 			path,

@@ -14,7 +14,7 @@ bool file_transfer_inbox::mail::is_empty() const noexcept
 	return admissions.empty() && task_outcomes.empty();
 }
 
-file_transfer_inbox::file_transfer_inbox(file_read_port &port) noexcept
+file_transfer_inbox::file_transfer_inbox(file_transfer_port &port) noexcept
 	: m_port(port)
 	, m_closed(false)
 {

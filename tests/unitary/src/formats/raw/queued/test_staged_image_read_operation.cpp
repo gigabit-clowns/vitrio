@@ -7,11 +7,11 @@
 
 #include "../../../mock/mock_file_transfer_scope.hpp"
 
-#include <formats/raw/planning/image_read_policy.hpp>
-#include <formats/raw/planning/image_read_schedule.hpp>
+#include <formats/raw/planning/image_transfer_policy.hpp>
+#include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
 #include <strided_transfer/image_region_read_walk.hpp>
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -149,14 +149,14 @@ public:
 			target.get_strides(),
 			target.get_offset()
 		);
-		const image_read_schedule schedule(
+		const image_transfer_schedule schedule(
 			regions,
 			layout.get_strides(),
 			numerical_type::float32,
 			walk.get_offsets().get_file(),
 			preamble,
 			m_bytes.size(),
-			image_read_policy(0, 2 * image_size, sizeof(float), 0)
+			image_transfer_policy(0, 2 * image_size, sizeof(float), 0)
 		);
 
 		m_operation = std::make_unique<staged_image_read_operation>(
@@ -178,7 +178,7 @@ protected:
 	{
 		return NAMED_ALLOW_CALL(
 			m_scope,
-			queue(
+			queue_read(
 				trompeloeil::_,
 				trompeloeil::_,
 				trompeloeil::_,
@@ -200,8 +200,8 @@ protected:
 			m_bytes.data() + queued.offset,
 			queued.buffer.get_size()
 		);
-		m_operation->on_read(
-			file_read_completion(read, queued.buffer.get_size()),
+		m_operation->on_transfer(
+			file_transfer_completion(read, queued.buffer.get_size()),
 			m_scope
 		);
 	}

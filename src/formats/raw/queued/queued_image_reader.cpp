@@ -4,7 +4,7 @@
 
 #include "make_image_read_operation.hpp"
 
-#include <formats/raw/planning/image_read_policy.hpp>
+#include <formats/raw/planning/image_transfer_policy.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>

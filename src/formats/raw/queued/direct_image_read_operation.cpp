@@ -115,8 +115,8 @@ void direct_image_read_operation::start(file_transfer_scope &scope)
 	m_execution.start(scope);
 }
 
-void direct_image_read_operation::on_read(
-	const file_read_completion &completion,
+void direct_image_read_operation::on_transfer(
+	const file_transfer_completion &completion,
 	file_transfer_scope &scope
 )
 {

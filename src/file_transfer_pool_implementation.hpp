@@ -21,7 +21,7 @@ namespace vitrio
  * the system.
  *
  * The ports are asynchronous where the process can have them, with room for
- * @ref get_file_read_queue_capacity reads each, and read as they are asked
+ * @ref get_file_transfer_queue_capacity reads each, and read as they are asked
  * otherwise.
  */
 class file_transfer_pool::implementation

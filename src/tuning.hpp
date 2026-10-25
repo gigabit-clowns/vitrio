@@ -71,12 +71,12 @@ std::size_t get_staging_byte_budget() noexcept;
 
 /**
  * @brief Get how many reads the kernel carries out at once for one
- * asynchronous port: the variable @c VITRIO_FILE_READ_QUEUE_CAPACITY of the
- * environment, or @c VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY.
+ * asynchronous port: the variable @c VITRIO_FILE_TRANSFER_QUEUE_CAPACITY of the
+ * environment, or @c VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY.
  *
  * @return std::size_t The reads.
  */
-std::size_t get_file_read_queue_capacity() noexcept;
+std::size_t get_file_transfer_queue_capacity() noexcept;
 
 /**
  * @brief Get how many threads carry out the transfers of files of a pool:

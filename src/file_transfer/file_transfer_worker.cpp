@@ -13,7 +13,7 @@ namespace vitrio
 {
 
 file_transfer_worker::file_transfer_worker(
-	std::unique_ptr<file_read_port> port,
+	std::unique_ptr<file_transfer_port> port,
 	std::shared_ptr<executor> tasks
 )
 	: m_port(std::move(port))
@@ -74,12 +74,12 @@ void file_transfer_worker::run() noexcept
 		const auto completion = wait();
 		if (completion)
 		{
-			m_dispatch.deliver_read(*completion);
+			m_dispatch.deliver_transfer(*completion);
 		}
 	}
 }
 
-boost::optional<file_read_completion> file_transfer_worker::wait() noexcept
+boost::optional<file_transfer_completion> file_transfer_worker::wait() noexcept
 {
 	for (;;)
 	{

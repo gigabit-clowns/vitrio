@@ -33,7 +33,7 @@ struct staging_layout
 // The first region of each stretch: the regions of a stretch follow those of
 // the one before it.
 std::vector<std::size_t>
-find_first_regions(const image_read_schedule &schedule)
+find_first_regions(const image_transfer_schedule &schedule)
 {
 	const auto regions_per_range = schedule.get_regions_per_range();
 
@@ -49,7 +49,7 @@ find_first_regions(const image_read_schedule &schedule)
 }
 
 std::vector<std::size_t>
-count_regions(const image_read_schedule &schedule)
+count_regions(const image_transfer_schedule &schedule)
 {
 	const auto regions_per_range = schedule.get_regions_per_range();
 	return std::vector<std::size_t>(
@@ -58,7 +58,7 @@ count_regions(const image_read_schedule &schedule)
 	);
 }
 
-staging_layout lay_out_staging(const image_read_schedule &schedule)
+staging_layout lay_out_staging(const image_transfer_schedule &schedule)
 {
 	const auto ranges = schedule.get_ranges();
 
@@ -87,7 +87,7 @@ staging_layout lay_out_staging(const image_read_schedule &schedule)
 // stretch. A step is read while the one before it is moved, so the steps
 // take turns at two halves of the memory, which this sizes.
 file_read_plan plan_reads(
-	const image_read_schedule &schedule,
+	const image_transfer_schedule &schedule,
 	std::vector<byte> &staging
 )
 {
@@ -154,7 +154,7 @@ staged_image_read_operation::staged_image_read_operation(
 	const raw_image_layout &layout,
 	array destination,
 	image_region_read_walk walk,
-	const image_read_schedule &schedule
+	const image_transfer_schedule &schedule
 )
 	: m_path(std::move(path))
 	, m_file(std::move(file))
@@ -179,8 +179,8 @@ void staged_image_read_operation::start(file_transfer_scope &scope)
 	m_execution.start(scope);
 }
 
-void staged_image_read_operation::on_read(
-	const file_read_completion &completion,
+void staged_image_read_operation::on_transfer(
+	const file_transfer_completion &completion,
 	file_transfer_scope &scope
 )
 {

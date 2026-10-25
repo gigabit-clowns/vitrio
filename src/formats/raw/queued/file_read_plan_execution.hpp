@@ -5,8 +5,8 @@
 #include "file_read_plan.hpp"
 
 #include <system/file_handle.hpp>
-#include <system/file_read_completion.hpp>
-#include <system/file_read_submitter.hpp>
+#include <system/file_transfer_completion.hpp>
+#include <system/file_transfer_submitter.hpp>
 
 #include <cstddef>
 #include <string>
@@ -56,7 +56,7 @@ public:
 	 * @param reads Where the reads are queued.
 	 * @throws std::system_error If the system can not take a read.
 	 */
-	void start(file_read_submitter &reads);
+	void start(file_transfer_submitter &reads);
 
 	/**
 	 * @brief Take the completion of a read of the plan.
@@ -67,7 +67,7 @@ public:
 	 * @throws image_file_format_error If the file ends before the stretch
 	 * does.
 	 */
-	std::size_t take(const file_read_completion &completion) const;
+	std::size_t take(const file_transfer_completion &completion) const;
 
 	/**
 	 * @brief Be done with a read that arrived, and send the step that frees,
@@ -77,11 +77,11 @@ public:
 	 * @param reads Where the reads are queued.
 	 * @throws std::system_error If the system can not take a read.
 	 */
-	void release(std::size_t read, file_read_submitter &reads);
+	void release(std::size_t read, file_transfer_submitter &reads);
 
 private:
-	void send_ahead(file_read_submitter &reads);
-	void send_step(std::size_t step, file_read_submitter &reads);
+	void send_ahead(file_transfer_submitter &reads);
+	void send_step(std::size_t step, file_transfer_submitter &reads);
 
 	const std::string &m_path;
 	file_handle_t m_file;

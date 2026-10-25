@@ -7,12 +7,12 @@
 #include "../fixtures/file_transfer_executor_contract.hpp"
 #include "../mock/mock_completion_notifier.hpp"
 #include "../mock/mock_executor.hpp"
-#include "../mock/mock_file_read_port_opener.hpp"
+#include "../mock/mock_file_transfer_port_opener.hpp"
 #include "../mock/mock_file_transfer_operation.hpp"
 
-#include <system/asynchronous_file_read_port_opener.hpp>
-#include <system/blocking_file_read_port.hpp>
-#include <system/blocking_file_read_port_opener.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
+#include <system/blocking_file_transfer_port.hpp>
+#include <system/blocking_file_transfer_port_opener.hpp>
 
 #include <vitrio/concurrency/counting_completion.hpp>
 
@@ -33,7 +33,7 @@ TEST_CASE(
 	"[thread_pool_file_transfer_executor]"
 )
 {
-	const blocking_file_read_port_opener ports;
+	const blocking_file_transfer_port_opener ports;
 
 	CHECK_THROWS_AS(
 		thread_pool_file_transfer_executor(nullptr, ports, 1),
@@ -54,12 +54,12 @@ TEST_CASE(
 	"[thread_pool_file_transfer_executor]"
 )
 {
-	const mock_file_read_port_opener ports;
+	const mock_file_transfer_port_opener ports;
 	REQUIRE_CALL(ports, open())
 		.TIMES(3)
 		.RETURN(
-			std::unique_ptr<file_read_port>(
-				std::make_unique<blocking_file_read_port>()
+			std::unique_ptr<file_transfer_port>(
+				std::make_unique<blocking_file_transfer_port>()
 			)
 		);
 
@@ -77,7 +77,7 @@ TEST_CASE(
 {
 	thread_pool_file_transfer_executor executor(
 		std::make_shared<mock_executor>(),
-		blocking_file_read_port_opener(),
+		blocking_file_transfer_port_opener(),
 		1
 	);
 
@@ -102,7 +102,7 @@ TEST_CASE(
 {
 	thread_pool_file_transfer_executor executor(
 		std::make_shared<mock_executor>(),
-		blocking_file_read_port_opener(),
+		blocking_file_transfer_port_opener(),
 		3
 	);
 
@@ -144,7 +144,7 @@ TEST_CASE(
 			{
 				return std::make_unique<thread_pool_file_transfer_executor>(
 					std::move(tasks),
-					blocking_file_read_port_opener(),
+					blocking_file_transfer_port_opener(),
 					1
 				);
 			}
@@ -159,7 +159,7 @@ TEST_CASE(
 			{
 				return std::make_unique<thread_pool_file_transfer_executor>(
 					std::move(tasks),
-					blocking_file_read_port_opener(),
+					blocking_file_transfer_port_opener(),
 					2
 				);
 			}
@@ -173,7 +173,7 @@ TEST_CASE(
 	"[thread_pool_file_transfer_executor]"
 )
 {
-	if (!asynchronous_file_read_port_opener::is_supported())
+	if (!asynchronous_file_transfer_port_opener::is_supported())
 	{
 		SKIP( "The process can not have asynchronous ports here." );
 	}
@@ -188,7 +188,7 @@ TEST_CASE(
 			{
 				return std::make_unique<thread_pool_file_transfer_executor>(
 					std::move(tasks),
-					asynchronous_file_read_port_opener(4),
+					asynchronous_file_transfer_port_opener(4),
 					1
 				);
 			}
@@ -203,7 +203,7 @@ TEST_CASE(
 			{
 				return std::make_unique<thread_pool_file_transfer_executor>(
 					std::move(tasks),
-					asynchronous_file_read_port_opener(4),
+					asynchronous_file_transfer_port_opener(4),
 					2
 				);
 			}

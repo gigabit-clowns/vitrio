@@ -5,8 +5,8 @@
 #include "file_transfer_inbox.hpp"
 #include "file_transfer_operation.hpp"
 
-#include <system/file_read_completion.hpp>
-#include <system/file_read_submitter.hpp>
+#include <system/file_transfer_completion.hpp>
+#include <system/file_transfer_submitter.hpp>
 
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/concurrency/executor.hpp>
@@ -28,7 +28,7 @@ namespace vitrio
  * Each read and task of an operation goes under a route of its own, the tag
  * the thread knows it by, which leads back to the operation and to the tag
  * the operation gave it. Reads are queued through a submitter, whose
- * completions the thread hands back with @ref deliver_read. Tasks run on an
+ * completions the thread hands back with @ref deliver_transfer. Tasks run on an
  * executor and report through a @ref file_transfer_task_notifier to the inbox
  * of the thread, which hands their outcomes back with @ref deliver_task.
  *
@@ -44,13 +44,13 @@ public:
 	/**
 	 * @brief Construct a dispatch with no operation.
 	 *
-	 * @param reads Where the reads of the operations are queued.
+	 * @param transfers Where the reads of the operations are queued.
 	 * @param tasks Where the tasks of the operations run.
 	 * @param inbox Where the outcomes of the tasks are posted. Must not be
 	 * null.
 	 */
 	file_transfer_dispatch(
-		file_read_submitter &reads,
+		file_transfer_submitter &transfers,
 		executor &tasks,
 		std::shared_ptr<file_transfer_inbox> inbox
 	) noexcept;
@@ -84,7 +84,7 @@ public:
 	 *
 	 * @param completion The completion, tagged with the route of the read.
 	 */
-	void deliver_read(const file_read_completion &completion) noexcept;
+	void deliver_transfer(const file_transfer_completion &completion) noexcept;
 
 	/**
 	 * @brief Hand the outcome of a task to the operation that ran it.
@@ -140,7 +140,7 @@ private:
 	// operation is outstanding.
 	void settle(std::size_t slot) noexcept;
 
-	file_read_submitter &m_reads;
+	file_transfer_submitter &m_transfers;
 	executor &m_tasks;
 	std::shared_ptr<file_transfer_inbox> m_inbox;
 

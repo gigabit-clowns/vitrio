@@ -4,7 +4,7 @@
 
 #include "file_transfer_scope.hpp"
 
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <cstdint>
 #include <exception>
@@ -17,7 +17,7 @@ namespace vitrio
  * as the reads and tasks it starts complete.
  *
  * A @ref file_transfer_executor calls it from one thread at a time: @ref start
- * once, then @ref on_read for each read it queued and @ref on_task for each
+ * once, then @ref on_transfer for each read it queued and @ref on_task for each
  * task it ran, as each completes, in any order. A call queues reads and runs
  * tasks through the scope it is given, which serves during the call only, and
  * returns without waiting for any of them: the thread that calls it carries
@@ -54,8 +54,8 @@ public:
 	 * @param completion How the read ended, with the tag it was queued with.
 	 * @param scope What the reads and tasks of the call go through.
 	 */
-	virtual void on_read(
-		const file_read_completion &completion,
+	virtual void on_transfer(
+		const file_transfer_completion &completion,
 		file_transfer_scope &scope
 	) = 0;
 

@@ -3,9 +3,9 @@
 #include "file_transfer_pool_implementation.hpp"
 
 #include <file_transfer/thread_pool_file_transfer_executor.hpp>
-#include <system/asynchronous_file_read_port_opener.hpp>
-#include <system/blocking_file_read_port_opener.hpp>
-#include <system/file_read_port_opener.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
+#include <system/blocking_file_transfer_port_opener.hpp>
+#include <system/file_transfer_port_opener.hpp>
 
 #include <assert.hpp>
 #include <tuning.hpp>
@@ -20,16 +20,16 @@ namespace
 
 // What opens the ports of the threads: one of asynchronous ports where the
 // process can have them, and of ports that read as they are asked otherwise.
-std::unique_ptr<file_read_port_opener> make_port_opener()
+std::unique_ptr<file_transfer_port_opener> make_port_opener()
 {
-	if (asynchronous_file_read_port_opener::is_supported())
+	if (asynchronous_file_transfer_port_opener::is_supported())
 	{
-		return std::make_unique<asynchronous_file_read_port_opener>(
-			get_file_read_queue_capacity()
+		return std::make_unique<asynchronous_file_transfer_port_opener>(
+			get_file_transfer_queue_capacity()
 		);
 	}
 
-	return std::make_unique<blocking_file_read_port_opener>();
+	return std::make_unique<blocking_file_transfer_port_opener>();
 }
 
 } // anonymous namespace

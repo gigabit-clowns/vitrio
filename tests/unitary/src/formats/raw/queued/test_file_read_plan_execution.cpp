@@ -6,10 +6,10 @@
 
 #include <formats/raw/queued/file_read_plan_execution.hpp>
 
-#include "../../../mock/mock_file_read_submitter.hpp"
+#include "../../../mock/mock_file_transfer_submitter.hpp"
 
 #include <formats/raw/queued/file_read_plan.hpp>
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <vitrio/byte.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
@@ -72,7 +72,7 @@ public:
 		: m_taking(
 			NAMED_ALLOW_CALL(
 				m_submitter,
-				queue(
+				queue_read(
 					trompeloeil::_,
 					trompeloeil::_,
 					trompeloeil::_,
@@ -83,7 +83,7 @@ public:
 	{
 	}
 
-	file_read_submitter& get_submitter() noexcept
+	file_transfer_submitter& get_submitter() noexcept
 	{
 		return m_submitter;
 	}
@@ -94,7 +94,7 @@ public:
 	}
 
 private:
-	mock_file_read_submitter m_submitter;
+	mock_file_transfer_submitter m_submitter;
 	std::vector<queued_read> m_reads;
 	std::unique_ptr<trompeloeil::expectation> m_taking;
 };
@@ -170,8 +170,8 @@ TEST_CASE(
 	const auto plan = plan_steps(buffers, 2, 1, 100);
 	const file_read_plan_execution execution(path, file_handle_t(), plan);
 
-	CHECK( execution.take(file_read_completion(1, 100)) == 1 );
-	CHECK( execution.take(file_read_completion(0, 100)) == 0 );
+	CHECK( execution.take(file_transfer_completion(1, 100)) == 1 );
+	CHECK( execution.take(file_transfer_completion(0, 100)) == 0 );
 }
 
 TEST_CASE(
@@ -190,7 +190,7 @@ TEST_CASE(
 	SECTION( "a stretch the file ends before" )
 	{
 		REQUIRE_THROWS_MATCHES(
-			execution.take(file_read_completion(1, 99)),
+			execution.take(file_transfer_completion(1, 99)),
 			image_file_format_error,
 			names_the_file
 		);
@@ -200,7 +200,7 @@ TEST_CASE(
 	{
 		REQUIRE_THROWS_MATCHES(
 			execution.take(
-				file_read_completion(
+				file_transfer_completion(
 					0,
 					std::make_error_code(std::errc::io_error)
 				)

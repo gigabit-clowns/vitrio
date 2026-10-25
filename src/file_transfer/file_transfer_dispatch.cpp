@@ -57,7 +57,7 @@ public:
 	{
 	}
 
-	void queue(
+	void queue_read(
 		file_handle_t file,
 		std::uint64_t offset,
 		span<const memory_range> buffers,
@@ -67,7 +67,7 @@ public:
 		const auto route = m_dispatch.open_route(m_slot, tag);
 		try
 		{
-			m_dispatch.m_reads.queue(file, offset, buffers, route);
+			m_dispatch.m_transfers.queue_read(file, offset, buffers, route);
 		}
 		catch (...)
 		{
@@ -131,11 +131,11 @@ void file_transfer_dispatch::call(std::size_t slot, Call &&invoke) noexcept
 }
 
 file_transfer_dispatch::file_transfer_dispatch(
-	file_read_submitter &reads,
+	file_transfer_submitter &transfers,
 	executor &tasks,
 	std::shared_ptr<file_transfer_inbox> inbox
 ) noexcept
-	: m_reads(reads)
+	: m_transfers(transfers)
 	, m_tasks(tasks)
 	, m_inbox(std::move(inbox))
 {
@@ -182,8 +182,8 @@ void file_transfer_dispatch::admit(
 	settle(index);
 }
 
-void file_transfer_dispatch::deliver_read(
-	const file_read_completion &completion
+void file_transfer_dispatch::deliver_transfer(
+	const file_transfer_completion &completion
 ) noexcept
 {
 	const auto target = close_route(completion.get_tag());
@@ -194,15 +194,21 @@ void file_transfer_dispatch::deliver_read(
 		{
 			if (completion.get_error())
 			{
-				reading.on_read(
-					file_read_completion(target.tag, completion.get_error()),
+				reading.on_transfer(
+					file_transfer_completion(
+						target.tag,
+						completion.get_error()
+					),
 					scope
 				);
 			}
 			else
 			{
-				reading.on_read(
-					file_read_completion(target.tag, completion.get_size()),
+				reading.on_transfer(
+					file_transfer_completion(
+						target.tag,
+						completion.get_size()
+					),
 					scope
 				);
 			}

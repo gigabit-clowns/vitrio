@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <system/file_read_submitter.hpp>
+#include <system/file_transfer_submitter.hpp>
 
 #include <vitrio/concurrency/task.hpp>
 
@@ -17,12 +17,12 @@ namespace vitrio
  * tasks through, during one of its calls.
  *
  * A read it queues is outstanding until its completion reaches
- * @ref file_transfer_operation::on_read, and a task it runs until its outcome
- * reaches @ref file_transfer_operation::on_task, each carrying the tag it was
- * given.
+ * @ref file_transfer_operation::on_transfer, and a task it runs until its
+ * outcome reaches @ref file_transfer_operation::on_task, each carrying the
+ * tag it was given.
  */
 class file_transfer_scope
-	: public file_read_submitter
+	: public file_transfer_submitter
 {
 public:
 	file_transfer_scope() noexcept;

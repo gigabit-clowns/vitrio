@@ -5,7 +5,7 @@
 #include "file_transfer_executor.hpp"
 #include "file_transfer_worker.hpp"
 
-#include <system/file_read_port_opener.hpp>
+#include <system/file_transfer_port_opener.hpp>
 
 #include <vitrio/concurrency/executor.hpp>
 
@@ -45,7 +45,7 @@ public:
 	 */
 	thread_pool_file_transfer_executor(
 		std::shared_ptr<executor> tasks,
-		const file_read_port_opener &ports,
+		const file_transfer_port_opener &ports,
 		std::size_t worker_count
 	);
 	~thread_pool_file_transfer_executor() override;

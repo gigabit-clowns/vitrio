@@ -10,7 +10,7 @@ namespace vitrio
 
 thread_pool_file_transfer_executor::thread_pool_file_transfer_executor(
 	std::shared_ptr<executor> tasks,
-	const file_read_port_opener &ports,
+	const file_transfer_port_opener &ports,
 	std::size_t worker_count
 )
 	: m_next_worker(0)

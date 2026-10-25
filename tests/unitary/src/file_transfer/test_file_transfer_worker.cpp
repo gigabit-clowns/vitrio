@@ -6,11 +6,11 @@
 
 #include "../fixtures/mapped_test_file.hpp"
 #include "../mock/mock_executor.hpp"
-#include "../mock/mock_file_read_port.hpp"
+#include "../mock/mock_file_transfer_port.hpp"
 #include "../mock/mock_file_transfer_operation.hpp"
 
-#include <system/blocking_file_read_port.hpp>
-#include <system/file_read_completion.hpp>
+#include <system/blocking_file_transfer_port.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <vitrio/byte.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
@@ -35,7 +35,7 @@ TEST_CASE(
 )
 {
 	file_transfer_worker worker(
-		std::make_unique<blocking_file_read_port>(),
+		std::make_unique<blocking_file_transfer_port>(),
 		std::make_shared<mock_executor>()
 	);
 
@@ -64,7 +64,7 @@ TEST_CASE(
 
 	{
 		file_transfer_worker worker(
-			std::make_unique<blocking_file_read_port>(),
+			std::make_unique<blocking_file_transfer_port>(),
 			std::make_shared<mock_executor>()
 		);
 
@@ -74,11 +74,14 @@ TEST_CASE(
 			NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
 				.LR_SIDE_EFFECT(
 					const memory_range range(buffer.data(), buffer.size());
-					_1.queue(file.get_file(), 0, make_span(&range, 1), 0)
+					_1.queue_read(file.get_file(), 0, make_span(&range, 1), 0)
 				)
 		);
 		started.expectations.push_back(
-			NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 				.WITH( _1.get_size() == 100 )
 		);
 		worker.submit(std::move(operation), done);
@@ -96,7 +99,7 @@ TEST_CASE(
 	"[file_transfer_worker]"
 )
 {
-	auto port = std::make_unique<mock_file_read_port>();
+	auto port = std::make_unique<mock_file_transfer_port>();
 	auto &mocked = *port;
 
 	// The thread waits on the port before the read is queued too, and finds
@@ -106,12 +109,12 @@ TEST_CASE(
 	mocked.expectations.push_back(NAMED_ALLOW_CALL(mocked, wake()));
 	mocked.expectations.push_back(
 		NAMED_ALLOW_CALL(mocked, wait())
-			.RETURN( boost::optional<file_read_completion>() )
+			.RETURN( boost::optional<file_transfer_completion>() )
 	);
 	mocked.expectations.push_back(
 		NAMED_REQUIRE_CALL(mocked, wait())
 			.LR_WITH( queued.load() )
-			.LR_RETURN( file_read_completion(route.load(), 5) )
+			.LR_RETURN( file_transfer_completion(route.load(), 5) )
 	);
 	mocked.expectations.push_back(
 		NAMED_REQUIRE_CALL(mocked, wait())
@@ -124,7 +127,7 @@ TEST_CASE(
 	mocked.expectations.push_back(
 		NAMED_REQUIRE_CALL(
 			mocked,
-			queue(
+			queue_read(
 				trompeloeil::_,
 				trompeloeil::_,
 				trompeloeil::_,
@@ -142,11 +145,11 @@ TEST_CASE(
 	started.expectations.push_back(
 		NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
 			.SIDE_EFFECT(
-				_1.queue(file_handle_t(), 0, span<const memory_range>(), 9)
+				_1.queue_read(file_handle_t(), 0, span<const memory_range>(), 9)
 			)
 	);
 	started.expectations.push_back(
-		NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
 			.WITH( _1.get_tag() == 9 && _1.get_size() == 5 )
 	);
 

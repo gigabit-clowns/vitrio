@@ -96,9 +96,9 @@ TEST_CASE(
 		"VITRIO_STAGING_BYTE_BUDGET",
 		VITRIO_DEFAULT_STAGING_BYTE_BUDGET
 	) );
-	CHECK( get_file_read_queue_capacity() == expected(
-		"VITRIO_FILE_READ_QUEUE_CAPACITY",
-		VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY
+	CHECK( get_file_transfer_queue_capacity() == expected(
+		"VITRIO_FILE_TRANSFER_QUEUE_CAPACITY",
+		VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY
 	) );
 	CHECK( get_file_transfer_workers() == expected(
 		"VITRIO_FILE_TRANSFER_WORKERS",

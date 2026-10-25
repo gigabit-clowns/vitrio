@@ -22,7 +22,7 @@
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <memory/byte_order.hpp>
-#include <system/asynchronous_file_read_port_opener.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -135,7 +135,7 @@ TEST_CASE(
 	"[open_raw_image_reader]"
 )
 {
-	if (!asynchronous_file_read_port_opener::is_supported())
+	if (!asynchronous_file_transfer_port_opener::is_supported())
 	{
 		SKIP( "The process can not have asynchronous ports here." );
 	}
@@ -193,7 +193,7 @@ TEST_CASE(
 	"[open_raw_image_reader]"
 )
 {
-	if (asynchronous_file_read_port_opener::is_supported())
+	if (asynchronous_file_transfer_port_opener::is_supported())
 	{
 		SKIP( "The process queues its reads here, which read any layout." );
 	}

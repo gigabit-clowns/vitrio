@@ -4,6 +4,6 @@ target_sources(
 	vitrio-unitary-tests
 	PRIVATE
 		test_file_range.cpp
-		test_image_read_policy.cpp
-		test_image_read_schedule.cpp
+		test_image_transfer_policy.cpp
+		test_image_transfer_schedule.cpp
 )

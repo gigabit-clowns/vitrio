@@ -28,7 +28,7 @@ namespace vitrio
  *
  * Otherwise the stretches of the file the regions reach are read into memory
  * of their own and moved out of it, as @ref staged_image_read_operation does.
- * They are worked out and grouped into steps as @ref image_read_schedule
+ * They are worked out and grouped into steps as @ref image_transfer_schedule
  * describes, on the grid of the elements of the values, so that the values
  * land aligned in that memory wherever they lie in the file.
  *

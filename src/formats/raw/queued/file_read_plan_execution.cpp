@@ -27,13 +27,13 @@ file_read_plan_execution::file_read_plan_execution(
 
 file_read_plan_execution::~file_read_plan_execution() = default;
 
-void file_read_plan_execution::start(file_read_submitter &reads)
+void file_read_plan_execution::start(file_transfer_submitter &reads)
 {
 	send_ahead(reads);
 }
 
 std::size_t file_read_plan_execution::take(
-	const file_read_completion &completion
+	const file_transfer_completion &completion
 ) const
 {
 	const auto read = static_cast<std::size_t>(completion.get_tag());
@@ -60,7 +60,7 @@ std::size_t file_read_plan_execution::take(
 
 void file_read_plan_execution::release(
 	std::size_t read,
-	file_read_submitter &reads
+	file_transfer_submitter &reads
 )
 {
 	const auto step = m_plan.get_step(read);
@@ -72,7 +72,7 @@ void file_read_plan_execution::release(
 
 // Sends the step that is not done with and the one after it, past the steps
 // whose reads are all done with.
-void file_read_plan_execution::send_ahead(file_read_submitter &reads)
+void file_read_plan_execution::send_ahead(file_transfer_submitter &reads)
 {
 	const auto step_count = m_plan.get_step_count();
 	for (;;)
@@ -93,7 +93,7 @@ void file_read_plan_execution::send_ahead(file_read_submitter &reads)
 
 void file_read_plan_execution::send_step(
 	std::size_t step,
-	file_read_submitter &reads
+	file_transfer_submitter &reads
 )
 {
 	for (; m_next_read < m_plan.get_read_count(); ++m_next_read)
@@ -103,7 +103,7 @@ void file_read_plan_execution::send_step(
 			return;
 		}
 
-		reads.queue(
+		reads.queue_read(
 			m_file,
 			m_plan.get_offset(m_next_read),
 			m_plan.get_buffers(m_next_read),

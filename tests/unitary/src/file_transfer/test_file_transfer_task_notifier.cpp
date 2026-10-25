@@ -5,7 +5,7 @@
 #include <file_transfer/file_transfer_inbox.hpp>
 #include <file_transfer/file_transfer_task_notifier.hpp>
 
-#include "../mock/mock_file_read_port.hpp"
+#include "../mock/mock_file_transfer_port.hpp"
 
 #include <exception>
 #include <memory>
@@ -21,7 +21,7 @@ TEST_CASE(
 	"[file_transfer_task_notifier]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	ALLOW_CALL(port, wake());
 	const auto inbox = std::make_shared<file_transfer_inbox>(port);
 
@@ -42,7 +42,7 @@ TEST_CASE(
 	"[file_transfer_task_notifier]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	ALLOW_CALL(port, wake());
 	auto inbox = std::make_shared<file_transfer_inbox>(port);
 	const std::weak_ptr<file_transfer_inbox> watched = inbox;

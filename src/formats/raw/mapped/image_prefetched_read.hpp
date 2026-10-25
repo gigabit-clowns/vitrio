@@ -22,7 +22,7 @@ class image_transfer_plan;
  *
  * The regions are resolved, and so bounds checked, before any of them is
  * asked for. The stretches of @p memory they touch are then worked out and
- * grouped into steps, as @ref image_read_schedule describes, under the
+ * grouped into steps, as @ref image_transfer_schedule describes, under the
  * policy @ref make_prefetch_policy gives regions of their span. The first
  * step is asked for before any is walked, and each one after it is asked for
  * before the one ahead of it is walked, so that it is on its way while those

@@ -6,7 +6,7 @@
 #include "file_read_plan_execution.hpp"
 
 #include <file_transfer/file_transfer_operation.hpp>
-#include <formats/raw/planning/image_read_schedule.hpp>
+#include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
 #include <strided_transfer/image_region_read_walk.hpp>
 
@@ -58,14 +58,14 @@ public:
 		const raw_image_layout &layout,
 		array destination,
 		image_region_read_walk walk,
-		const image_read_schedule &schedule
+		const image_transfer_schedule &schedule
 	);
 	~staged_image_read_operation() override;
 
 	void start(file_transfer_scope &scope) override;
 
-	void on_read(
-		const file_read_completion &completion,
+	void on_transfer(
+		const file_transfer_completion &completion,
 		file_transfer_scope &scope
 	) override;
 

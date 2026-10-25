@@ -8,12 +8,12 @@
 #include "../fixtures/captured_log.hpp"
 #include "../mock/mock_completion_notifier.hpp"
 #include "../mock/mock_executor.hpp"
-#include "../mock/mock_file_read_port.hpp"
-#include "../mock/mock_file_read_submitter.hpp"
+#include "../mock/mock_file_transfer_port.hpp"
+#include "../mock/mock_file_transfer_submitter.hpp"
 #include "../mock/mock_file_transfer_operation.hpp"
 #include "../mock/mock_task.hpp"
 
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <vitrio/concurrency/counting_completion.hpp>
 
@@ -45,7 +45,7 @@ public:
 	dispatch_fixture()
 		: m_wakes(NAMED_ALLOW_CALL(m_port, wake()))
 		, m_inbox(std::make_shared<file_transfer_inbox>(m_port))
-		, m_dispatch(m_reads, m_tasks, m_inbox)
+		, m_dispatch(m_transfers, m_tasks, m_inbox)
 	{
 	}
 
@@ -54,8 +54,8 @@ protected:
 	std::unique_ptr<trompeloeil::expectation> take_reads()
 	{
 		return NAMED_ALLOW_CALL(
-			m_reads,
-			queue(
+			m_transfers,
+			queue_read(
 				trompeloeil::_,
 				trompeloeil::_,
 				trompeloeil::_,
@@ -83,10 +83,10 @@ protected:
 		}
 	}
 
-	mock_file_read_port m_port;
+	mock_file_transfer_port m_port;
 	std::unique_ptr<trompeloeil::expectation> m_wakes;
 	std::shared_ptr<file_transfer_inbox> m_inbox;
-	mock_file_read_submitter m_reads;
+	mock_file_transfer_submitter m_transfers;
 	mock_executor m_tasks;
 	std::vector<std::uint64_t> m_read_routes;
 	std::vector<std::shared_ptr<completion_notifier>> m_task_notifiers;
@@ -108,16 +108,16 @@ TEST_CASE_METHOD(
 	started.expectations.push_back(
 		NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
 			.SIDE_EFFECT(
-				_1.queue(file_handle_t(), 100, no_buffers(), 10);
-				_1.queue(file_handle_t(), 200, no_buffers(), 11)
+				_1.queue_read(file_handle_t(), 100, no_buffers(), 10);
+				_1.queue_read(file_handle_t(), 200, no_buffers(), 11)
 			)
 	);
 	started.expectations.push_back(
-		NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
 			.WITH( _1.get_tag() == 11 && _1.get_size() == 4 )
 	);
 	started.expectations.push_back(
-		NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
 			.WITH( _1.get_tag() == 10 && _1.get_size() == 3 )
 	);
 
@@ -128,10 +128,10 @@ TEST_CASE_METHOD(
 	CHECK_FALSE( done->is_ready() );
 	CHECK_FALSE( m_dispatch.is_idle() );
 
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[1], 4));
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[1], 4));
 	CHECK_FALSE( done->is_ready() );
 
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[0], 3));
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[0], 3));
 	REQUIRE( done->is_ready() );
 	CHECK_NOTHROW( done->get() );
 	CHECK( m_dispatch.is_idle() );
@@ -172,21 +172,21 @@ TEST_CASE_METHOD(
 	first_started.expectations.push_back(
 		NAMED_REQUIRE_CALL(first_started, start(trompeloeil::_))
 			.SIDE_EFFECT(
-				_1.queue(file_handle_t(), 0, no_buffers(), 10);
-				_1.queue(file_handle_t(), 0, no_buffers(), 11)
+				_1.queue_read(file_handle_t(), 0, no_buffers(), 10);
+				_1.queue_read(file_handle_t(), 0, no_buffers(), 11)
 			)
 	);
 	first_started.expectations.push_back(
 		NAMED_REQUIRE_CALL(
 			first_started,
-			on_read(trompeloeil::_, trompeloeil::_)
+			on_transfer(trompeloeil::_, trompeloeil::_)
 		)
 			.WITH( _1.get_tag() == 11 && _1.get_error() == refused )
 	);
 	first_started.expectations.push_back(
 		NAMED_REQUIRE_CALL(
 			first_started,
-			on_read(trompeloeil::_, trompeloeil::_)
+			on_transfer(trompeloeil::_, trompeloeil::_)
 		)
 			.WITH( _1.get_tag() == 10 && _1.get_size() == 7 )
 	);
@@ -195,12 +195,12 @@ TEST_CASE_METHOD(
 	auto &second_started = *second;
 	second_started.expectations.push_back(
 		NAMED_REQUIRE_CALL(second_started, start(trompeloeil::_))
-			.SIDE_EFFECT( _1.queue(file_handle_t(), 0, no_buffers(), 10) )
+			.SIDE_EFFECT( _1.queue_read(file_handle_t(), 0, no_buffers(), 10) )
 	);
 	second_started.expectations.push_back(
 		NAMED_REQUIRE_CALL(
 			second_started,
-			on_read(trompeloeil::_, trompeloeil::_)
+			on_transfer(trompeloeil::_, trompeloeil::_)
 		)
 			.WITH( _1.get_tag() == 10 && _1.get_size() == 5 )
 	);
@@ -211,12 +211,14 @@ TEST_CASE_METHOD(
 	m_dispatch.admit(std::move(second), second_done);
 	REQUIRE( m_read_routes.size() == 3 );
 
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[2], 5));
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[2], 5));
 	CHECK( second_done->is_ready() );
 	CHECK_FALSE( first_done->is_ready() );
 
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[1], refused));
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[0], 7));
+	m_dispatch.deliver_transfer(
+		file_transfer_completion(m_read_routes[1], refused)
+	);
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[0], 7));
 	CHECK( first_done->is_ready() );
 	CHECK( m_dispatch.is_idle() );
 }
@@ -307,15 +309,15 @@ TEST_CASE_METHOD(
 	auto &started = *operation;
 	started.expectations.push_back(
 		NAMED_REQUIRE_CALL(started, start(trompeloeil::_))
-			.SIDE_EFFECT( _1.queue(file_handle_t(), 0, no_buffers(), 0) )
+			.SIDE_EFFECT( _1.queue_read(file_handle_t(), 0, no_buffers(), 0) )
 	);
 	started.expectations.push_back(
-		NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+		NAMED_REQUIRE_CALL(started, on_transfer(trompeloeil::_, trompeloeil::_))
 			.SIDE_EFFECT(
-				_2.queue(file_handle_t(), 0, no_buffers(), 1);
+				_2.queue_read(file_handle_t(), 0, no_buffers(), 1);
 				_2.run(std::make_unique<mock_task>(), 2)
 			)
-			.THROW( std::runtime_error("on_read") )
+			.THROW( std::runtime_error("on_transfer") )
 	);
 	started.expectations.push_back(
 		NAMED_FORBID_CALL(
@@ -326,7 +328,7 @@ TEST_CASE_METHOD(
 
 	const auto done = std::make_shared<counting_completion>(1);
 	m_dispatch.admit(std::move(operation), done);
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[0], 1));
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[0], 1));
 	REQUIRE( m_read_routes.size() == 2 );
 	REQUIRE( m_task_notifiers.size() == 1 );
 	CHECK_FALSE( done->is_ready() );
@@ -335,7 +337,7 @@ TEST_CASE_METHOD(
 	deliver_task_outcomes();
 	CHECK_FALSE( done->is_ready() );
 
-	m_dispatch.deliver_read(file_read_completion(m_read_routes[1], 1));
+	m_dispatch.deliver_transfer(file_transfer_completion(m_read_routes[1], 1));
 	REQUIRE( done->is_ready() );
 	CHECK_THROWS_AS( done->get(), std::runtime_error );
 	CHECK( m_dispatch.is_idle() );
@@ -368,8 +370,13 @@ TEST_CASE_METHOD(
 )
 {
 	REQUIRE_CALL(
-		m_reads,
-		queue(trompeloeil::_, trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		m_transfers,
+		queue_read(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 	)
 		.THROW( std::system_error(11, std::system_category(), "queue") );
 	REQUIRE_CALL(m_tasks, submit(trompeloeil::_, trompeloeil::_))
@@ -381,7 +388,7 @@ TEST_CASE_METHOD(
 		NAMED_REQUIRE_CALL(*operation, start(trompeloeil::_))
 			.SIDE_EFFECT(
 				CHECK_THROWS_AS(
-					_1.queue(file_handle_t(), 0, no_buffers(), 0),
+					_1.queue_read(file_handle_t(), 0, no_buffers(), 0),
 					std::system_error
 				);
 				CHECK_THROWS_AS(
@@ -468,14 +475,19 @@ TEST_CASE_METHOD(
 					.SIDE_EFFECT(
 						for (std::uint64_t tag = 0; tag < 4; ++tag)
 						{
-							_1.queue(file_handle_t(), 0, no_buffers(), tag);
+							_1.queue_read(
+								file_handle_t(),
+								0,
+								no_buffers(),
+								tag
+							);
 						}
 					)
 			);
 			started.expectations.push_back(
 				NAMED_REQUIRE_CALL(
 					started,
-					on_read(trompeloeil::_, trompeloeil::_)
+					on_transfer(trompeloeil::_, trompeloeil::_)
 				)
 					.WITH( _1.get_tag() < 4 && _1.get_size() == _1.get_tag() )
 					.TIMES(4)
@@ -491,8 +503,8 @@ TEST_CASE_METHOD(
 		for (std::size_t index = m_read_routes.size(); index > 0; --index)
 		{
 			const auto tag = (index - 1) % reads_per_operation;
-			m_dispatch.deliver_read(
-				file_read_completion(m_read_routes[index - 1], tag)
+			m_dispatch.deliver_transfer(
+				file_transfer_completion(m_read_routes[index - 1], tag)
 			);
 		}
 

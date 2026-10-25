@@ -3,15 +3,15 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
-		asynchronous_file_read_port_opener.cpp
-		blocking_file_read_port.cpp
-		blocking_file_read_port_opener.cpp
-		blocking_file_read_queue.cpp
-		file_read_completion.cpp
-		file_read_port.cpp
-		file_read_port_opener.cpp
-		file_read_queue.cpp
-		file_read_submitter.cpp
+		asynchronous_file_transfer_port_opener.cpp
+		blocking_file_transfer_port.cpp
+		blocking_file_transfer_port_opener.cpp
+		blocking_file_transfer_queue.cpp
+		file_transfer_completion.cpp
+		file_transfer_port.cpp
+		file_transfer_port_opener.cpp
+		file_transfer_queue.cpp
+		file_transfer_submitter.cpp
 		unseen_mapping_annotation.cpp
 )
 
@@ -57,8 +57,8 @@ if(VITRIO_ENABLE_IO_URING)
 		vitrio-obj
 		PRIVATE
 			event_counter.cpp
-			io_uring_file_read_port.cpp
-			io_uring_file_read_queue.cpp
+			io_uring_file_transfer_port.cpp
+			io_uring_file_transfer_queue.cpp
 	)
 
 	target_compile_definitions(

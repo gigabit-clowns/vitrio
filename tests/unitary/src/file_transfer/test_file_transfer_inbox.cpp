@@ -5,7 +5,7 @@
 #include <file_transfer/file_transfer_inbox.hpp>
 
 #include "../mock/mock_completion_notifier.hpp"
-#include "../mock/mock_file_read_port.hpp"
+#include "../mock/mock_file_transfer_port.hpp"
 #include "../mock/mock_file_transfer_operation.hpp"
 
 #include <exception>
@@ -34,7 +34,7 @@ TEST_CASE(
 	"[file_transfer_inbox]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	ALLOW_CALL(port, wake());
 	file_transfer_inbox inbox(port);
 
@@ -65,7 +65,7 @@ TEST_CASE(
 	"[file_transfer_inbox]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	file_transfer_inbox inbox(port);
 
 	SECTION( "an admission" )
@@ -99,7 +99,7 @@ TEST_CASE(
 	"[file_transfer_inbox]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	file_transfer_inbox inbox(port);
 
 	{
@@ -117,7 +117,7 @@ TEST_CASE(
 	"[file_transfer_inbox]"
 )
 {
-	mock_file_read_port port;
+	mock_file_transfer_port port;
 	file_transfer_inbox inbox(port);
 
 	{

@@ -54,8 +54,8 @@
 // their way. More gains nothing, and where a read takes a thread of the
 // kernel, as on ZFS, each read in flight costs one. Past it, queueing a read
 // waits for an earlier one.
-#ifndef VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY
-	#define VITRIO_DEFAULT_FILE_READ_QUEUE_CAPACITY 16
+#ifndef VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY
+	#define VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY 16
 #endif
 
 // Threads that carry out the transfers of files of one file_transfer_pool, each

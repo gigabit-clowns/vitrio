@@ -4,7 +4,7 @@
 
 #include "file_transfer_operation.hpp"
 
-#include <system/file_read_port.hpp>
+#include <system/file_transfer_port.hpp>
 
 #include <vitrio/concurrency/completion_notifier.hpp>
 
@@ -72,7 +72,7 @@ public:
 	 * @param port The port the thread waits on. It must outlive every post
 	 * and close.
 	 */
-	explicit file_transfer_inbox(file_read_port &port) noexcept;
+	explicit file_transfer_inbox(file_transfer_port &port) noexcept;
 
 	file_transfer_inbox(const file_transfer_inbox &other) = delete;
 	file_transfer_inbox(file_transfer_inbox &&other) = delete;
@@ -118,7 +118,7 @@ private:
 
 	bool is_empty() const noexcept;
 
-	file_read_port &m_port;
+	file_transfer_port &m_port;
 
 	std::mutex m_mutex;
 	std::vector<admission> m_admissions;

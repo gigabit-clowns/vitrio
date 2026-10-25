@@ -10,7 +10,7 @@
 
 #include <formats/raw/raw_image_layout.hpp>
 #include <strided_transfer/image_region_read_walk.hpp>
-#include <system/file_read_completion.hpp>
+#include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -112,12 +112,12 @@ TEST_CASE(
 	mock_file_transfer_scope scope;
 	REQUIRE_CALL(
 		scope,
-		queue(trompeloeil::_, 16 + image_size, trompeloeil::_, 0u)
+		queue_read(trompeloeil::_, 16 + image_size, trompeloeil::_, 0u)
 	)
 		.WITH( _3.size() == 2 );
 	REQUIRE_CALL(
 		scope,
-		queue(trompeloeil::_, 16 + 4 * image_size, trompeloeil::_, 1u)
+		queue_read(trompeloeil::_, 16 + 4 * image_size, trompeloeil::_, 1u)
 	)
 		.WITH( _3.size() == 1 );
 
@@ -136,13 +136,21 @@ TEST_CASE(
 	mock_file_transfer_scope scope;
 	ALLOW_CALL(
 		scope,
-		queue(trompeloeil::_, trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		queue_read(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 	);
 	FORBID_CALL(scope, run(trompeloeil::_, trompeloeil::_));
 	operation->start(scope);
 
 	CHECK_NOTHROW(
-		operation->on_read(file_read_completion(0, 2 * image_size), scope)
+		operation->on_transfer(
+			file_transfer_completion(0, 2 * image_size),
+			scope
+		)
 	);
 
 	const auto names_the_file = Catch::Matchers::MessageMatches(
@@ -152,7 +160,10 @@ TEST_CASE(
 	SECTION( "a read the file ends before" )
 	{
 		REQUIRE_THROWS_MATCHES(
-			operation->on_read(file_read_completion(1, image_size - 1), scope),
+			operation->on_transfer(
+				file_transfer_completion(1, image_size - 1),
+				scope
+			),
 			image_file_format_error,
 			names_the_file
 		);
@@ -161,8 +172,8 @@ TEST_CASE(
 	SECTION( "a read the system fails" )
 	{
 		REQUIRE_THROWS_MATCHES(
-			operation->on_read(
-				file_read_completion(
+			operation->on_transfer(
+				file_transfer_completion(
 					1,
 					std::make_error_code(std::errc::io_error)
 				),

@@ -53,8 +53,8 @@ public:
 
 	void start(file_transfer_scope &scope) override;
 
-	void on_read(
-		const file_read_completion &completion,
+	void on_transfer(
+		const file_transfer_completion &completion,
 		file_transfer_scope &scope
 	) override;
 

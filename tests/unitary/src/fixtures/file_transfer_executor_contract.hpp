@@ -46,7 +46,7 @@ inline void queue_into(
 )
 {
 	const memory_range range(buffer.data(), buffer.size());
-	scope.queue(file, offset, make_span(&range, 1), tag);
+	scope.queue_read(file, offset, make_span(&range, 1), tag);
 }
 
 /**
@@ -100,7 +100,10 @@ void check_file_transfer_executor_contract(
 				)
 		);
 		started.expectations.push_back(
-			NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 				.WITH(
 					_1.get_tag() < 3 && !_1.get_error() &&
 					_1.get_size() == 100
@@ -167,7 +170,7 @@ void check_file_transfer_executor_contract(
 			started.expectations.push_back(
 				NAMED_REQUIRE_CALL(
 					started,
-					on_read(trompeloeil::_, trompeloeil::_)
+					on_transfer(trompeloeil::_, trompeloeil::_)
 				)
 					.WITH( _1.get_tag() < 8 && _1.get_size() == 64 )
 					.SIDE_EFFECT( *operation_handed |= 1u << _1.get_tag() )
@@ -198,7 +201,10 @@ void check_file_transfer_executor_contract(
 				)
 		);
 		started.expectations.push_back(
-			NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 				.LR_SIDE_EFFECT(
 					const auto next = _1.get_tag() + 1;
 					if (next < step_count)
@@ -309,7 +315,10 @@ void check_file_transfer_executor_contract(
 				.THROW( std::runtime_error("start") )
 		);
 		started.expectations.push_back(
-			NAMED_FORBID_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_FORBID_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 		);
 
 		const auto done = std::make_shared<counting_completion>(1);
@@ -344,7 +353,10 @@ void check_file_transfer_executor_contract(
 				)
 		);
 		started.expectations.push_back(
-			NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 				.WITH( _1.get_size() == 10 )
 				.TIMES(read_count)
 		);
@@ -372,7 +384,10 @@ void check_file_transfer_executor_contract(
 				)
 		);
 		started.expectations.push_back(
-			NAMED_REQUIRE_CALL(started, on_read(trompeloeil::_, trompeloeil::_))
+			NAMED_REQUIRE_CALL(
+				started,
+				on_transfer(trompeloeil::_, trompeloeil::_)
+			)
 		);
 
 		const auto done = std::make_shared<counting_completion>(1);
@@ -400,7 +415,7 @@ void check_file_transfer_executor_contract(
 		second_started.expectations.push_back(
 			NAMED_REQUIRE_CALL(
 				second_started,
-				on_read(trompeloeil::_, trompeloeil::_)
+				on_transfer(trompeloeil::_, trompeloeil::_)
 			)
 		);
 
@@ -449,7 +464,7 @@ void check_file_transfer_executor_contract(
 			started.expectations.push_back(
 				NAMED_REQUIRE_CALL(
 					started,
-					on_read(trompeloeil::_, trompeloeil::_)
+					on_transfer(trompeloeil::_, trompeloeil::_)
 				)
 					.TIMES(16)
 			);

@@ -160,7 +160,12 @@ std::vector<queued_read> reads_started(file_transfer_operation &operation)
 	mock_file_transfer_scope scope;
 	ALLOW_CALL(
 		scope,
-		queue(trompeloeil::_, trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		queue_read(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 	)
 		.LR_SIDE_EFFECT(
 			std::size_t size = 0;

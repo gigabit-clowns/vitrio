@@ -23,7 +23,7 @@ public:
 	mock_file_transfer_scope() = default;
 
 	MAKE_MOCK4(
-		queue,
+		queue_read,
 		void(
 			file_handle_t file,
 			std::uint64_t offset,

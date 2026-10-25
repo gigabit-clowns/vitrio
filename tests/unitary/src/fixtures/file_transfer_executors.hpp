@@ -5,8 +5,8 @@
 #include <file_transfer/file_transfer_executor.hpp>
 #include <file_transfer/file_transfer_operation.hpp>
 #include <file_transfer/thread_pool_file_transfer_executor.hpp>
-#include <system/asynchronous_file_read_port_opener.hpp>
-#include <system/blocking_file_read_port_opener.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
+#include <system/blocking_file_transfer_port_opener.hpp>
 
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/concurrency/thread_pool_executor.hpp>
@@ -29,19 +29,19 @@ make_every_file_transfer_executor()
 	std::vector<std::shared_ptr<file_transfer_executor>> executors = {
 		std::make_shared<thread_pool_file_transfer_executor>(
 			std::make_shared<thread_pool_executor>(2),
-			blocking_file_read_port_opener(),
+			blocking_file_transfer_port_opener(),
 			1
 		),
 	};
 
 	// Ports with room for few reads, so that reads queue past what they
 	// hold.
-	if (asynchronous_file_read_port_opener::is_supported())
+	if (asynchronous_file_transfer_port_opener::is_supported())
 	{
 		executors.push_back(
 			std::make_shared<thread_pool_file_transfer_executor>(
 				std::make_shared<thread_pool_executor>(2),
-				asynchronous_file_read_port_opener(4),
+				asynchronous_file_transfer_port_opener(4),
 				1
 			)
 		);
