@@ -32,3 +32,11 @@ if(VITRIO_ENABLE_ZARR)
 			test_zarr_round_trip.cpp
 	)
 endif()
+
+if(VITRIO_ENABLE_GZIP)
+	target_sources(
+		vitrio-integration-tests
+		PRIVATE
+			test_gzip_mrc_real_files.cpp
+	)
+endif()
