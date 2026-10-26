@@ -3,17 +3,16 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
-#include <formats/zarr/zlib_inflate.hpp>
+#include <compression/zlib_inflate.hpp>
 
 #include <vitrio/exceptions/image_file_format_error.hpp>
 
-#include "zarr_codec_test_bytes.hpp"
+#include "compression_test_bytes.hpp"
 #include "zlib_test_streams.hpp"
 
 #include <vector>
 
 using namespace vitrio;
-using namespace vitrio::zarr;
 
 TEST_CASE( "inflate_stream inflates one whole stream", "[zlib_inflate]" )
 {

@@ -142,8 +142,13 @@ if(VITRIO_ENABLE_ZARR)
 			nlohmann_json::nlohmann_json
 			blosc::blosc
 			zstd::zstd
-			ZLIB::ZLIB
 	)
+endif()
+
+# What inflates and deflates is shared by the formats that compress with
+# zlib.
+if(VITRIO_ENABLE_ZARR OR VITRIO_ENABLE_GZIP)
+	target_link_libraries(vitrio-obj PUBLIC ZLIB::ZLIB)
 endif()
 
 if(VITRIO_ENABLE_IO_URING)
@@ -151,6 +156,11 @@ if(VITRIO_ENABLE_IO_URING)
 endif()
 
 add_subdirectory(array)
+
+if(VITRIO_ENABLE_ZARR OR VITRIO_ENABLE_GZIP)
+	add_subdirectory(compression)
+endif()
+
 add_subdirectory(concurrency)
 add_subdirectory(file_transfer)
 add_subdirectory(formats)

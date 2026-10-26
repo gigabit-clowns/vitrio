@@ -28,8 +28,6 @@ target_sources(
 		test_zarr_shard_layout.cpp
 		test_zarr_store_metadata.cpp
 		test_zarr_write_operation.cpp
-		test_zlib_deflate.cpp
-		test_zlib_inflate.cpp
 		test_zlib_zarr_bytes_codec.cpp
 		test_zstd_zarr_bytes_codec.cpp
 )

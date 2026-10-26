@@ -7,7 +7,7 @@
 
 #include <vitrio/exceptions/image_file_format_error.hpp>
 
-#include "zarr_codec_test_bytes.hpp"
+#include "../../compression/compression_test_bytes.hpp"
 
 #include <blosc.h>
 
