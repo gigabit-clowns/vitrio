@@ -418,6 +418,36 @@ TEST_CASE(
 		REQUIRE( read_all(reader, extents) == values );
 	}
 
+	SECTION( "a slice across the planes of a volume" )
+	{
+		// A row of each plane, which the reader stages a plane at a time
+		// rather than with everything that lies between them.
+		const std::vector<std::size_t> volume = {4, 64, 64};
+		const auto many = counting(4 * 64 * 64);
+		write_gzip(path.get(), lay_out(many, 16));
+		const gzip_image_reader reader(
+			path.get(), make_layout(volume, 3, 16), image_metadata());
+
+		const std::vector<std::size_t> slice = {4, 1, 64};
+		auto destination = make_host_array(slice);
+		image_transfer_plan regions(image_transfer_shape(slice, 3, 3));
+		regions.add(
+			make_span(std::vector<std::size_t>{0, 10, 0}),
+			make_span(std::vector<std::size_t>{0, 0, 0})
+		);
+
+		reader.read(array_ref(destination), regions);
+
+		std::vector<float> expected;
+		for (std::size_t plane = 0; plane < 4; ++plane)
+		{
+			const auto first = many.begin() +
+				static_cast<std::ptrdiff_t>(plane * 64 * 64 + 10 * 64);
+			expected.insert(expected.end(), first, first + 64);
+		}
+		REQUIRE( values_of(destination, slice) == expected );
+	}
+
 	SECTION( "along strides that are not descending" )
 	{
 		// The file stores its columns one after another, so the element of
