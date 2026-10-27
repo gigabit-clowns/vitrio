@@ -2,6 +2,9 @@
 
 #include <vitrio/concurrency/thread_pool_executor.hpp>
 
+#include <logger.hpp>
+
+#include <algorithm>
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
@@ -46,6 +49,21 @@ public:
 	std::size_t get_worker_count() const noexcept
 	{
 		return m_worker_count;
+	}
+
+	// Whether the calling thread is one of the workers, which are only
+	// started by the constructor.
+	bool runs_on_this_thread() const noexcept
+	{
+		const auto self = std::this_thread::get_id();
+		return std::any_of(
+			m_workers.begin(),
+			m_workers.end(),
+			[self](const std::thread &worker)
+			{
+				return worker.get_id() == self;
+			}
+		);
 	}
 
 	void submit(
@@ -129,7 +147,30 @@ thread_pool_executor::thread_pool_executor(std::size_t worker_count)
 	m_implementation = std::make_unique<implementation>(worker_count);
 }
 
-thread_pool_executor::~thread_pool_executor() = default;
+// A task, or what reports it, may hold the last reference to the executor,
+// which is then let go on one of its own workers. A thread can not wait for
+// itself to end, so the workers are then waited for on a thread of their
+// own, once the task that let the executor go has returned.
+thread_pool_executor::~thread_pool_executor()
+{
+	if (!m_implementation->runs_on_this_thread())
+	{
+		return;
+	}
+
+	auto *const workers = m_implementation.release();
+	try
+	{
+		std::thread([workers] { delete workers; }).detach();
+	}
+	catch (...)
+	{
+		VITRIO_LOG_ERROR(
+			"A thread_pool_executor let go on one of its own threads could "
+			"not be destroyed, and is kept."
+		);
+	}
+}
 
 std::size_t thread_pool_executor::get_worker_count() const noexcept
 {

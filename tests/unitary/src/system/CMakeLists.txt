@@ -12,6 +12,7 @@ target_sources(
 		test_page_prefetch.cpp
 		test_page_size.cpp
 		test_scattered_file_read.cpp
+		test_system_memory.cpp
 )
 
 if(NOT WIN32)

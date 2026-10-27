@@ -98,13 +98,36 @@ inline void flush_now(image_writer &writer)
  */
 inline void store_now(
 	image_scratch_entry &entry,
-	const image_reader &file,
+	std::shared_ptr<const image_reader> file,
 	const image_transfer_plan &regions
 )
 {
 	const auto done = std::make_shared<counting_completion>(1);
-	entry.store_async(file, regions, done);
+	entry.store_async(std::move(file), regions, done);
 	done->get();
+}
+
+/**
+ * @brief Read what a scratch entry holds of regions and wait until it has
+ * landed.
+ *
+ * @param entry The entry.
+ * @param destination Where the regions land.
+ * @param regions The regions to read.
+ * @return image_transfer_plan The regions the entry does not hold, which
+ * are not read.
+ * @throws Whatever the read reports.
+ */
+inline image_transfer_plan read_held_now(
+	const image_scratch_entry &entry,
+	array &destination,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	auto missing = entry.read_async(destination.share(), regions, done);
+	done->get();
+	return missing;
 }
 
 } // namespace test

@@ -18,12 +18,12 @@ class image_scratch_entry;
 /**
  * @brief Reads a file through a scratch.
  *
- * The regions the scratch entry holds are read from it, on the thread that
- * starts the read. The others are offered to it out of the file, and once it
- * has taken them in they are read from it by a task on an executor. Whatever
- * it still does not hold is then read from the file itself. A read the
- * scratch entry serves in full does not read the backing file, and none of
- * the steps waits for another.
+ * The regions the scratch entry holds are read from it, started on the
+ * thread that starts the read. The others are offered to it out of the file,
+ * and once it has taken them in they are read from it, started by a task on
+ * an executor. Whatever it still does not hold is then read from the file
+ * itself. A read the scratch entry serves in full does not read the backing
+ * file, and none of the steps waits for another.
  *
  * What the reader reports is what the reader over the file reports.
  */

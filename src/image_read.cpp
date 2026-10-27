@@ -105,7 +105,7 @@ public:
 
 		// The entry reports once what it takes in has landed, with every run
 		// of the file read at once.
-		m_entry->store_async(*file, std::move(plan), std::move(m_done));
+		m_entry->store_async(file, std::move(plan), std::move(m_done));
 	}
 
 private:

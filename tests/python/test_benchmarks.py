@@ -25,7 +25,7 @@ HARNESS = BENCHMARKS / 'python'
 sys.path.insert(0, str(HARNESS))
 
 from vitrio_bench import (    # noqa: E402
-	datasets, manifests, readers, results, zarr_libraries,
+	datasets, manifests, readers, results, writers, zarr_libraries,
 )
 
 DATASET = ['--dataset.count=120', '--dataset.box=16']
@@ -76,7 +76,7 @@ def test_every_scratch_delivers_the_same_batches(tmp_path, reader):
 	layout = '--dataset.layout=per-micrograph:7'
 	harness('generate', '--datadir', str(tmp_path), *DATASET, layout)
 	records_file = tmp_path / 'results.jsonl'
-	for scratch in ('none', 'host', 'mapped', 'directory'):
+	for scratch in ('none', 'host', 'file', 'directory'):
 		harness(
 			'run', 'epochs', '--datadir', str(tmp_path),
 			'--results', str(records_file), *DATASET, layout,
@@ -242,7 +242,11 @@ MICROGRAPHS = [
 	'--dataset.count=3', '--dataset.box=128', '--dataset.layout=one-per-file',
 ]
 
-def test_every_patch_reader_crops_the_same_patches(tmp_path):
+@pytest.mark.parametrize('crowding, spread', [
+	('sparse', ['--workload.batch=8']),
+	('crowded', []),
+])
+def test_every_patch_reader_crops_the_same_patches(tmp_path, crowding, spread):
 	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
 	records_file = tmp_path / 'results.jsonl'
 	for name, reader in readers.READERS.items():
@@ -252,8 +256,8 @@ def test_every_patch_reader_crops_the_same_patches(tmp_path):
 			'run', 'patches', '--datadir', str(tmp_path),
 			'--results', str(records_file), *MICROGRAPHS,
 			f'--reader.name={name}', '--workload.patch=32',
-			'--workload.patches=10', '--workload.batch=8',
-			'--workload.verify=true'
+			'--workload.patches=10', f'--workload.crowding={crowding}',
+			*spread, '--workload.verify=true'
 		)
 	records = results.load(records_file)
 	for record in records:
@@ -262,6 +266,107 @@ def test_every_patch_reader_crops_the_same_patches(tmp_path):
 	assert len(succeeded) >= 2
 	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
 	assert all(record['metrics']['images'] == 30 for record in succeeded)
+
+def test_crowded_patches_read_an_image_a_batch(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
+	records_file = tmp_path / 'results.jsonl'
+	harness(
+		'run', 'patches', '--datadir', str(tmp_path),
+		'--results', str(records_file), *MICROGRAPHS,
+		'--reader.name=vitrio-loader', '--workload.patch=32',
+		'--workload.crowding=crowded'
+	)
+	(record,) = results.load(records_file)
+	assert record['status'] == 'ok'
+	workload = record['workload']
+	# As many patches as cover 40% of an image, in batches of an image.
+	assert workload['patches'] == round(0.4 * 128**2 / 32**2)
+	assert workload['batch'] == workload['patches']
+	assert workload['order'] == 'sequential'
+	assert record['metrics']['images'] == 3 * workload['patches']
+
+def test_a_crowded_workload_takes_no_order(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
+	records_file = tmp_path / 'results.jsonl'
+	completed = harness(
+		'run', 'patches', '--datadir', str(tmp_path),
+		'--results', str(records_file), *MICROGRAPHS,
+		'--reader.name=vitrio-loader', '--workload.crowding=crowded',
+		'--workload.order=shuffled', check=False
+	)
+	assert completed.returncode == 1
+	(record,) = results.load(records_file)
+	results.check(record)
+	assert record['status'] == 'failed'
+	assert 'crowded' in record['reason']
+
+VOLUME = [
+	'--dataset.count=24', '--dataset.box=20', '--dataset.layout=single-stack',
+]
+
+@pytest.mark.parametrize('axis', ['z', 'y', 'x'])
+def test_every_slice_reader_reads_the_same_slices(tmp_path, axis):
+	harness('generate', '--datadir', str(tmp_path), *VOLUME)
+	records_file = tmp_path / 'results.jsonl'
+	for name, reader in readers.READERS.items():
+		if not reader.reads_slices:
+			continue
+		harness(
+			'run', 'slices', '--datadir', str(tmp_path),
+			'--results', str(records_file), *VOLUME,
+			f'--reader.name={name}', f'--workload.axis={axis}',
+			'--workload.batch=7', '--workload.verify=true'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert len(succeeded) >= 2
+	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
+	slices = 24 if axis == 'z' else 20
+	assert all(record['metrics']['images'] == slices for record in succeeded)
+
+@pytest.mark.parametrize(
+	'dataset',
+	[
+		['--dataset.count=40', '--dataset.layout=single-stack'],
+		['--dataset.count=40', '--dataset.layout=per-micrograph:7'],
+		[
+			'--dataset.count=40', '--dataset.layout=single-stack',
+			'--dataset.dtype=float16',
+		],
+		['--dataset.count=3', '--dataset.layout=one-per-file'],
+	]
+)
+def test_every_writer_writes_a_dataset_and_leaves_nothing(tmp_path, dataset):
+	records_file = tmp_path / 'results.jsonl'
+	for name in writers.WRITERS:
+		harness(
+			'run', 'write_batches', '--datadir', str(tmp_path),
+			'--results', str(records_file), '--dataset.box=16', *dataset,
+			f'--reader.name={name}', '--workload.batch=8'
+		)
+	records = results.load(records_file)
+	for record in records:
+		results.check(record)
+	succeeded = [record for record in records if record['status'] == 'ok']
+	assert succeeded
+	count = int(dataset[0].partition('=')[2])
+	assert all(record['metrics']['images'] == count for record in succeeded)
+	assert not any(tmp_path.glob('writes-*'))
+
+def test_a_scratch_on_the_storage_of_its_data_is_flagged(tmp_path):
+	datadir = tmp_path / 'data'
+	harness('generate', '--datadir', str(datadir), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	completed = run(
+		datadir, records_file, '--reader.scratch=file',
+		f'--environment.scratchdir={tmp_path / "scratch"}'
+	)
+	[record] = results.load(records_file)
+	assert record['status'] == 'ok'
+	assert record['environment']['scratch_target']['shares_storage'] is True
+	assert 'warning: the scratch directory' in completed.stderr
 
 def write_star(path, names):
 	starfile = pytest.importorskip('starfile')

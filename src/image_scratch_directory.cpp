@@ -4,7 +4,7 @@
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_scratch_storage.hpp>
-#include <vitrio/mapped_file_image_scratch_storage.hpp>
+#include <vitrio/file_image_scratch_storage.hpp>
 
 // The whole of Boost.Filesystem, for directory_iterator: its own header is
 // only there from Boost 1.72, and operations.hpp has stopped including it.
@@ -236,6 +236,7 @@ image_scratch_directory::get_file_path(std::uint64_t fingerprint) const
 std::shared_ptr<image_scratch_storage> image_scratch_directory::acquire(
 	std::uint64_t fingerprint,
 	std::size_t size,
+	const file_transfer_pool &transfers,
 	std::size_t &room
 )
 {
@@ -250,7 +251,7 @@ std::shared_ptr<image_scratch_storage> image_scratch_directory::acquire(
 		return nullptr;
 	}
 
-	auto storage = create_mapped_file_image_scratch_storage(path, size);
+	auto storage = create_file_image_scratch_storage(path, size, transfers);
 
 	boost::system::error_code error;
 	boost::filesystem::last_write_time(path, std::time(nullptr), error);

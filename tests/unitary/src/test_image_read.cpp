@@ -1053,7 +1053,7 @@ TEST_CASE(
 		*first_entry,
 		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	)
-		.LR_WITH( &_1 == first_file.get() && spans_images(_2, {1, 4}) )
+		.LR_WITH( _1.get() == first_file.get() && spans_images(_2, {1, 4}) )
 		.IN_SEQUENCE(order)
 		.SIDE_EFFECT( _3->notify_done() );
 	REQUIRE_CALL(*files, acquire("stack_1.mrcs"))
@@ -1063,7 +1063,7 @@ TEST_CASE(
 		*second_entry,
 		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	)
-		.LR_WITH( &_1 == second_file.get() && spans_images(_2, {2}) )
+		.LR_WITH( _1.get() == second_file.get() && spans_images(_2, {2}) )
 		.IN_SEQUENCE(order)
 		.SIDE_EFFECT( _3->notify_done() );
 
@@ -1099,7 +1099,7 @@ TEST_CASE(
 		*entry,
 		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	)
-		.LR_WITH( &_1 == file.get() && spans_whole_stack(_2) )
+		.LR_WITH( _1.get() == file.get() && spans_whole_stack(_2) )
 		.SIDE_EFFECT( _3->notify_done() );
 
 	const auto completion = prefetch(

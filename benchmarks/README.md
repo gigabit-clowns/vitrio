@@ -13,6 +13,7 @@ and campaigns of runs are left to ReFrame.
 |---|---|
 | `python/vitrio_bench/` | The harness: one run of a procedure with a reader, measured from outside vitrio and recorded as one line of JSON |
 | `python/vitrio_bench/readers/` | The readers: vitrio's, and the baselines that read as other software does |
+| `python/vitrio_bench/writers.py` | The writers of the procedure that writes: vitrio's, and mrcfile's |
 | `python/vitrio_bench/procedures/` | The procedures |
 | `python/vitrio_bench/zarr_libraries/` | The libraries the procedure `zarr` writes and reads stores with: vitrio's, zarr-python and tensorstore |
 | `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
@@ -22,7 +23,8 @@ and campaigns of runs are left to ReFrame.
 
 The harness is not part of the package and is not built. CI runs none of
 the benchmarks, apart from two smoke tests: `tests/python/test_benchmarks.py`
-checks that every reader and every scratch delivers the same batches, that
+checks that every reader and every scratch delivers the same batches, every
+reader of slices the same slices, that every writer writes each layout, that
 every ZARR library reads back the same store, and that every record follows
 its schema, and the C++ benchmark runs each of its
 benchmarks for a moment.
@@ -96,9 +98,9 @@ left for the next. The point is given part by part, as
 
 | Part | What | Examples |
 |---|---|---|
-| `dataset` | What is read | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
-| `reader` | Who reads it, with which settings | `name`, and the reader's own (below) |
-| `workload` | How it is read | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `verify` |
+| `dataset` | What is read, or written | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
+| `reader` | Who reads it, or writes it, with which settings | `name`, and the reader's own (below), or the writer's |
+| `workload` | How it is read, or written | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `crowding`, `axis`, `sync`, `verify` |
 | `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
@@ -125,6 +127,7 @@ can; a variant that asks for one its machine lacks is skipped.
 |---|---|---|
 | Drop the dataset's pages, and those of a reader's copies, from the cache, with `POSIX_FADV_DONTNEED` (Linux) | `--environment.cold=fadvise` | |
 | Drop every clean page of the machine (root) | `--environment.cold=drop` | `root` |
+| Drop every clean page of the machine and empty the ARC of ZFS, which keeps what ZFS reads apart from the page cache and ignores the other two (root) | `--environment.cold=zfs` | `root` |
 | Run on some CPUs only (Linux) | `--environment.cpus=0-3` | |
 | Limit the memory of the run, page cache included, with a scope of systemd | `--environment.memory_max=8G` | `cgroup-memory` |
 | Measure the storage's ceiling with fio | the procedure `ceiling` | `fio` |
@@ -139,6 +142,16 @@ can; a variant that asks for one its machine lacks is skipped.
   itself, so the command that started it records it as failed. The scope
   starts empty, and pages another process cached are not counted against
   it, so a limited run should be a cold one.
+- **The ARC.** Emptying it lowers its limits to their floor, drops the
+  caches until it gets there or stops shrinking, and gives it back the
+  limits it had; the record keeps what it held before and after, as
+  `emptied`. A run killed half way leaves the limits low, which the next
+  one refuses to start from.
+- **Scratches in files.** The record describes the storage of the scratch
+  directory, as `scratch_target`, and whether it is that of the dataset:
+  the same disk, whatever the partition, or the same ZFS pool. A scratch
+  there only copies the data where it already is, which no one sets up, so
+  the run warns, and its numbers say nothing of what a scratch is worth.
 
 ## Datasets
 
@@ -196,11 +209,48 @@ first and later parts, and the bytes read from storage in each epoch.
 Patches cropped out of the images of a dataset, micrographs as a rule, as
 many per image, at corners drawn at random: particles read out of
 micrographs without extracting them first. The patches of a batch are read
-image by image, in the order extraction reads them. Its workload is that of
-`read_batches`, and `patch`, the side of a patch (128), and `patches`, how
-many each image has (100). The readers that crop patches are
+image by image. How they are spread is the `crowding`, which the results of
+a reader depend on, so that a campaign measures both:
+
+- `sparse` (the default): batches drawn across the images in the order of
+  the workload, a few patches of each image a batch, as a model trained on
+  patches draws them;
+- `crowded`: every patch of an image in one batch, an image after another,
+  as extraction reads them. It sets the order and the batches itself, and
+  takes neither.
+
+Its workload is that of `read_batches`, and `patch`, the side of a patch
+(128), `crowding`, and `patches`, how many each image has: 100 when sparse,
+and as many as cover 40% of an image when crowded. The readers that crop
+patches are
 `vitrio-loader`, with one `read_patches_async` per image of a batch, and
 the readers of mrcfile, numpy and Python's files, one patch at a time.
+
+### `slices`
+
+Slices of a volume along one of its axes, as a viewer of a tomogram shows
+them. The volume is the single stack of a dataset, whose images are its
+planes along `z`: a slice along `z` is one image, one along `y` takes a row
+of every image, and one along `x` a value of every row. Its workload is
+that of `read_batches`, whose rows are the slices, and `axis` (`z`). The
+readers that take slices are `vitrio-loader`, with one `read_patches_async`
+per batch, a slice being a patch one value deep, and the maps of numpy and
+mrcfile.
+
+### `write_batches`
+
+A dataset written from memory, a batch of images at a time in the order of
+its stacks: what extraction, conversion and reconstruction write. The
+dataset is not generated: its files are written into a directory under the
+data directory, on the storage measured, and removed after. Its layout
+decides the files, an image a file being written as a micrograph is, and its
+data type is the one the files hold, so `float16` from `float32` images
+converts every value. Its workload is `batch` (256) and `sync` (true): the
+time runs until a sync of the system returns, since a writer that leaves
+what it wrote in the page cache, as a map does, is not done. It reports
+`write_s`, until the files are closed, `sync_s`, `images_per_s`,
+`file_bytes_per_s` and the CPU and memory it took. Its writers come next to
+the readers.
 
 ### `ceiling`
 
@@ -265,9 +315,16 @@ The loader's parameters, shared by vitrio's readers:
 |---|---|---|
 | `workers` | the machine's CPUs | Threads of the pool |
 | `cache` | 0 (`vitrio-data`: the shared loader's 64) | Open readers kept |
-| `scratch` | `none` | Copies of what has been read: `host` memory, a `mapped` file, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
+| `scratch` | `none` | Copies of what has been read: `host` memory, a `file`, or a file of a `directory` kept within a budget; the last two in the scratch directory. A scratch is made anew for every run, and removed after |
 | `run_length` | 64 | Particles of a file a scratch takes in together |
 | `budget` | what the dataset takes, and a margin | Bytes a directory scratch may take |
+
+The writers of `write_batches`:
+
+| Writer | Stands for | Parameters |
+|---|---|---|
+| `vitrio-saver` | `vio.saver` and `write_batch_async` over a writer provider the stacks are declared to, a few batches in flight, each stack finished with `close_async` as soon as it is complete, a few at once; `write_single` for an image a file. A build without `close_async` closes each stack as it is complete, which syncs nothing | `workers`, `in_flight`, `finishing` (16) |
+| `mrcfile-mmap` | `mrcfile.new_mmap` for each stack, its images assigned a batch at a time; `mrcfile.new` for an image a file | |
 
 The readers that read files themselves are named
 `<library>-<call>-<how long a file stays open>`: `per-read` opens it for
@@ -301,15 +358,18 @@ the defaults do not account for.
 | `dtype` | `read_batches` | Reading fewer bytes: float16 or int16 on disk, delivered as float32 |
 | `scratch` | `epochs` | **H2**: a scratch is opened through the file it copies, so without a cache every batch still opens its files. **H5**: a scratch takes in the runs of a file one after another, so filling it from one stack is serial |
 | `run_length` | `epochs` | How many particles of a file a scratch should take in together |
-| `larger_than_ram` | `epochs` | **H6**: past the memory, a mapped scratch is read with the advice vitrio gives the pages of a stack. Does it read no more than reading the stack does? |
+| `larger_than_ram` | `epochs` | **H6**: past the memory, a file scratch is read as vitrio reads a stack. Does it read no more than reading the stack does? |
 | `overlap` | `epochs` | How many batches to read ahead, against the length of a step |
 | `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |
 | `convert_first` | `epochs` | A converted dataset's first run, which converts it, against a rerun |
-| `patch_readers` | `patches` | Every reader that crops patches, at three sides |
-| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value |
+| `patch_readers` | `patches` | Every reader that crops patches, at three sides, sparse and crowded |
+| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value, sparse and crowded |
 | `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET`. A build per value |
 | `ceiling` | `ceiling` | What the storage delivers |
+| `slice_readers` | `slices` | Slices of a tomogram along each axis: a plane of the file along `z`, pieces of every plane along `y` and `x` |
+| `writers` | `write_batches` | Where vitrio stands against mrcfile's maps writing a stack, a stack per micrograph and micrographs, until they are on the storage |
+| `write_dtype` | `write_batches` | Writing fewer bytes: float16 or int16 stored from float32 images, every value converted |
 | `zarr_libraries` | `zarr` | Where vitrio stands against zarr-python and tensorstore, writing and reading a volume of 512 cubed and a tilt series of 41 images of 2048 square, of floats and of integers |
 | `zarr_cold_reads` | `zarr` | The same, the store's pages dropped before each read |
 | `zarr_workers` | `zarr` | What the threads of vitrio's pool are worth, a write and a read being a task per chunk |

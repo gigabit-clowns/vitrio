@@ -30,6 +30,7 @@ class NumpyMemmapKept(Reader):
 	name = 'numpy-memmap-kept'
 	defaults = {'advice': 'normal'}
 	reads_patches = True
+	reads_slices = True
 
 	def open(self) -> None:
 		advice = self.params['advice']
@@ -75,6 +76,17 @@ class NumpyMemmapKept(Reader):
 		picks: Picks
 	) -> Iterator[np.ndarray]:
 		return self.crop_patches(batches, picks, self._crop)
+
+	def slices(
+		self,
+		batches: Iterable[np.ndarray],
+		axis: str
+	) -> Iterator[np.ndarray]:
+		"""Gathers the slices of a batch out of the map with one index."""
+		for rows in batches:
+			slices = self.new_slices(len(rows), axis)
+			self.take_slices(self._map(0), rows, axis, slices)
+			yield slices
 
 	def close(self) -> None:
 		self._maps = {}

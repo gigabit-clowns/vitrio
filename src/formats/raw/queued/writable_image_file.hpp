@@ -51,6 +51,14 @@ public:
 	 */
 	file_handle_t get_file() const noexcept;
 
+	/**
+	 * @brief Get the file as Boost keeps it open, which a read of it shares
+	 * through a pointer that keeps this alive.
+	 *
+	 * @return const boost::interprocess::file_mapping& The open file.
+	 */
+	const boost::interprocess::file_mapping& get_open_file() const noexcept;
+
 private:
 	std::string m_path;
 

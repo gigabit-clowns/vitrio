@@ -4,7 +4,7 @@
 
 #include <vitrio/image_scratch_entry.hpp>
 
-#include <vitrio/array/array_ref.hpp>
+#include <vitrio/array/array.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
@@ -22,11 +22,12 @@ class mock_image_scratch_entry final
 public:
 	mock_image_scratch_entry() = default;
 
-	MAKE_CONST_MOCK2(
-		read,
+	MAKE_CONST_MOCK3(
+		read_async,
 		image_transfer_plan(
-			array_ref destination,
-			const image_transfer_plan &regions
+			array destination,
+			image_transfer_plan regions,
+			std::shared_ptr<completion_notifier> done
 		),
 		override
 	);
@@ -34,7 +35,7 @@ public:
 	MAKE_MOCK3(
 		store_async,
 		void(
-			const image_reader &file,
+			std::shared_ptr<const image_reader> file,
 			image_transfer_plan regions,
 			std::shared_ptr<completion_notifier> done
 		),

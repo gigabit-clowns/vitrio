@@ -13,12 +13,11 @@ reads, on threads of its own.
 read of the file.
 
 When the images do not fit in RAM, or the next run should not read them
-again, the scratch may live in a file mapped into memory instead
-(`create_mapped_file_image_scratch`). A later scratch of the same images
-over the same file resumes from what is already in it, except for the
-images whose files were modified since, and programs that hold the same
-images can share the file. vitrio never removes it, so remove it yourself
-once nothing uses it.
+again, the scratch may live in a file instead (`create_file_image_scratch`).
+A later scratch of the same images over the same file resumes from what is
+already in it, except for the images whose files were modified since, and
+programs that hold the same images can share the file. vitrio never removes
+it, so remove it yourself once nothing uses it.
 
 To leave the files to vitrio, keep them in a directory with a budget
 (`create_directory_image_scratch`). Each scratch gets a file of its own
@@ -68,10 +67,10 @@ def main() -> None:
 		scratch = vio.create_host_image_scratch(locations, run_length=8)
 
 		# Or, when the images do not fit in RAM, keep the copy on fast
-		# local storage, such as an NVMe disk, in a file mapped into
-		# memory. It outlives the program, and the next run resumes from it:
+		# local storage, such as an NVMe disk, in a file. It outlives the
+		# program, and the next run resumes from it:
 		#
-		# scratch = vio.create_mapped_file_image_scratch(
+		# scratch = vio.create_file_image_scratch(
 		# 	locations, "/local/disk/particles.scratch", run_length=8
 		# )
 

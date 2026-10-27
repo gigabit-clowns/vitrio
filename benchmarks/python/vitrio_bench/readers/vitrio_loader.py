@@ -24,7 +24,7 @@ class VitrioLoader(Reader):
 		cache: Open readers the loader keeps. 0 keeps none, which is the
 			default of `vio.loader`.
 		scratch: Where the loader keeps copies of the particles it has
-			read: `none`, `host` memory, a `mapped` file, or a file of a
+			read: `none`, `host` memory, a `file`, or a file of a
 			`directory` kept within a budget. The last two are kept in the
 			run's scratch directory.
 		run_length: Particles of a file the scratch takes in together.
@@ -37,6 +37,7 @@ class VitrioLoader(Reader):
 	name = 'vitrio-loader'
 	defaults = {**LOADER, 'in_flight': 2}
 	reads_patches = True
+	reads_slices = True
 
 	def open(self) -> None:
 		import vitrio as vio
@@ -103,6 +104,49 @@ class VitrioLoader(Reader):
 			for reading in readings:
 				reading.get()
 			yield images
+
+	def _start_slices(self, rows: np.ndarray, axis: str):
+		# A slice is a patch of the volume one value deep along its axis,
+		# whose centre lands at the middle of the others.
+		count, box = self.dataset.count, self.dataset.box
+		if axis == 'z':
+			shape = (1, box, box)
+			centres = [(int(row), box // 2, box // 2) for row in rows]
+		elif axis == 'y':
+			shape = (count, 1, box)
+			centres = [(count // 2, int(row), box // 2) for row in rows]
+		else:
+			shape = (count, box, 1)
+			centres = [(count // 2, box // 2, int(row)) for row in rows]
+		slices = self.new_slices(len(rows), axis)
+		reading = self._vio.read_patches_async(
+			self._loader,
+			slices.reshape((len(rows), *shape)),
+			self._vio.ImageLocation(str(self.dataset.stacks[0])),
+			centres
+		)
+		return slices, reading
+
+	def slices(
+		self,
+		batches: Iterable[np.ndarray],
+		axis: str
+	) -> Iterator[np.ndarray]:
+		"""
+		Reads the slices of a batch with one `read_patches_async` call, and
+		reads batches ahead as `epoch` does.
+		"""
+		pending = deque()
+		for rows in batches:
+			pending.append(self._start_slices(rows, axis))
+			if len(pending) > self.params['in_flight']:
+				slices, reading = pending.popleft()
+				reading.get()
+				yield slices
+		while pending:
+			slices, reading = pending.popleft()
+			reading.get()
+			yield slices
 
 	def close(self) -> None:
 		# Destroying the loader joins its threads and releases its scratch.

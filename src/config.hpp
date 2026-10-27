@@ -41,9 +41,26 @@
 //
 // A step is transferred while the one before it is moved, so a read or a
 // write holds two steps of this at most, unless a single stretch is wider
-// than a step.
+// than a step. A scratch kept in a file takes values in through pieces of a
+// step.
 #ifndef VITRIO_DEFAULT_STAGING_BYTE_BUDGET
 	#define VITRIO_DEFAULT_STAGING_BYTE_BUDGET (1UL<<23)
+#endif
+
+// Bytes the loads of a scratch kept in a file stage at once, all of them
+// together.
+//
+// A load reads what it takes in into memory of its own before it writes it
+// to the file, and a shuffled batch starts a load for nearly every run of a
+// scratch, so what they stage is bounded: pieces past this wait for earlier
+// ones, in the order they came, and one that alone stages more is started
+// alone. Hard disks need the depth: a scratch on a solid-state drive, filled
+// from a RAID of hard disks under ZFS, took its first epoch in at 0.80 of the
+// rate of a mapped scratch with 16 MiB at once, and matched it from 64 MiB
+// on, as ZFS merged its reads into ones twice as large. A solid-state drive
+// gains nothing from more.
+#ifndef VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET
+	#define VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET (1UL<<26)
 #endif
 
 // Transfers of files the kernel carries out at once for one asynchronous

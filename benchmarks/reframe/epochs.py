@@ -30,7 +30,7 @@ class scratch(Epochs):
 	"""
 
 	layout = parameter(['single-stack', 'per-micrograph:100'], type=str)
-	scratch = parameter(['none', 'host', 'mapped', 'directory'], type=str)
+	scratch = parameter(['none', 'host', 'file', 'directory'], type=str)
 	cache = parameter([0, 4096], type=int)
 
 @rfm.simple_test
@@ -38,7 +38,7 @@ class run_length(Epochs):
 	"""How many particles of a file a scratch should take in together."""
 
 	layout = parameter(['single-stack', 'per-micrograph:100'], type=str)
-	scratch = parameter(['mapped'], type=str)
+	scratch = parameter(['file'], type=str)
 	run_length = parameter([1, 8, 64, 256], type=int)
 	cache = parameter([4096], type=int)
 
@@ -49,15 +49,15 @@ class larger_than_ram(Epochs):
 
 	The dataset takes 2.6 GB, and the memory of the run, page cache
 	included, is limited. Past the limit every epoch reads from storage.
-	A mapped scratch on the same storage holds the same bytes, and is read
-	with the same advice vitrio gives the pages of a stack, so past the
-	limit it should read no more than the stack does.
+	A file scratch on the same storage holds the same bytes, and is read
+	as vitrio reads a stack, so past the limit it should read no more than
+	the stack does.
 	"""
 
 	count = 40000
 	cold = parameter(['fadvise'], type=str)
 	memory_max = parameter(['10G', '5G', '2600M', '1300M', '650M'], type=str)
-	scratch = parameter(['none', 'mapped'], type=str)
+	scratch = parameter(['none', 'file'], type=str)
 	cache = parameter([4096], type=int)
 
 @rfm.simple_test

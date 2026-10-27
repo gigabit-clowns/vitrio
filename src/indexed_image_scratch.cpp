@@ -11,13 +11,14 @@
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/concurrency/executor.hpp>
 #include <vitrio/concurrency/task.hpp>
+#include <vitrio/file_image_scratch_storage.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/host_image_scratch_storage.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_location_grouping.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_reader_provider.hpp>
 #include <vitrio/image_scratch_storage.hpp>
-#include <vitrio/mapped_file_image_scratch_storage.hpp>
 
 #include <assert.hpp>
 #include <logger.hpp>
@@ -29,7 +30,6 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <functional>
 #include <numeric>
@@ -166,10 +166,13 @@ std::uint64_t hash_value(std::uint64_t hash, std::uint64_t value) noexcept
 	);
 }
 
-std::uint64_t read_fingerprint(const image_scratch_storage &storage) noexcept
+std::uint64_t read_fingerprint(const image_scratch_storage &storage)
 {
 	std::uint64_t fingerprint = 0;
-	std::memcpy(&fingerprint, storage.get_data(), sizeof(fingerprint));
+	storage.read(
+		0,
+		make_span(reinterpret_cast<byte*>(&fingerprint), sizeof(fingerprint))
+	);
 
 	return fingerprint;
 }
@@ -177,9 +180,15 @@ std::uint64_t read_fingerprint(const image_scratch_storage &storage) noexcept
 void write_fingerprint(
 	image_scratch_storage &storage,
 	std::uint64_t fingerprint
-) noexcept
+)
 {
-	std::memcpy(storage.get_data(), &fingerprint, sizeof(fingerprint));
+	storage.write(
+		0,
+		make_span(
+			reinterpret_cast<const byte*>(&fingerprint),
+			sizeof(fingerprint)
+		)
+	);
 }
 
 void check_storage(const image_scratch_storage *storage)
@@ -188,14 +197,6 @@ void check_storage(const image_scratch_storage *storage)
 	{
 		throw std::invalid_argument(
 			"indexed_image_scratch: The storage must not be null."
-		);
-	}
-
-	if (!is_aligned(storage->get_data(), alignof(std::uint64_t)))
-	{
-		throw std::invalid_argument(
-			"indexed_image_scratch: The storage is not aligned for 64-bit "
-			"integers."
 		);
 	}
 
@@ -213,21 +214,6 @@ void check_run_length(std::size_t run_length)
 	{
 		throw std::invalid_argument(
 			"indexed_image_scratch: A run must span at least one index."
-		);
-	}
-}
-
-void check_alignment(
-	const image_scratch_storage &storage,
-	const image_descriptor &file,
-	const std::string &key
-)
-{
-	if (!is_aligned(storage.get_data(), get_size(file.get_data_type())))
-	{
-		throw std::invalid_argument(
-			key + ": indexed_image_scratch: The storage is not aligned for "
-			"the data type of the file."
 		);
 	}
 }
@@ -503,9 +489,11 @@ std::vector<image_descriptor> describe_files(
 		}
 		catch (...)
 		{
-			for (auto unsubmitted = index; unsubmitted < group_count; ++unsubmitted)
+			const auto error = std::current_exception();
+			for (auto unsubmitted = index; unsubmitted < group_count;)
 			{
-				done->notify_done(std::current_exception());
+				done->notify_done(error);
+				++unsubmitted;
 			}
 			break;
 		}
@@ -591,8 +579,6 @@ indexed_image_scratch::indexed_image_scratch(
 			continue;
 		}
 
-		check_alignment(*storage, descriptor, key);
-
 		const auto named_count = indices.size();
 		const auto held_count =
 			cursor.place(key, descriptor, make_span(indices));
@@ -677,10 +663,11 @@ std::shared_ptr<image_scratch> create_host_image_scratch(
 	);
 }
 
-std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
+std::shared_ptr<image_scratch> create_file_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
 	executor &tasks,
+	const file_transfer_pool &transfers,
 	const std::string &path,
 	std::size_t run_length,
 	std::size_t max_size
@@ -696,13 +683,16 @@ std::shared_ptr<image_scratch> create_mapped_file_image_scratch(
 	);
 	check_not_empty(layout);
 
-	// A file that is there is kept and mapped, so that programs that hold
-	// the same images share it. The scratch resumes from it if it carries
-	// the fingerprint, and starts empty over it otherwise.
+	// A file that is there is kept, so that programs that hold the same
+	// images share it. The scratch resumes from it if it carries the
+	// fingerprint, and starts empty over it otherwise.
 	boost::system::error_code error;
 	const auto existed = boost::filesystem::exists(path, error);
-	auto storage =
-		create_mapped_file_image_scratch_storage(path, layout.get_used());
+	auto storage = create_file_image_scratch_storage(
+		path,
+		layout.get_used(),
+		transfers
+	);
 
 	// A file that was just created holds zeros where its fingerprint goes.
 	const auto fingerprint = read_fingerprint(*storage);
@@ -729,6 +719,7 @@ std::shared_ptr<image_scratch> create_directory_image_scratch(
 	const image_location_grouping &locations,
 	image_reader_provider &files,
 	executor &tasks,
+	const file_transfer_pool &transfers,
 	const std::string &directory,
 	std::size_t run_length,
 	std::size_t budget
@@ -753,6 +744,7 @@ std::shared_ptr<image_scratch> create_directory_image_scratch(
 		auto storage = scratches.acquire(
 			layout.get_fingerprint(),
 			layout.get_used(),
+			transfers,
 			room
 		);
 

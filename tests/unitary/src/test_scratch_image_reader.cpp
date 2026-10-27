@@ -136,7 +136,10 @@ TEST_CASE(
 {
 	const auto entry = std::make_shared<mock_image_scratch_entry>();
 	const auto file = std::make_shared<mock_image_reader>();
-	FORBID_CALL(*entry, read(trompeloeil::_, trompeloeil::_));
+	FORBID_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
 
 	const scratch_image_reader reader(entry, file, make_tasks());
 	CHECK_THROWS_AS(
@@ -160,8 +163,12 @@ TEST_CASE(
 	const auto file = std::make_shared<mock_image_reader>();
 	auto destination = make_test_array();
 
-	REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( same_regions(_2, regions) )
+		.SIDE_EFFECT( _3->notify_done() )
 		.LR_RETURN(nothing);
 	FORBID_CALL(
 		*entry,
@@ -189,23 +196,31 @@ TEST_CASE(
 	auto destination = make_test_array();
 	trompeloeil::sequence order;
 
-	REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( same_regions(_2, regions) )
 		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _3->notify_done() )
 		.LR_RETURN(missing);
 	REQUIRE_CALL(
 		*entry,
 		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	)
-		.LR_WITH( &_1 == file.get() && same_regions(_2, missing) )
+		.LR_WITH( _1.get() == file.get() && same_regions(_2, missing) )
 		.IN_SEQUENCE(order)
 		.SIDE_EFFECT( _3->notify_done() );
 
 	SECTION( "what the entry took in is read from it" )
 	{
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( same_regions(_2, missing) )
 			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(nothing);
 		FORBID_CALL(
 			*file,
@@ -220,9 +235,13 @@ TEST_CASE(
 	{
 		const auto unheld = make_plan({7}, {2});
 
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH( same_regions(_2, missing) )
 			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(unheld);
 		REQUIRE_CALL(
 			*file,
@@ -250,8 +269,12 @@ TEST_CASE(
 	const auto file = std::make_shared<mock_image_reader>();
 	std::shared_ptr<completion_notifier> stored;
 
-	REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( same_regions(_2, regions) )
+		.SIDE_EFFECT( _3->notify_done() )
 		.LR_RETURN(missing);
 	REQUIRE_CALL(
 		*entry,
@@ -264,8 +287,12 @@ TEST_CASE(
 	reader.read_async(make_test_array(), regions, done);
 	CHECK_FALSE( done->is_ready() );
 
-	REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH( same_regions(_2, missing) )
+		.SIDE_EFFECT( _3->notify_done() )
 		.LR_RETURN(nothing);
 	REQUIRE( stored != nullptr );
 	stored->notify_done();
@@ -285,8 +312,12 @@ TEST_CASE(
 	auto destination = make_test_array();
 	trompeloeil::sequence order;
 
-	REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _3->notify_done() )
 		.LR_RETURN(missing);
 
 	SECTION( "when the entry can not take the regions in" )
@@ -320,8 +351,12 @@ TEST_CASE(
 		)
 			.IN_SEQUENCE(order)
 			.SIDE_EFFECT( _3->notify_done() );
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(missing);
 		REQUIRE_CALL(
 			*file,

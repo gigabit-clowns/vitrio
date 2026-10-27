@@ -168,7 +168,11 @@ TEST_CASE(
 			image_transfer_plan(image_transfer_shape(image_extents, 3, 3));
 		auto destination = make_test_array();
 
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(nothing);
 		FORBID_CALL(
 			*file,
@@ -186,18 +190,26 @@ TEST_CASE(
 		auto destination = make_test_array();
 		trompeloeil::sequence order;
 
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(regions);
 		REQUIRE_CALL(
 			*entry,
 			store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		)
-			.LR_WITH( &_1 == file.get() )
+			.LR_WITH( _1.get() == file.get() )
 			.IN_SEQUENCE(order)
 			.SIDE_EFFECT( _3->notify_done() );
-		REQUIRE_CALL(*entry, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*entry,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.IN_SEQUENCE(order)
+			.SIDE_EFFECT( _3->notify_done() )
 			.LR_RETURN(nothing);
 
 		read_now(*reader, destination, regions);

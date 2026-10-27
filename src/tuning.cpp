@@ -124,6 +124,15 @@ std::size_t get_staging_byte_budget() noexcept
 	return value;
 }
 
+std::size_t get_scratch_load_byte_budget() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_SCRATCH_LOAD_BYTE_BUDGET",
+		VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET
+	);
+	return value;
+}
+
 std::size_t get_chunk_byte_budget() noexcept
 {
 	static const auto value = read_value(

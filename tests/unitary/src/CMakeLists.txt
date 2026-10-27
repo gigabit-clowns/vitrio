@@ -22,6 +22,7 @@ target_sources(
 		test_executor_image_saver.cpp
 		test_file_detector_event_timeline_reader_provider.cpp
 		test_file_image_reader_provider.cpp
+		test_file_image_scratch_storage.cpp
 		test_file_image_writer_provider.cpp
 		test_file_transfer_pool.cpp
 		test_file_transfer_pool_implementation.cpp
@@ -53,7 +54,6 @@ target_sources(
 		test_interned_key_list.cpp
 		test_library_version.cpp
 		test_logger.cpp
-		test_mapped_file_image_scratch_storage.cpp
 		test_memory_range.cpp
 		test_scratch_image_reader.cpp
 		test_scratch_image_reader_provider.cpp
