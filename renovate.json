@@ -11,13 +11,6 @@
   "minimumReleaseAge": "14 days",
   "internalChecksFilter": "strict",
   "ignorePresets": [":ignoreModulesAndTests"],
-  "packageRules": [
-    {
-      "description": "Security advisories bypass the 14-day delay",
-      "matchUpdateTypes": ["security"],
-      "minimumReleaseAge": "0 days"
-    }
-  ],
   "customManagers": [
     {
       "customType": "regex",

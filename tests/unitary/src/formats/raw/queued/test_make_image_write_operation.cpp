@@ -209,10 +209,7 @@ TEST_CASE(
 		);
 	}
 
-	CHECK(
-		values_of<float>(path.get(), 36) ==
-		std::vector<float>(values.begin(), values.end())
-	);
+	CHECK( values_of<float>(path.get(), 36) == counting<float>(0, 36) );
 }
 
 TEST_CASE(
