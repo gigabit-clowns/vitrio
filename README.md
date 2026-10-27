@@ -3,42 +3,70 @@
 [![PyPI](https://img.shields.io/pypi/v/vitrio)](https://pypi.org/project/vitrio/)
 [![Build and test](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml)
 
-vitrio is a high-throughput image I/O library tailored to the access patterns
-and file formats common in Cryo-Electron Microscopy (CryoEM). It is made for
-programs that go through a lot of images: it loads and stores them in batches,
-on several threads, and puts the pixels straight into memory you already have,
-be it a NumPy array, a tensor from PyTorch or another ML framework, or your own
-buffer in C++.
+vitrio reads and writes the images of Cryo-Electron Microscopy (CryoEM). It
+is made for programs that go through a lot of images, such as particle
+extraction, processing pipelines or the training of neural networks. One
+interface covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the
+pixels go straight into memory you already have: a NumPy array, a PyTorch or
+JAX tensor, or your own buffer in C++.
 
-It is a C++14 library with a Python package on top.
+vitrio is a C++14 library with a Python package on top.
 
 ```python
 import vitrio as vio
 
-micrograph = vio.read("/path/to/micrograph.mrc")
-movie = vio.read("/path/to/movie.tif")
+micrograph = vio.read("micrograph.mrc")
+particle = vio.read(vio.ImageLocation.from_string("12@particles.mrcs"))
+tomogram = vio.read("tomogram.zarr")
 ```
 
-vitrio is young and its API and ABI are subject to change.
+## Highlights
 
-## What it does
+- **One interface for many formats.** The same calls read and write every
+  supported format. vitrio looks at each file, finds its format and hands
+  the request to the matching backend, so your code does not need to know
+  the format in advance.
+- **Read only what you need.** A read or a write is a list of regions that
+  fill one array, and those regions can come from any number of images and
+  files. This makes common access patterns cheap: patches around picked
+  particles, a slice of a volume, or random images out of RELION-style
+  stacks. Regions that lie close together in a file are merged into fewer,
+  larger reads.
+- **Asynchronous and batch-oriented.** Reads and writes run in batches on a
+  thread pool. The `_async` functions return at once with a completion to
+  wait on, so the next batch can load while you work on the current one.
+- **Scratch.** A scratch keeps a local copy of the images a program keeps
+  going back to, such as the particles of a dataset read once per epoch. It
+  lives in RAM or in a file on fast local storage, and fills as images are
+  first read, or ahead of time. A scratch in a file can be larger than RAM,
+  outlives the program and can be shared by several programs at once, so
+  data on slow or network storage is read from there only once.
+- **io_uring on Linux.** MRC, DigitalMicrograph and ZARR files are read and
+  written through io_uring when the kernel provides it, which keeps many
+  requests in flight on fast storage. Elsewhere, vitrio falls back to
+  ordinary reads and writes, or to memory maps.
+- **No copies.** vitrio reads into and writes from any memory shared through
+  DLPack or the buffer protocol. It converts data types on the way, so a
+  file of 16-bit integers can land in a `float32` array.
+- **Convenient data loader for ML applications.** `vitrio.data` feeds
+  images and their metadata to PyTorch or JAX in shuffled batches. The next
+  batches are read in the background on threads, with no worker processes,
+  and a batch bound for a GPU is read straight into pinned memory.
+- **Transparent EER rendering.** An EER movie is read like any other movie.
+  You only say how many frames you want, and vitrio renders the electron
+  events into them as it reads. The raw events are available too.
+- **Extensible.** In C++, a new format is a class that you register with a
+  format selector, even at run time. The library does not need to change,
+  and every read and write can use the new format right away.
 
-- Reads and writes whole files, single images of a stack, and batches of
-  images that may be spread over many files.
-- Crops patches around a list of coordinates, for instance the particles
-  picked on a micrograph.
-- Runs batches on a thread pool and gives you something to wait on, so
-  several can be in flight at once.
-- Converts between data types on the way, so a file of 16-bit integers can
-  land in a `float32` array.
-- Shares memory with anything that speaks DLPack or the buffer protocol.
-  Nothing is copied on the way in or on the way out.
-- Feeds images and their metadata to PyTorch or JAX in shuffled batches,
-  with the next batches read in the background and no worker processes.
-- Keeps a copy of what has been read in RAM or in a memory-mapped file, so
-  that going back to the same images does not hit the original files again.
-- Takes new formats without changes to the library: a format is a class
-  that registers itself.
+## Status
+
+vitrio is young. Its API and ABI may change between minor releases until
+version 1.0.
+
+[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
+compares vitrio with other ways of reading and writing. Storage varies a
+lot from one machine to another, so it is best run on your own.
 
 ## Supported formats
 
@@ -184,13 +212,14 @@ The pieces fit other layouts too:
 
 ## Examples
 
-[examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md) holds programs that show vitrio at work,
-sorted by language and by how much of it you hold. In Python, `basic/`
-lets vitrio assemble what it needs, and `advanced/` names the thread
-pools, loaders and scratches. Among them, `train_2d_classifier.py` trains a
-network of PyTorch on the 2D classes of a RELION job,
-`extract_particles.py` crops the particles picked on a set of micrographs
-into stacks, and `fractionate_eer.py` cuts EER movies into fractions.
+[examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md)
+holds programs that show vitrio at work, sorted by language and by how much
+of it you control. In Python, `basic/` lets vitrio assemble what it needs,
+and `advanced/` names the thread pools, loaders and scratches. Among them,
+`train_2d_classifier.py` trains a PyTorch network on the 2D classes of a
+RELION job, `extract_particles.py` crops the particles picked on a set of
+micrographs into stacks, and `fractionate_eer.py` cuts EER movies into
+fractions.
 
 ## Using it from C++
 
@@ -227,8 +256,10 @@ int main()
 
 The headers under `include/vitrio/` are the whole API, and each one documents
 what it declares. Their reference is at
-[gigabit-clowns.github.io/vitrio/cpp](https://gigabit-clowns.github.io/vitrio/cpp/). That includes how to read the events of an EER file through
-`detector_event_image_reader_provider`.
+[gigabit-clowns.github.io/vitrio/cpp](https://gigabit-clowns.github.io/vitrio/cpp/).
+That includes how to read the events of an EER file through
+`detector_event_image_reader_provider`, and how to register a format of your
+own with `image_file_read_format_selector::register_format`.
 
 [examples/cpp/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/cpp/read_and_convert.cpp) has this program as a
 target of the build.
