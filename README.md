@@ -35,6 +35,12 @@ tomogram = vio.read("tomogram.zarr")
 - **Asynchronous and batch-oriented.** Reads and writes run in batches on a
   thread pool. The `_async` functions return at once with a completion to
   wait on, so the next batch can load while you work on the current one.
+- **Scratch.** A scratch keeps a local copy of the images a program keeps
+  going back to, such as the particles of a dataset read once per epoch. It
+  lives in RAM or in a file on fast local storage, and fills as images are
+  first read, or ahead of time. A scratch in a file can be larger than RAM,
+  outlives the program and can be shared by several programs at once, so
+  data on slow or network storage is read from there only once.
 - **io_uring on Linux.** MRC, DigitalMicrograph and ZARR files are read and
   written through io_uring when the kernel provides it, which keeps many
   requests in flight on fast storage. Elsewhere, vitrio falls back to
@@ -42,31 +48,21 @@ tomogram = vio.read("tomogram.zarr")
 - **No copies.** vitrio reads into and writes from any memory shared through
   DLPack or the buffer protocol. It converts data types on the way, so a
   file of 16-bit integers can land in a `float32` array.
-- **Ready for training.** `vitrio.data` feeds images and their metadata to
-  PyTorch or JAX in shuffled batches. The next batches are read in the
-  background on threads, with no worker processes, and a batch bound for a
-  GPU is read straight into pinned memory.
-- **Caching.** A scratch keeps a copy of what was read in RAM or in a file,
-  so going back to the same images, for instance in the next epoch, does
-  not hit the original files again.
-- **Electron-counting detectors.** An EER movie can be read as its raw
-  electron events, or rendered into as many frames as you ask for.
+- **Convenient data loader for ML applications.** `vitrio.data` feeds
+  images and their metadata to PyTorch or JAX in shuffled batches. The next
+  batches are read in the background on threads, with no worker processes,
+  and a batch bound for a GPU is read straight into pinned memory.
+- **Transparent EER rendering.** An EER movie is read like any other movie.
+  You only say how many frames you want, and vitrio renders the electron
+  events into them as it reads. The raw events are available too.
 - **Extensible.** In C++, a new format is a class that you register with a
   format selector, even at run time. The library does not need to change,
   and every read and write can use the new format right away.
 
-## Status and limits
+## Status
 
 vitrio is young. Its API and ABI may change between minor releases until
-version 1.0. A few limits are worth knowing:
-
-- Python has wheels for the main platforms, but the C++ library is only
-  built from source for now.
-- vitrio does not parse metadata files, such as the STAR files of RELION or
-  the `.cs` files of cryoSPARC. It takes what you parsed them into, for
-  instance with [starfile](https://github.com/teamtomo/starfile).
-- TIFF and EER go through libtiff, so they do not use io_uring.
-- New formats can be written in C++ only.
+version 1.0.
 
 [benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
 compares vitrio with other ways of reading and writing. Storage varies a
