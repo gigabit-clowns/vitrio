@@ -82,7 +82,13 @@ std::vector<float> floats_in(const const_memory_range &buffer)
 
 std::vector<float> as_floats(const std::vector<double> &values)
 {
-	return std::vector<float>(values.begin(), values.end());
+	std::vector<float> floats;
+	floats.reserve(values.size());
+	for (const auto value : values)
+	{
+		floats.push_back(static_cast<float>(value));
+	}
+	return floats;
 }
 
 // What was asked of one write.
