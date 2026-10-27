@@ -25,6 +25,10 @@ function(vitrio_fetch_blosc)
 	endforeach()
 
 	set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+	# c-blosc asks for CMake 2.8.12, which CMake 4 no longer accepts as a
+	# minimum; this raises it for c-blosc alone. CMake before 3.31 ignores it,
+	# and still accepts what c-blosc asks for.
+	set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 	set(BUILD_STATIC ON)
 	set(BUILD_SHARED OFF)

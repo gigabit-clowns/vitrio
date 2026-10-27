@@ -55,6 +55,15 @@ std::uint64_t tag_of(std::size_t unit, std::uint64_t step)
 	return static_cast<std::uint64_t>(unit) << 3 | step;
 }
 
+// The one buffer of a read, which every read of the operation has. Catch's
+// assertion is called from here rather than written inside the arguments of
+// trompeloeil's macros, where GCC 11 refuses the pragmas it expands to.
+memory_range only_buffer(span<const memory_range> buffers)
+{
+	REQUIRE( buffers.size() == 1 );
+	return buffers[0];
+}
+
 // A store of 4 by 4 bytes in chunks of 2 by 2, stored as they are: chunk
 // (r, c) holds 10 * (2 r + c) + its position in it, which is the value of
 // each byte.
@@ -124,10 +133,7 @@ public:
 	std::unique_ptr<trompeloeil::expectation> take_reads()
 	{
 		return NAMED_ALLOW_CALL(m_scope, queue_read(_, 0u, _, _))
-			.LR_SIDE_EFFECT(
-				REQUIRE( _3.size() == 1 );
-				m_reads.emplace(_4, _3[0])
-			);
+			.LR_SIDE_EFFECT( m_reads.emplace(_4, only_buffer(_3)) );
 	}
 
 	// Runs a task the operation ran, and hands it its outcome.
@@ -434,8 +440,7 @@ public:
 	{
 		return NAMED_ALLOW_CALL(m_scope, queue_read(_, _, _, _))
 			.LR_SIDE_EFFECT(
-				REQUIRE( _3.size() == 1 );
-				m_reads.emplace(_4, queued{_1, _2, _3[0]})
+				m_reads.emplace(_4, queued{_1, _2, only_buffer(_3)})
 			);
 	}
 
