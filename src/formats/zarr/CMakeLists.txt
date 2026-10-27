@@ -29,8 +29,6 @@ target_sources(
 		zarr_shard_layout.cpp
 		zarr_store_metadata.cpp
 		zarr_write_operation.cpp
-		zlib_deflate.cpp
-		zlib_inflate.cpp
 		zlib_zarr_bytes_codec.cpp
 		zstd_zarr_bytes_codec.cpp
 )

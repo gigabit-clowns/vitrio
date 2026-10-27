@@ -11,3 +11,11 @@ target_sources(
 		test_mrc_header.cpp
 		test_mrc_mode.cpp
 )
+
+if(VITRIO_ENABLE_GZIP)
+	target_sources(
+		vitrio-unitary-tests
+		PRIVATE
+			test_gzip_mrc_file_read_format.cpp
+	)
+endif()

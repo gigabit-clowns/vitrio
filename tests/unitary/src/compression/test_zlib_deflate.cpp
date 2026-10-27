@@ -2,16 +2,15 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/zarr/zlib_deflate.hpp>
+#include <compression/zlib_deflate.hpp>
 
-#include <formats/zarr/zlib_inflate.hpp>
+#include <compression/zlib_inflate.hpp>
 
-#include "zarr_codec_test_bytes.hpp"
+#include "compression_test_bytes.hpp"
 
 #include <vector>
 
 using namespace vitrio;
-using namespace vitrio::zarr;
 
 TEST_CASE( "deflate_stream deflates into one stream", "[zlib_deflate]" )
 {

@@ -10,3 +10,11 @@ target_sources(
 		mrc_header.cpp
 		mrc_mode.cpp
 )
+
+if(VITRIO_ENABLE_GZIP)
+	target_sources(
+		vitrio-obj
+		PRIVATE
+			gzip_mrc_file_read_format.cpp
+	)
+endif()

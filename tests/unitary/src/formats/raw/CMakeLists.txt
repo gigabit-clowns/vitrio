@@ -9,6 +9,10 @@ target_sources(
 		test_raw_image_layout.cpp
 )
 
+if(VITRIO_ENABLE_GZIP)
+	add_subdirectory(gzip)
+endif()
+
 add_subdirectory(mapped)
 add_subdirectory(planning)
 add_subdirectory(queued)
