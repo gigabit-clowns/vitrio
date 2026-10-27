@@ -99,6 +99,9 @@ std::size_t take_write(
 	const file_transfer_completion &completion
 )
 {
+	// Read by the assertions alone, which a release build leaves out.
+	static_cast<void>(plan);
+
 	const auto write = static_cast<std::size_t>(completion.get_tag());
 	VITRIO_ASSERT(write < plan.get_write_count());
 
