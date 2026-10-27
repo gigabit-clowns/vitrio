@@ -44,6 +44,11 @@ option(
 	"Read ZARR arrays, which needs nlohmann/json, c-blosc, zstd and zlib"
 	ON
 )
+option(
+	VITRIO_ENABLE_GZIP
+	"Read MRC files compressed with gzip, such as .map.gz, which needs zlib"
+	ON
+)
 cmake_dependent_option(
 	VITRIO_ENABLE_IO_URING
 	"Read the values of raw image files through io_uring where the kernel \
@@ -169,15 +174,21 @@ else()
 	find_package(spdlog 1.4 REQUIRED CONFIG)
 endif()
 
-# zlib is libtiff's, and decodes the gzip and zlib chunks of ZARR arrays.
-# libtiff and c-blosc look it up themselves, so zlib comes first: built here,
-# it is the one they find.
-if((VITRIO_ENABLE_TIFF OR VITRIO_ENABLE_ZARR) AND VITRIO_BUILD_ZLIB)
+# zlib is libtiff's, decodes the gzip and zlib chunks of ZARR arrays and
+# inflates the MRC files compressed with gzip. libtiff and c-blosc look it up
+# themselves, so zlib comes first: built here, it is the one they find.
+if(VITRIO_ENABLE_TIFF OR VITRIO_ENABLE_ZARR OR VITRIO_ENABLE_GZIP)
+	set(VITRIO_NEEDS_ZLIB ON)
+else()
+	set(VITRIO_NEEDS_ZLIB OFF)
+endif()
+
+if(VITRIO_NEEDS_ZLIB AND VITRIO_BUILD_ZLIB)
 	include(vitrio_fetch_zlib)
 	vitrio_fetch_zlib(
 		COMMIT da607da739fa6047df13e66a2af6b8bec7c2a498
 	) # v1.3.2
-elseif(VITRIO_ENABLE_TIFF OR VITRIO_ENABLE_ZARR)
+elseif(VITRIO_NEEDS_ZLIB)
 	find_package(ZLIB REQUIRED)
 endif()
 

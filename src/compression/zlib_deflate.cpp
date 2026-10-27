@@ -12,8 +12,6 @@
 
 namespace vitrio
 {
-namespace zarr
-{
 
 namespace
 {
@@ -119,5 +117,4 @@ void deflate_stream(
 	encoded.resize(produced);
 }
 
-} // namespace zarr
 } // namespace vitrio

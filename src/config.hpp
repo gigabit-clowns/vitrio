@@ -132,3 +132,14 @@
 #ifndef VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET
 	#define VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET (1UL<<30)
 #endif
+
+// Compressed bytes a read of a gzip file reads at a time, which zlib then
+// inflates.
+//
+// gzip can only be inflated from its start, so a read of a compressed image
+// file reads the file in order, a stretch at a time, and keeps no more than a
+// stretch of it. Fewer system calls go to a larger stretch, but inflating
+// takes longer than reading, so past a mebibyte nothing is gained.
+#ifndef VITRIO_DEFAULT_GZIP_READ_BYTES
+	#define VITRIO_DEFAULT_GZIP_READ_BYTES (1UL<<20)
+#endif

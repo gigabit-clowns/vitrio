@@ -35,3 +35,11 @@ Its axis correspondence is MAPC, MAPR, MAPS = 3, 1, 2, which makes it the
 specimen of a file whose columns, rows and sections are not X, Y and Z in that
 order: it is 43 along X, 25 along Y and 73 along Z, and a reader that ignored
 those three fields would report it transposed.
+
+
+EMD-3197.map.gz
+EMD-3001.map.gz
+The two maps above compressed with gzip, as the EMDB holds every map, by
+`gzip -9 -n -k`, which records no name and no time. They read as the maps
+they compress, which is what pins the reading of compressed MRC files to
+bytes this project did not lay out.

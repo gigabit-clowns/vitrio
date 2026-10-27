@@ -9,8 +9,6 @@
 
 namespace vitrio
 {
-namespace zarr
-{
 
 /**
  * @brief Deflate bytes into one stream, as zlib wraps it for the zlib and the
@@ -35,5 +33,4 @@ void deflate_stream(
 	const char *codec
 );
 
-} // namespace zarr
 } // namespace vitrio

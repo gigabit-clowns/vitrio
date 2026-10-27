@@ -178,6 +178,15 @@ std::size_t get_chunk_write_byte_budget() noexcept
 	return value;
 }
 
+std::size_t get_gzip_read_bytes() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_GZIP_READ_BYTES",
+		VITRIO_DEFAULT_GZIP_READ_BYTES
+	);
+	return value;
+}
+
 std::size_t get_file_transfer_queue_capacity() noexcept
 {
 	static const auto value = read_value(

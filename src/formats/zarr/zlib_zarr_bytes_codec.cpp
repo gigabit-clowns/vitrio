@@ -2,8 +2,8 @@
 
 #include "zlib_zarr_bytes_codec.hpp"
 
-#include "zlib_deflate.hpp"
-#include "zlib_inflate.hpp"
+#include <compression/zlib_deflate.hpp>
+#include <compression/zlib_inflate.hpp>
 
 namespace vitrio
 {

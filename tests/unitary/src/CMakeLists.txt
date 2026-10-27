@@ -67,6 +67,11 @@ target_sources(
 )
 
 add_subdirectory(array)
+
+if(VITRIO_ENABLE_ZARR OR VITRIO_ENABLE_GZIP)
+	add_subdirectory(compression)
+endif()
+
 add_subdirectory(concurrency)
 add_subdirectory(file_transfer)
 add_subdirectory(formats)

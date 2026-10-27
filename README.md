@@ -72,7 +72,7 @@ lot from one machine to another, so it is best run on your own.
 
 | Format | Read | Write | Extensions | Notes |
 |---|---|---|---|---|
-| MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. |
+| MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading, and any of these compressed with gzip, such as `.map.gz` | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. A file compressed with gzip, as the EMDB holds its maps, is read but not written. |
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
 | EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
 | DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
@@ -80,9 +80,16 @@ lot from one machine to another, so it is best run on your own.
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. A ZARR array is recognized by the metadata in its
-directory. TIFF and EER go through libtiff, and ZARR through nlohmann/json,
-c-blosc, zstd and zlib, and either can be left out of a build. More formats
-will follow.
+directory. TIFF and EER go through libtiff, ZARR through nlohmann/json,
+c-blosc, zstd and zlib, and MRC compressed with gzip through zlib, and each
+can be left out of a build. More formats will follow.
+
+gzip can only be inflated from its start, so a read of an MRC file
+compressed with gzip inflates the file again from its start up to the last
+value it needs, and keeps nothing between reads: such a file is usually read
+once, whole. Reading the images of a large compressed stack one at a time
+inflates everything before each of them, and is best done from the file
+decompressed instead.
 
 ZARR does not say whether three axes are a volume or a stack of images. The
 axes of OME-Zarr say which are of space, and a stack is told apart from a
@@ -268,6 +275,7 @@ static, inside its own library:
 - libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
   too
 - nlohmann/json, c-blosc, zstd and zlib, unless ZARR is turned off
+- zlib, unless reading MRC files compressed with gzip is turned off
 - liburing, on Linux, unless io_uring is turned off
 - Catch2 and trompeloeil, for the tests
 
@@ -301,6 +309,7 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
+| `-DVITRIO_ENABLE_GZIP=OFF` | Leave out reading MRC files compressed with gzip, and zlib with it when TIFF and ZARR are out too |
 | `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |

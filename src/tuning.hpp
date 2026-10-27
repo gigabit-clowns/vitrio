@@ -142,6 +142,15 @@ std::size_t get_zarr_volume_chunk_edge() noexcept;
 std::size_t get_chunk_write_byte_budget() noexcept;
 
 /**
+ * @brief Get how many compressed bytes a read of a gzip file reads at a
+ * time: the variable @c VITRIO_GZIP_READ_BYTES of the environment, or
+ * @c VITRIO_DEFAULT_GZIP_READ_BYTES.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_gzip_read_bytes() noexcept;
+
+/**
  * @brief Tell whether files are to be transferred without asynchronous
  * ports, as where the process can not have them: whether the variable
  * @c VITRIO_DISABLE_ASYNCHRONOUS_IO of the environment is set.
