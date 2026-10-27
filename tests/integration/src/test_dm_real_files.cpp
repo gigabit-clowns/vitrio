@@ -11,7 +11,9 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/transfers.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -81,7 +83,7 @@ std::vector<T> read_whole(
 	const std::vector<std::size_t> shape(extents.begin(), extents.end());
 
 	auto destination = make_host_array<T>(shape, data_type, T());
-	reader.read(array_ref(destination), whole_of(shape));
+	read_now(reader, destination, whole_of(shape));
 
 	return get_values<T>(destination);
 }
@@ -132,8 +134,10 @@ TEST_CASE(
 
 	SECTION( "an image of version 3 is read past its thumbnail" )
 	{
-		const auto reader =
-			selector.open(get_dm_asset_path("image_float32.dm3"));
+		const auto reader = selector.open(
+			get_dm_asset_path("image_float32.dm3"),
+			*make_file_transfer_pool()
+		);
 
 		REQUIRE( reader->get_descriptor() ==
 			make_descriptor({6, 8}, numerical_type::float32) );
@@ -143,8 +147,10 @@ TEST_CASE(
 
 	SECTION( "an image of version 4 whose values are unaligned is read" )
 	{
-		const auto reader =
-			selector.open(get_dm_asset_path("image_uint16_unaligned.dm4"));
+		const auto reader = selector.open(
+			get_dm_asset_path("image_uint16_unaligned.dm4"),
+			*make_file_transfer_pool()
+		);
 
 		REQUIRE( reader->get_descriptor() ==
 			make_descriptor({5, 7}, numerical_type::uint16) );
@@ -154,8 +160,10 @@ TEST_CASE(
 
 	SECTION( "a stack is read with its last extent as its first axis" )
 	{
-		const auto reader =
-			selector.open(get_dm_asset_path("stack_int16.dm4"));
+		const auto reader = selector.open(
+			get_dm_asset_path("stack_int16.dm4"),
+			*make_file_transfer_pool()
+		);
 
 		REQUIRE( reader->get_descriptor() ==
 			make_descriptor({3, 4, 6}, numerical_type::int16) );
@@ -166,7 +174,8 @@ TEST_CASE(
 	SECTION( "big-endian values are read in the byte order of the host" )
 	{
 		const auto reader = selector.open(
-			get_dm_asset_path("image_float32_big_endian.dm3")
+			get_dm_asset_path("image_float32_big_endian.dm3"),
+			*make_file_transfer_pool()
 		);
 
 		REQUIRE( reader->get_descriptor() ==

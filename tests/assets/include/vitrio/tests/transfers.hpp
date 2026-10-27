@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include <vitrio/array/array.hpp>
+#include <vitrio/array/const_array.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/image_reader.hpp>
+#include <vitrio/image_scratch_entry.hpp>
+#include <vitrio/image_transfer_plan.hpp>
+#include <vitrio/image_writer.hpp>
+
+#include <memory>
+
+namespace vitrio
+{
+namespace test
+{
+
+/**
+ * @brief Read through a reader and wait for the read.
+ *
+ * @param reader The reader.
+ * @param destination Where the regions are written. The read shares it.
+ * @param regions The regions to read and where each one lands.
+ * @throws Whatever the read reports.
+ */
+inline void read_now(
+	const image_reader &reader,
+	array &destination,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	reader.read_async(destination.share(), regions, done);
+	done->get();
+}
+
+/**
+ * @brief Write through a writer and wait for the write.
+ *
+ * @param writer The writer.
+ * @param source The values to write. The write shares them.
+ * @param regions The regions to write and where each one comes from.
+ * @throws Whatever the write reports.
+ */
+inline void write_now(
+	image_writer &writer,
+	const array &source,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	writer.write_async(source.share_const(), regions, done);
+	done->get();
+}
+
+/**
+ * @brief Write through a writer and wait for the write.
+ *
+ * @param writer The writer.
+ * @param source The values to write. The write shares them.
+ * @param regions The regions to write and where each one comes from.
+ * @throws Whatever the write reports.
+ */
+inline void write_now(
+	image_writer &writer,
+	const const_array &source,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	writer.write_async(source.share(), regions, done);
+	done->get();
+}
+
+/**
+ * @brief Flush a writer and wait for the flush.
+ *
+ * @param writer The writer.
+ * @throws Whatever the flush reports.
+ */
+inline void flush_now(image_writer &writer)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	writer.flush_async(done);
+	done->get();
+}
+
+/**
+ * @brief Store regions of a file in a scratch entry and wait until they are
+ * held.
+ *
+ * @param entry The entry.
+ * @param file A reader over the file the entry is of.
+ * @param regions The regions to take in.
+ * @throws Whatever the store reports.
+ */
+inline void store_now(
+	image_scratch_entry &entry,
+	std::shared_ptr<const image_reader> file,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	entry.store_async(std::move(file), regions, done);
+	done->get();
+}
+
+/**
+ * @brief Read what a scratch entry holds of regions and wait until it has
+ * landed.
+ *
+ * @param entry The entry.
+ * @param destination Where the regions land.
+ * @param regions The regions to read.
+ * @return image_transfer_plan The regions the entry does not hold, which
+ * are not read.
+ * @throws Whatever the read reports.
+ */
+inline image_transfer_plan read_held_now(
+	const image_scratch_entry &entry,
+	array &destination,
+	const image_transfer_plan &regions
+)
+{
+	const auto done = std::make_shared<counting_completion>(1);
+	auto missing = entry.read_async(destination.share(), regions, done);
+	done->get();
+	return missing;
+}
+
+} // namespace test
+} // namespace vitrio

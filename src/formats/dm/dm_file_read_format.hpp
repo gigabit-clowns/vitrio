@@ -22,9 +22,8 @@ namespace dm
  *
  * Opening a file walks the whole of its tags, which run well past the
  * leading bytes of a probe, so the file is mapped to be parsed. Its image is
- * the one @ref locate_image finds, and is read through the mapping in
- * place when its values are aligned for their data type and through
- * @ref unaligned_mapped_image_reader otherwise.
+ * the one @ref locate_image finds, and is read through the reader
+ * @ref open_raw_image_reader opens for it, aligned or not.
  *
  * Versions 2, an older layout, and 5, an HDF5 file, are not read.
  */
@@ -42,7 +41,8 @@ public:
 	get_suitability(const image_file_probe &probe) const override;
 
 	std::shared_ptr<image_reader> open(
-		const image_file_probe &probe
+		const image_file_probe &probe,
+		const file_transfer_pool &transfers
 	) const override;
 };
 

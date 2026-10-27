@@ -4,7 +4,10 @@
 
 #include "utf8_string.hpp"
 
+#include <vitrio/concurrency/completion.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/file_image_writer_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
@@ -41,6 +44,20 @@ void close(file_image_writer_provider &self, const std::filesystem::path &key)
 	self.close(text);
 }
 
+std::shared_ptr<completion> close_async(
+	file_image_writer_provider &self,
+	const std::filesystem::path &key
+)
+{
+	const auto text = to_utf8_string(key);
+	auto done = std::make_shared<counting_completion>(1);
+	{
+		const nb::gil_scoped_release release;
+		self.close_async(text, done);
+	}
+	return done;
+}
+
 } // anonymous namespace
 
 void bind_file_image_writer_provider(nb::module_ &m)
@@ -59,14 +76,18 @@ void bind_file_image_writer_provider(nb::module_ &m)
 	)
 		.def(
 			nb::init<
-				std::shared_ptr<const image_file_write_format_selector>
+				std::shared_ptr<const image_file_write_format_selector>,
+				std::shared_ptr<const file_transfer_pool>
 			>(),
 			nb::arg("formats"),
+			nb::arg("transfers"),
 			"Make a provider with no file declared.\n"
 			"\n"
 			"Args:\n"
 			"    formats: The `ImageFileWriteFormatSelector` that creates the "
-			"files."
+			"files.\n"
+			"    transfers: The `FileTransferPool` whose threads carry out the "
+			"writes."
 		)
 		.def(
 			"declare", &declare, nb::arg("key"), nb::arg("descriptor"),
@@ -93,6 +114,25 @@ void bind_file_image_writer_provider(nb::module_ &m)
 			"\n"
 			"Raises:\n"
 			"    IndexError: If the file is not declared."
+		)
+		.def(
+			"close_async", &close_async, nb::arg("key"),
+			"Start finishing a file, and return before it is flushed.\n"
+			"\n"
+			"Does what `close` does without waiting: the file is no longer "
+			"declared when this returns, and its writer is dropped once its "
+			"flush is done. A program that finishes its files as it "
+			"completes them keeps a few of these under way while it writes "
+			"the next ones, so that waiting for one file to reach the "
+			"storage never holds up the others.\n"
+			"\n"
+			"Args:\n"
+			"    key: The path of the file.\n"
+			"\n"
+			"Returns:\n"
+			"    Completion: Ready once the file is finished. Its `get` "
+			"raises `IndexError` if the file was not declared, and what the "
+			"flush failed with if it did."
 		)
 		.def(
 			"flush", &file_image_writer_provider::flush,

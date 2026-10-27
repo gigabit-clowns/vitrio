@@ -24,7 +24,7 @@ template <typename T>
 T reversed(const T &value)
 {
 	std::array<unsigned char, sizeof(T)> raw;
-	std::memcpy(raw.data(), &value, raw.size());
+	std::memcpy(raw.data(), &value, sizeof(T));
 	std::reverse(raw.begin(), raw.end());
 
 	T result;

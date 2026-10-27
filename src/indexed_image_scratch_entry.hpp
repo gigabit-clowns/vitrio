@@ -7,9 +7,13 @@
 #include <vitrio/image_scratch_entry.hpp>
 #include <vitrio/image_scratch_open_mode.hpp>
 
+#include <vitrio/concurrency/completion_notifier.hpp>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -23,18 +27,23 @@ class image_scratch_storage;
  * @brief A scratch entry that keeps its copy in part of a storage.
  *
  * The entry holds some indices of the first axis of a file, for example
- * some images of a stack. Its values, an array over the storage, hold them
- * in ascending order, in the data type of the file. The position of an index
- * in that order is its slot.
+ * some images of a stack. Its values, which the storage holds as an array
+ * descriptor states, hold them in ascending order, in the data type of the
+ * file. The position of an index in that order is its slot.
  *
  * The slots are split into runs of consecutive slots. All runs have the
  * same length, except the last one, which may be shorter. A run is loaded
  * from the file in one read. Storing a region loads every run that contains
  * a held index of the region.
  *
+ * A run is absent, loading or loaded. One that is loading has waiters, the
+ * stores that asked for it, which are reported to once its read lands; one
+ * that a store asks for while it is loading is waited for, not read again.
+ * A run whose read fails is absent again. A short lock guards the waiters,
+ * and never a read.
+ *
  * A region is read from the entry only if all its indices are held and
- * loaded. A read asks the storage for the slots it is about to copy before
- * it copies them, a step ahead, as @ref read_prefetched_regions describes.
+ * loaded. The storage serves it, and takes in the runs a store loads.
  *
  * Each run has a flag in the storage, which records that the run is loaded.
  * The flag of a loaded run holds the modification time of the file. A flag
@@ -43,6 +52,7 @@ class image_scratch_storage;
  */
 class indexed_image_scratch_entry final
 	: public image_scratch_entry
+	, public std::enable_shared_from_this<indexed_image_scratch_entry>
 {
 public:
 	/**
@@ -51,11 +61,11 @@ public:
 	 * @param indices The indices of the file to hold. They must be in
 	 * ascending order and must not repeat.
 	 * @param storage Where the values and the flags are kept.
-	 * @param values How the block of @p storage is read as the values of the
+	 * @param values Where the block of @p storage holds the values of the
 	 * held indices. Its first extent must be the number of indices, its
 	 * other extents and its data type those of the file, and its strides
 	 * must not be negative.
-	 * @param flags How the block of @p storage is read as one flag per run:
+	 * @param flags Where the block of @p storage holds one flag per run:
 	 * one axis, of as many 64-bit unsigned integers as there are runs.
 	 * @param modification_time When the file was last modified, or zero if
 	 * that is not known.
@@ -66,11 +76,13 @@ public:
 	 * the runs whose flag holds @p modification_time. If that time is zero,
 	 * no run is loaded.
 	 * @throws std::invalid_argument If @p storage is null, if @p indices is
-	 * not strictly ascending, if @p values or @p flags is not initialized,
-	 * is not aligned for its elements or does not match what it stores, if
-	 * @p values has a negative stride, or if @p run_length is zero.
-	 * @throws std::out_of_range If @p values or @p flags addresses an element
-	 * outside the block of @p storage.
+	 * not strictly ascending, if @p values or @p flags does not match what
+	 * it stores, if @p values has a negative stride, or if @p run_length is
+	 * zero.
+	 * @throws std::out_of_range If the values or the flags lie outside the
+	 * block of @p storage.
+	 * @throws image_file_error If the flags can not be read or, for an
+	 * empty entry, written.
 	 */
 	indexed_image_scratch_entry(
 		std::vector<std::size_t> indices,
@@ -84,31 +96,41 @@ public:
 
 	~indexed_image_scratch_entry() override;
 
-	image_transfer_plan read(
-		array_ref destination,
-		const image_transfer_plan &regions
+	image_transfer_plan read_async(
+		array destination,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) const override;
 
-	void store(
-		const image_reader &file,
-		const image_transfer_plan &regions
+	/**
+	 * @copydoc image_scratch_entry::store_async
+	 *
+	 * The entry must be owned by a std::shared_ptr, which the reads it starts
+	 * keep.
+	 */
+	void store_async(
+		std::shared_ptr<const image_reader> file,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) override;
 
 	/**
 	 * @brief Clear the flags and leave nothing loaded.
 	 *
 	 * Unlike the other methods, it must not be called while another method
-	 * runs.
+	 * runs, nor while a run is loading.
+	 *
+	 * @throws image_file_error If the flags can not be written. Nothing is
+	 * loaded then either.
 	 */
-	void reset() noexcept;
+	void reset();
 
 private:
-	/**
-	 * @brief Get the flags, one per run.
-	 *
-	 * @return std::uint64_t* The first flag.
-	 */
-	std::uint64_t* get_flags() noexcept;
+	class run_load_notifier;
+	class run_flag_notifier;
+	struct held_split;
+
+	using waiter_list = std::list<std::shared_ptr<completion_notifier>>;
 
 	/**
 	 * @brief Find the slot of an index, or the slot where it would be.
@@ -133,15 +155,55 @@ private:
 	) const noexcept;
 
 	/**
-	 * @brief Load a run from the file, unless it is already loaded.
+	 * @brief Tell the regions of a plan that are held from those that are
+	 * not.
 	 *
-	 * A run is loaded at most once: two threads that ask for the same run
-	 * read the file once.
+	 * @param regions The regions. Of the rank of the file.
+	 * @return held_split The regions that are held, at their slots among
+	 * the values, and those that are not, as they are in @p regions.
+	 */
+	held_split split_held(const image_transfer_plan &regions) const;
+
+	/**
+	 * @brief Find the runs that contain a held index of the regions of a
+	 * plan.
+	 *
+	 * @param regions The regions.
+	 * @return std::vector<std::size_t> The runs, in ascending order, each
+	 * once. None for a plan that does not have the rank of the file.
+	 */
+	std::vector<std::size_t> find_runs(
+		const image_transfer_plan &regions
+	) const;
+
+	/**
+	 * @brief Start the read that loads a run.
 	 *
 	 * @param file A reader over the file.
-	 * @param run Index of the run.
+	 * @param run Index of the run, which is loading.
 	 */
-	void load(const image_reader &file, std::size_t run);
+	void start_load(
+		const std::shared_ptr<const image_reader> &file,
+		std::size_t run
+	) noexcept;
+
+	/**
+	 * @brief Carry on from a run whose read reported: write its flag if the
+	 * read succeeded, then settle it.
+	 *
+	 * @param run Index of the run.
+	 * @param error What the read failed with, or null.
+	 */
+	void finish_load(std::size_t run, std::exception_ptr error);
+
+	/**
+	 * @brief Settle a run: it is loaded, or absent again if its read or the
+	 * write of its flag failed, and its waiters are told so.
+	 *
+	 * @param run Index of the run.
+	 * @param error What failed it, or null.
+	 */
+	void settle(std::size_t run, std::exception_ptr error);
 
 	/**
 	 * @brief Make the plan that reads a run from the file.
@@ -156,9 +218,16 @@ private:
 	std::size_t m_run_length;
 	std::vector<std::atomic<bool>> m_loaded;
 	std::shared_ptr<image_scratch_storage> m_storage;
-	array m_values;
-	array m_flags;
+
+	// Where the storage holds the values, and the flags, in bytes from its
+	// first.
+	array_descriptor m_values;
+	std::size_t m_flags_offset;
+
 	std::uint64_t m_modification_time;
+
+	// The stores waiting for each run, of which only a loading run has any.
+	std::vector<waiter_list> m_waiters;
 	std::mutex m_mutex;
 };
 

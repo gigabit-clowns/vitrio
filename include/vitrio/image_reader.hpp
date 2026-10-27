@@ -5,11 +5,13 @@
 #include <vitrio/export.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
+#include <memory>
+
 namespace vitrio
 {
 
-class array_ref;
-
+class array;
+class completion_notifier;
 class image_descriptor;
 class image_metadata;
 
@@ -70,7 +72,8 @@ public:
 	virtual const image_metadata& get_metadata() const noexcept = 0;
 
 	/**
-	 * @brief Read a set of hyperrectangles of the file into one array.
+	 * @brief Start reading a set of hyperrectangles of the file into one
+	 * array.
 	 *
 	 * The file is the file side of the plan and @p destination its array
 	 * side: every region names where it starts in the file and where it
@@ -98,29 +101,40 @@ public:
 	 * may carry in its header; asking for the data type of
 	 * @ref get_descriptor converts nothing at all.
 	 *
+	 * The read may still be under way when this returns. It reports to
+	 * @p done exactly once: when every region has landed, or with what made
+	 * it fail. It keeps @p destination, and with it the memory it writes
+	 * into, until then.
+	 *
 	 * @par Thread safety
 	 * This method may be called concurrently on one reader. A reader that
 	 * can not decode in parallel serialises the calls itself, so issuing
 	 * them at once never costs correctness.
 	 *
-	 * An empty plan reads nothing and succeeds.
+	 * An empty plan reads nothing and reports success.
 	 *
 	 * @param destination Where the regions are written. Must be
 	 * initialized.
 	 * @param regions The regions to read and where each one lands.
-	 * @throws std::invalid_argument If the file offsets do not have the
-	 * rank of the file, if the array offsets do not have the rank of
-	 * @p destination, or if @p destination is not initialized.
-	 * @throws std::out_of_range If a region is not contained in the file,
-	 * or does not fit in @p destination where it is placed.
-	 * @throws unsupported_operation_error If the data type of @p destination
-	 * can not be produced from the one of the file.
-	 * @throws image_file_format_error If the file turns out to be malformed
-	 * or truncated where a region is read.
+	 * @param done Where the outcome is reported. Must not be null.
+	 * @throws std::invalid_argument If @p done is null. Every other failure
+	 * is reported to @p done rather than thrown:
+	 * - std::invalid_argument if the file offsets do not have the rank of
+	 *   the file, if the array offsets do not have the rank of
+	 *   @p destination, or if @p destination is not initialized;
+	 * - std::out_of_range if a region is not contained in the file, or does
+	 *   not fit in @p destination where it is placed;
+	 * - unsupported_operation_error if the data type of @p destination can
+	 *   not be produced from the one of the file;
+	 * - image_file_format_error if the file turns out to be malformed or
+	 *   truncated where a region is read;
+	 * - image_file_error if the file can not be read where a region is
+	 *   read.
 	 */
-	virtual void read(
-		array_ref destination,
-		const image_transfer_plan &regions
+	virtual void read_async(
+		array destination,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) const = 0;
 };
 

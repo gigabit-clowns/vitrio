@@ -13,7 +13,7 @@
 #include <vitrio/image_file_probe.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
-#include <formats/memory_mapping/mapped_image_writer.hpp>
+#include <formats/raw/open_raw_image_writer.hpp>
 
 #include <vector>
 
@@ -38,7 +38,8 @@ mrc_file_write_format::get_suitability(const image_file_probe &probe) const
 std::shared_ptr<image_writer> mrc_file_write_format::open(
 	const image_file_probe &probe,
 	const image_descriptor &descriptor,
-	const image_metadata &/*metadata*/
+	const image_metadata &/*metadata*/,
+	const file_transfer_pool &transfers
 ) const
 {
 	// Nothing of the metadata reaches the file: image_metadata states
@@ -63,10 +64,11 @@ std::shared_ptr<image_writer> mrc_file_write_format::open(
 	std::vector<byte> preamble(header_size);
 	serialize_header(header, make_span(preamble.data(), preamble.size()));
 
-	return std::make_shared<mapped_image_writer>(
+	return open_raw_image_writer(
 		probe.get_path(),
 		layout,
-		make_span(preamble.data(), preamble.size())
+		make_span(preamble.data(), preamble.size()),
+		transfers
 	);
 }
 

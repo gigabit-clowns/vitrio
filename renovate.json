@@ -48,6 +48,15 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_liburing\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
+      "depNameTemplate": "liburing",
+      "packageNameTemplate": "axboe/liburing",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "regex:^liburing-(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
       "matchStrings": ["vitrio_fetch_catch2\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
       "depNameTemplate": "catch2",
       "packageNameTemplate": "catchorg/Catch2",

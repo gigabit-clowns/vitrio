@@ -17,7 +17,9 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include "fixtures/dm_test_file.hpp"
 
 #include <cstddef>
@@ -78,7 +80,7 @@ std::vector<float> read_whole(const image_reader &reader)
 	const std::vector<std::size_t> origin(shape.size(), 0);
 	regions.add(make_span(origin), make_span(origin));
 
-	reader.read(array_ref(destination), regions);
+	read_now(reader, destination, regions);
 
 	std::size_t count = 1;
 	for (const auto extent : shape)
@@ -150,7 +152,10 @@ TEST_CASE( "the DM read format opens a file as its tags state it",
 
 	write_image_file(path.get(), version, little_endian, {5, 4, 3}, aligned);
 
-	const auto reader = format.open(image_file_probe(path.get()));
+	const auto reader = format.open(
+		image_file_probe(path.get()),
+		*make_file_transfer_pool()
+	);
 
 	const std::vector<std::size_t> extents = {3, 4, 5};
 	REQUIRE( reader->get_descriptor() ==
@@ -174,7 +179,10 @@ TEST_CASE( "the DM read format refuses what it can not open",
 		write_file(path.get(), raw);
 
 		REQUIRE_THROWS_AS(
-			format.open(image_file_probe(path.get())),
+			format.open(
+				image_file_probe(path.get()),
+				*make_file_transfer_pool()
+			),
 			image_file_format_error
 		);
 	}
@@ -190,7 +198,10 @@ TEST_CASE( "the DM read format refuses what it can not open",
 		);
 
 		REQUIRE_THROWS_AS(
-			format.open(image_file_probe(path.get())),
+			format.open(
+				image_file_probe(path.get()),
+				*make_file_transfer_pool()
+			),
 			unsupported_operation_error
 		);
 	}

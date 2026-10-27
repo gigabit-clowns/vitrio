@@ -20,12 +20,15 @@ from vitrio_tests import Patches, VitrioBuild    # noqa: E402
 class patch_readers(Patches):
 	"""
 	Every reader that crops patches, at three sides: vitrio's, a call per
-	micrograph of a batch, against crops of mrcfile and numpy one patch at
-	a time.
+	micrograph of a batch, against crops one patch at a time through mrcfile,
+	mapped and not, numpy's maps and plain reads of Python's files.
 	"""
 
 	reader = parameter(
-		['vitrio-loader', 'mrcfile-open', 'numpy-memmap', 'mrcfile-per-read'],
+		[
+			'vitrio-loader', 'mrcfile-mmap-per-read', 'mrcfile-mmap-kept',
+			'mrcfile-open-last', 'numpy-memmap-kept', 'python-read-kept',
+		],
 		type=str
 	)
 	patch = parameter([64, 128, 256], type=int)
@@ -37,7 +40,7 @@ class GapCapBuild(VitrioBuild):
 	gap_cap = parameter([1 << 12, 1 << 15, 1 << 17, 1 << 20], type=int)
 
 	def defines(self):
-		return {'VITRIO_PREFETCH_GAP_CAP': self.gap_cap}
+		return {'VITRIO_DEFAULT_PREFETCH_GAP_CAP': self.gap_cap}
 
 @rfm.simple_test
 class gap_cap(Patches):

@@ -13,6 +13,7 @@
 #include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/concurrency/completion.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
@@ -43,6 +44,7 @@ void py_write_single(
 	const_host_ndarray source,
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	std::optional<numerical_type> data_type
 )
 {
@@ -55,6 +57,7 @@ void py_write_single(
 		const_array_ref(imported),
 		text,
 		formats,
+		transfers,
 		data_type.value_or(numerical_type::unknown)
 	);
 }
@@ -63,6 +66,7 @@ void py_write_stack(
 	const_host_ndarray source,
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	std::optional<numerical_type> data_type
 )
 {
@@ -75,6 +79,7 @@ void py_write_stack(
 		const_array_ref(imported),
 		text,
 		formats,
+		transfers,
 		data_type.value_or(numerical_type::unknown)
 	);
 }
@@ -83,6 +88,7 @@ void py_write(
 	const_host_ndarray source,
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	const image_descriptor &descriptor
 )
 {
@@ -91,7 +97,7 @@ void py_write(
 	const auto text = to_utf8_string(path);
 
 	const nb::gil_scoped_release release;
-	write(const_array_ref(imported), text, formats, descriptor);
+	write(const_array_ref(imported), text, formats, transfers, descriptor);
 }
 
 std::shared_ptr<completion> py_write_batch_async(
@@ -126,47 +132,52 @@ void bind_image_write(nb::module_ &m)
 	m.def(
 		"write_single", &py_write_single,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
-		nb::arg("data_type") = nb::none(),
+		nb::arg("transfers"), nb::arg("data_type") = nb::none(),
 		"Write an array to a file as one image or volume.\n"
 		"\n"
-		"Prefer `vitrio.write_single`, which defaults the formats.\n"
+		"Prefer `vitrio.write_single`, which defaults the formats and the "
+		"transfers.\n"
 		"\n"
 		"Args:\n"
 		"    array: The values, as any host array, read from where it is.\n"
 		"    path: The file to create.\n"
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
+		"    transfers: The `FileTransferPool` that carries out the writes.\n"
 		"    data_type: The type to store the values as. Defaults to the one "
 		"the array carries."
 	);
 	m.def(
 		"write_stack", &py_write_stack,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
-		nb::arg("data_type") = nb::none(),
+		nb::arg("transfers"), nb::arg("data_type") = nb::none(),
 		"Write an array to a file as a stack of images or volumes.\n"
 		"\n"
 		"The leading extent of the array is the axis the file stacks along. "
-		"Prefer `vitrio.write_stack`, which defaults the formats.\n"
+		"Prefer `vitrio.write_stack`, which defaults the formats and the "
+		"transfers.\n"
 		"\n"
 		"Args:\n"
 		"    array: The values, as any host array, read from where it is.\n"
 		"    path: The file to create.\n"
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
+		"    transfers: The `FileTransferPool` that carries out the writes.\n"
 		"    data_type: The type to store the values as. Defaults to the one "
 		"the array carries."
 	);
 	m.def(
 		"write", &py_write,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
-		nb::arg("descriptor"),
+		nb::arg("transfers"), nb::arg("descriptor"),
 		"Write an array to a file as a descriptor states.\n"
 		"\n"
-		"Prefer `vitrio.write`, which defaults the formats.\n"
+		"Prefer `vitrio.write`, which defaults the formats and the transfers.\n"
 		"\n"
 		"Args:\n"
 		"    array: The values, as any host array. Its shape has to be the "
 		"extents of `descriptor`.\n"
 		"    path: The file to create.\n"
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
+		"    transfers: The `FileTransferPool` that carries out the writes.\n"
 		"    descriptor: The `ImageDescriptor` of what the file holds."
 	);
 	m.def(

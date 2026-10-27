@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include "image_region_read_walk.hpp"
+#include "image_region_write_walk.hpp"
+
+#include <vitrio/array/numerical_type.hpp>
+#include <vitrio/byte.hpp>
+
+#include <memory/byte_order.hpp>
+
+#include <cstddef>
+
+namespace vitrio
+{
+
+/**
+ * @brief Move every region of a walk out of a file and into an array.
+ *
+ * Values are converted to @p array_type, and read in @p file_order. Files
+ * are transferred in every integer, floating point and complex data type.
+ *
+ * @param walk The regions and the space they are walked in.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data First element of the values of the file.
+ * @param file_type Data type of the file.
+ * @param file_order Byte order the file states its values in.
+ * @throws unsupported_operation_error If @p array_type can not be produced from
+ * @p file_type, or if @p file_type is not a data type files are
+ * transferred in.
+ */
+void read_regions(
+	const image_region_read_walk &walk,
+	void *array_data,
+	numerical_type array_type,
+	const byte *file_data,
+	numerical_type file_type,
+	byte_order file_order
+);
+
+/**
+ * @brief Move a run of the regions of a walk out of a file and into an array.
+ *
+ * The regions of a walk are held in ascending file order, so a run of them is
+ * a stretch of the file, which can be walked while the stretch after it is
+ * advised, or out of a buffer that holds just that stretch.
+ *
+ * @param walk The regions and the space they are walked in.
+ * @param first_region Index of the first region to move, among those @p walk
+ * holds.
+ * @param region_count How many regions to move from there. The run must not
+ * reach past what @p walk holds.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data The values of the file, from the element at
+ * @p file_origin on. Every element the run reaches lies at or after it.
+ * @param file_origin Which element of the file @p file_data starts at, 0
+ * when it holds the values from their first.
+ * @param file_type Data type of the file.
+ * @param file_order Byte order the file states its values in.
+ * @throws unsupported_operation_error If @p array_type can not be produced from
+ * @p file_type, or if @p file_type is not a data type files are
+ * transferred in.
+ */
+void read_regions(
+	const image_region_read_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	void *array_data,
+	numerical_type array_type,
+	const byte *file_data,
+	std::ptrdiff_t file_origin,
+	numerical_type file_type,
+	byte_order file_order
+);
+
+/**
+ * @brief Move every region of a walk out of an array and into a file.
+ *
+ * The mirror of @ref read_regions, over a walk whose layout is ordered for
+ * the file instead.
+ *
+ * @param walk The regions and the space they are walked in.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data First element of the values of the file.
+ * @param file_type Data type of the file.
+ * @param file_order Byte order the file states its values in.
+ * @throws unsupported_operation_error If @p file_type can not be produced from
+ * @p array_type, or if @p file_type is not a data type files are
+ * transferred in.
+ */
+void write_regions(
+	const image_region_write_walk &walk,
+	const void *array_data,
+	numerical_type array_type,
+	byte *file_data,
+	numerical_type file_type,
+	byte_order file_order
+);
+
+/**
+ * @brief Move a run of the regions of a walk out of an array and into a file.
+ *
+ * The mirror of the overload of @ref read_regions that moves a run: the run
+ * is a stretch of the file, which can be written out of a buffer that holds
+ * just that stretch.
+ *
+ * @param walk The regions and the space they are walked in.
+ * @param first_region Index of the first region to move, among those @p walk
+ * holds.
+ * @param region_count How many regions to move from there. The run must not
+ * reach past what @p walk holds.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data Where the values of the file go, from the element at
+ * @p file_origin on. Every element the run reaches lies at or after it.
+ * @param file_origin Which element of the file @p file_data starts at, 0
+ * when it holds the values from their first.
+ * @param file_type Data type of the file.
+ * @param file_order Byte order the file states its values in.
+ * @throws unsupported_operation_error If @p file_type can not be produced
+ * from @p array_type, or if @p file_type is not a data type files are
+ * transferred in.
+ */
+void write_regions(
+	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	const void *array_data,
+	numerical_type array_type,
+	byte *file_data,
+	std::ptrdiff_t file_origin,
+	numerical_type file_type,
+	byte_order file_order
+);
+
+/**
+ * @brief Move a run of the regions of a walk out of a file of one
+ * statically known element type.
+ *
+ * Defined in image_region_transfer_impl.hpp and explicitly instantiated once
+ * per data type files are transferred in, in the
+ * image_region_transfer_<type>.cpp files. The array side is dispatched over
+ * every data type there is, and each pair of types is a loop of its own, in
+ * either byte order. A translation unit per element type keeps what one of
+ * them takes to compile within bounds.
+ *
+ * @tparam Q Element type of the file.
+ * @param walk The regions and the space they are walked in.
+ * @param first_region Index of the first region to move.
+ * @param region_count How many regions to move from there.
+ * @param array_data First element of the array.
+ * @param array_type Data type of the array.
+ * @param file_data The values of the file, from the element at
+ * @p file_origin on.
+ * @param file_origin Which element of the file @p file_data starts at.
+ * @param swapped Whether the file states its values in the other byte order.
+ * @throws unsupported_operation_error If @p array_type can not be produced from
+ * @p Q.
+ */
+template <typename Q>
+void read_regions_as(
+	const image_region_read_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	void *array_data,
+	numerical_type array_type,
+	const Q *file_data,
+	std::ptrdiff_t file_origin,
+	bool swapped
+);
+
+/**
+ * @brief Move a run of the regions of a walk into a file of one statically
+ * known element type.
+ *
+ * @see read_regions_as
+ */
+template <typename Q>
+void write_regions_as(
+	const image_region_write_walk &walk,
+	std::size_t first_region,
+	std::size_t region_count,
+	const void *array_data,
+	numerical_type array_type,
+	Q *file_data,
+	std::ptrdiff_t file_origin,
+	bool swapped
+);
+
+} // namespace vitrio

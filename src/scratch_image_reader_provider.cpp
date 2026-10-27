@@ -17,10 +17,12 @@ namespace vitrio
 
 scratch_image_reader_provider::scratch_image_reader_provider(
 	std::shared_ptr<image_reader_provider> backing,
-	std::shared_ptr<image_scratch> scratch
+	std::shared_ptr<image_scratch> scratch,
+	std::shared_ptr<executor> tasks
 )
 	: m_backing(std::move(backing))
 	, m_scratch(std::move(scratch))
+	, m_tasks(std::move(tasks))
 {
 	if (!m_backing)
 	{
@@ -34,6 +36,13 @@ scratch_image_reader_provider::scratch_image_reader_provider(
 	{
 		throw std::invalid_argument(
 			"scratch_image_reader_provider: The scratch must not be null."
+		);
+	}
+
+	if (!m_tasks)
+	{
+		throw std::invalid_argument(
+			"scratch_image_reader_provider: The executor must not be null."
 		);
 	}
 }
@@ -54,7 +63,8 @@ scratch_image_reader_provider::acquire(const std::string &key)
 
 	return std::make_shared<scratch_image_reader>(
 		std::move(entry),
-		std::move(file)
+		std::move(file),
+		m_tasks
 	);
 }
 

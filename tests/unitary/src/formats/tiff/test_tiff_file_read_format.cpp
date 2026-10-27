@@ -11,8 +11,10 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_reader.hpp>
 
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 #include "fixtures/tiff_test_file.hpp"
 
@@ -118,7 +120,10 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 	{
 		write_image(path.get(), "w");
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {3, 4};
 
@@ -128,7 +133,7 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			counting<std::uint8_t>(12) );
@@ -141,7 +146,10 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 			{counting<std::int16_t>(12), counting<std::int16_t>(12)}
 		);
 
-		const auto reader = format.open(image_file_probe(path.get()));
+		const auto reader = format.open(
+			image_file_probe(path.get()),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {2, 3, 4};
 
@@ -157,6 +165,9 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 
 		REQUIRE( format.get_suitability(probe) ==
 			image_file_format_suitability::normal );
-		REQUIRE_THROWS_AS( format.open(probe), image_file_format_error );
+		REQUIRE_THROWS_AS( format.open(
+			probe,
+			*make_file_transfer_pool()
+		), image_file_format_error );
 	}
 }

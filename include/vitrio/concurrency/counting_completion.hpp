@@ -5,6 +5,7 @@
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/export.hpp>
+#include <vitrio/platform.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -33,7 +34,7 @@ namespace vitrio
  * @ref notify_done may be called concurrently, from as many threads as
  * the starting count.
  */
-class counting_completion final
+class VITRIO_API counting_completion final
 	: public completion
 	, public completion_notifier
 {
@@ -47,13 +48,11 @@ public:
 	 * @param count How many times @ref notify_done is reported before
 	 * this resolves.
 	 */
-	VITRIO_API
 	explicit counting_completion(std::size_t count);
 
 	counting_completion(const counting_completion &other) = delete;
 	counting_completion(counting_completion &&other) = delete;
 
-	VITRIO_API
 	~counting_completion() override;
 
 	counting_completion&
@@ -61,20 +60,17 @@ public:
 	counting_completion&
 	operator=(counting_completion &&other) = delete;
 
-	VITRIO_API
 	void notify_done(std::exception_ptr error = nullptr) override;
 
-	VITRIO_API
 	void wait() const override;
 
-	VITRIO_API
 	bool is_ready() const noexcept override;
 
-	VITRIO_API
 	void get() const override;
 
 private:
 	class implementation;
+	VITRIO_STD_MEMBER_INTERFACE
 	std::unique_ptr<implementation> m_implementation;
 };
 

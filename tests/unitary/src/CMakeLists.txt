@@ -7,6 +7,7 @@ target_sources(
 		test_builtin_image_file_format_registry.cpp
 		test_caching_image_reader_provider.cpp
 		test_clipping_image_transfer_sanitizer.cpp
+		test_const_memory_range.cpp
 		test_counting_detector_event_renderer.cpp
 		test_detector_event_binning.cpp
 		test_detector_event_fractionation.cpp
@@ -21,7 +22,10 @@ target_sources(
 		test_executor_image_saver.cpp
 		test_file_detector_event_timeline_reader_provider.cpp
 		test_file_image_reader_provider.cpp
+		test_file_image_scratch_storage.cpp
 		test_file_image_writer_provider.cpp
+		test_file_transfer_pool.cpp
+		test_file_transfer_pool_implementation.cpp
 		test_find_most_suitable_format.cpp
 		test_host_image_scratch_storage.cpp
 		test_image_descriptor.cpp
@@ -50,17 +54,22 @@ target_sources(
 		test_interned_key_list.cpp
 		test_library_version.cpp
 		test_logger.cpp
-		test_mapped_file_image_scratch_storage.cpp
 		test_memory_range.cpp
 		test_scratch_image_reader.cpp
 		test_scratch_image_reader_provider.cpp
 		test_span.cpp
 		test_strict_image_transfer_sanitizer.cpp
+		test_synchronous_image_reader.cpp
+		test_synchronous_image_writer.cpp
+		test_tuning.cpp
 		test_version.cpp
+		test_waiting_transfers.cpp
 )
 
 add_subdirectory(array)
 add_subdirectory(concurrency)
+add_subdirectory(file_transfer)
 add_subdirectory(formats)
 add_subdirectory(memory)
+add_subdirectory(strided_transfer)
 add_subdirectory(system)

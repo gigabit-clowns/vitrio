@@ -15,6 +15,7 @@ readers keep copies of a dataset, such as a scratch or a converted
 database, is the partition's `scratchdir` extra, or `-S scratchdir=...`.
 """
 
+import importlib.util
 import json
 import os
 import shlex
@@ -37,7 +38,7 @@ SOURCES = Path(__file__).resolve().parents[2]
 HARNESS = SOURCES / 'benchmarks' / 'python'
 sys.path.insert(0, str(HARNESS))
 
-from vitrio_bench import readers    # noqa: E402
+from vitrio_bench import readers, writers    # noqa: E402
 
 # The value of a reader's option that leaves it at the reader's default,
 # for options whose default differs from one reader to another.
@@ -83,6 +84,8 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 	memory_max = parameter([''], type=str)
 
 	procedure = ''
+	#: Whether the procedure writes its dataset rather than reading one.
+	writes = False
 
 	def dataset_options(self):
 		"""The `--dataset.*` options of the run."""
@@ -112,7 +115,7 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 			"or -S datadir=..."
 		)
 		self.skip_if(
-			self.cold == 'drop' and 'root' not in partition.features,
+			self.cold in ('drop', 'zfs') and 'root' not in partition.features,
 			"Dropping every cached page needs the feature 'root'."
 		)
 		self.skip_if(
@@ -133,7 +136,8 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 		harness = [sys.executable, '-m', 'vitrio_bench']
 		dataset = self.dataset_options()
 		generate = [*harness, 'generate', '--datadir', self.datadir, *dataset]
-		self.prerun_cmds = [shlex.join(generate)]
+		# A procedure that writes its dataset has none to generate.
+		self.prerun_cmds = [] if self.writes else [shlex.join(generate)]
 		environment = [f'--environment.cold={self.cold}']
 		if self.cpus:
 			environment.append(f'--environment.cpus={self.cpus}')
@@ -181,7 +185,7 @@ class ReaderBenchmark(VitrioBenchmark):
 	cache = parameter([READER_DEFAULT], type=int)
 	#: Batches `vitrio-loader` reads ahead.
 	in_flight = parameter([2], type=int)
-	#: Where a vitrio reader keeps copies: `none`, `host`, `mapped`,
+	#: Where a vitrio reader keeps copies: `none`, `host`, `file`,
 	#: `directory`.
 	scratch = parameter(['none'], type=str)
 	#: Particles of a file a scratch takes in together.
@@ -332,15 +336,118 @@ class Patches(ReaderBenchmark):
 
 	#: Side of a patch.
 	patch = parameter([128], type=int)
-	#: Patches per micrograph.
-	patches = variable(int, value=100)
+	#: How the patches of a batch are spread: sparse, a few of each
+	#: micrograph drawn across them, or crowded, every patch of a micrograph
+	#: in a batch, as extraction reads them.
+	crowding = parameter(['sparse', 'crowded'], type=str)
+	#: Patches per micrograph. None: 100 when sparse, as many as cover 40%
+	#: of a micrograph when crowded.
+	patches = variable(int, type(None), value=None)
 
 	def workload_options(self):
-		return [
+		options = [
 			*super().workload_options(),
 			f'--workload.patch={self.patch}',
-			f'--workload.patches={self.patches}',
+			f'--workload.crowding={self.crowding}',
 		]
+		if self.patches is not None:
+			options.append(f'--workload.patches={self.patches}')
+		if self.crowding == 'crowded':
+			# A crowded workload sets its order and its batches itself.
+			options = [
+				option for option in options
+				if not option.startswith(('--workload.order=', '--workload.batch='))
+			]
+		return options
+
+class Slices(ReaderBenchmark):
+	"""
+	Slices along one axis of a volume, the single stack of the dataset, as a
+	viewer of a tomogram shows them (`slices`).
+	"""
+
+	procedure = 'slices'
+	#: Planes of the volume, along `z`.
+	count = 256
+	box = parameter([1024], type=int)
+	layout = parameter(['single-stack'], type=str)
+
+	#: The axis the slices are taken along: `z`, `y` or `x`.
+	axis = parameter(['z'], type=str)
+	batch = parameter([16], type=int)
+
+	def workload_options(self):
+		return [*super().workload_options(), f'--workload.axis={self.axis}']
+
+class WriteBatches(VitrioBenchmark):
+	"""
+	A dataset written a batch at a time, until it is on the storage
+	(`write_batches`).
+	"""
+
+	procedure = 'write_batches'
+	writes = True
+
+	#: Images in the dataset.
+	count = variable(int, value=20000)
+	box = parameter([128], type=int)
+	dtype = parameter(['float32'], type=str)
+	layout = parameter(['single-stack'], type=str)
+	seed = variable(int, value=0)
+
+	writer = parameter(['vitrio-saver'], type=str)
+	#: Threads of vitrio's saver. -1 takes its default.
+	workers = parameter([READER_DEFAULT], type=int)
+	batch = parameter([256], type=int)
+	#: Whether the time runs until what was written is on the storage.
+	sync = variable(typ.Bool, value=True)
+
+	@run_after('init')
+	def check_writer(self):
+		writer = writers.get(self.writer)
+		needed = [
+			module for module in writer.requires
+			if importlib.util.find_spec(module) is None
+		]
+		self.skip_if(bool(needed), f"{self.writer} needs {needed}.")
+
+	def dataset_options(self):
+		return [
+			f'--dataset.count={self.count}',
+			f'--dataset.layout={self.layout}',
+			f'--dataset.box={self.box}',
+			f'--dataset.dtype={self.dtype}',
+			f'--dataset.seed={self.seed}',
+		]
+
+	def run_options(self):
+		options = [
+			f'--reader.name={self.writer}',
+			f'--workload.batch={self.batch}',
+			f'--workload.sync={json.dumps(self.sync)}',
+		]
+		if (
+			'workers' in writers.get(self.writer).defaults
+			and self.workers != READER_DEFAULT
+		):
+			options.append(f'--reader.workers={self.workers}')
+		return options
+
+	@performance_function('images/s')
+	def images_per_s(self):
+		return self.metric('images_per_s')
+
+	@performance_function('B/s')
+	def file_bytes_per_s(self):
+		return self.metric('file_bytes_per_s')
+
+	@performance_function('s')
+	def cpu_per_image_s(self):
+		return self.metric('cpu_per_image_s')
+
+	@performance_function('B')
+	def peak_memory_bytes(self):
+		return self.metric('peak_memory_bytes')
 
 class VitrioBuild(rfm.CompileOnlyRegressionTest):
 	"""

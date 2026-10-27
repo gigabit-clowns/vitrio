@@ -12,11 +12,10 @@
 #include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
-#include <formats/memory_mapping/image_file_access.hpp>
-#include <formats/memory_mapping/image_file_layout.hpp>
-#include <formats/memory_mapping/image_file_mapping.hpp>
-#include <formats/memory_mapping/mapped_image_reader.hpp>
-#include <formats/memory_mapping/unaligned_mapped_image_reader.hpp>
+#include <formats/raw/mapped/image_file_access.hpp>
+#include <formats/raw/mapped/image_file_mapping.hpp>
+#include <formats/raw/open_raw_image_reader.hpp>
+#include <formats/raw/raw_image_layout.hpp>
 
 #include <cstddef>
 #include <vector>
@@ -78,35 +77,27 @@ dm_file_read_format::get_suitability(const image_file_probe &probe) const
 		: image_file_format_suitability::fallback;
 }
 
-std::shared_ptr<image_reader>
-dm_file_read_format::open(const image_file_probe &probe) const
+std::shared_ptr<image_reader> dm_file_read_format::open(
+	const image_file_probe &probe,
+	const file_transfer_pool &transfers
+) const
 {
 	const auto location = locate_file_image(probe.get_path());
 	const auto &descriptor = location.get_descriptor();
-	const auto element_size = get_size(descriptor.get_data_type());
-
-	if (location.get_data_offset() % element_size != 0)
-	{
-		return std::make_shared<unaligned_mapped_image_reader>(
-			probe.get_path(),
-			descriptor,
-			location.get_data_offset(),
-			location.get_byte_order(),
-			image_metadata()
-		);
-	}
 
 	// The extents fit in the values the tags hold, so their strides do not
-	// overflow.
-	return std::make_shared<mapped_image_reader>(
+	// overflow. DigitalMicrograph places the values wherever the tags before
+	// them end, aligned or not, which the reader opened suits.
+	return open_raw_image_reader(
 		probe.get_path(),
-		image_file_layout(
+		raw_image_layout(
 			descriptor,
 			contiguous_strides(descriptor.get_extents()),
 			location.get_data_offset(),
 			location.get_byte_order()
 		),
-		image_metadata()
+		image_metadata(),
+		transfers
 	);
 }
 

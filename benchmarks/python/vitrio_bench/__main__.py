@@ -4,7 +4,7 @@
 
 	python -m vitrio_bench env
 	python -m vitrio_bench generate --datadir DIR [--dataset.NAME=VALUE ...]
-	python -m vitrio_bench cold {none,fadvise,drop} PATH...
+	python -m vitrio_bench cold {none,fadvise,drop,zfs} PATH...
 	python -m vitrio_bench dataset list
 	python -m vitrio_bench dataset check NAME ROOT
 	python -m vitrio_bench run PROCEDURE --datadir DIR --results FILE \\
@@ -201,7 +201,11 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		environment.raise_open_file_limit()
 
 		spec = datasets.make_spec(parts['dataset'])
-		dataset = datasets.load(args.datadir, spec)
+		writes = getattr(procedure, 'writes', False)
+		if writes:
+			dataset = datasets.plan(args.datadir, spec, str(os.getpid()))
+		else:
+			dataset = datasets.load(args.datadir, spec)
 		record['dataset'] = dataset.describe()
 		scratchdir = settings['scratchdir']
 		if hasattr(procedure, 'make_reader'):
@@ -222,12 +226,34 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		})
 		record['build'] = environment.build()
 
+		# A scratch on the storage of the data it copies only adds work, so
+		# no one would keep one there: its numbers say nothing of what a
+		# scratch is worth, and the run says so.
+		if scratchdir is not None:
+			Path(scratchdir).mkdir(parents=True, exist_ok=True)
+			shared = environment.shares_storage(scratchdir, dataset.path)
+			record['environment']['scratch_target'] = {
+				**environment.target(scratchdir),
+				'shares_storage': shared,
+			}
+			if shared:
+				print(
+					"warning: the scratch directory is on the storage of the "
+					"dataset, where a scratch only copies what is there. Put "
+					"it on storage faster than the dataset's for numbers that "
+					"say what a scratch is worth.",
+					file=sys.stderr
+				)
+
 		reason = reader.unavailable()
 		if reason:
 			raise readers.Skip(reason)
 
-		cached = [*dataset.stacks, *reader.files()]
-		cache.evict(cached, settings['cold'])
+		# What is written is not cached beforehand.
+		cached = [] if writes else [*dataset.stacks, *reader.files()]
+		emptied = cache.evict(cached, settings['cold'])
+		if emptied is not None:
+			record['environment']['emptied'] = emptied
 		record['environment']['residency'] = cache.residency(cached)
 
 		nfs = target.get('filesystem', '').startswith('nfs')

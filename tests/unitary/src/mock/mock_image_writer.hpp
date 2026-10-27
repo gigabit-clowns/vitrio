@@ -4,11 +4,14 @@
 
 #include <vitrio/image_writer.hpp>
 
-#include <vitrio/array/const_array_ref.hpp>
+#include <vitrio/array/const_array.hpp>
+#include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
 #include <trompeloeil.hpp>
+
+#include <memory>
 
 namespace vitrio
 {
@@ -25,13 +28,21 @@ public:
 		noexcept override
 	);
 
-	MAKE_MOCK2(
-		write,
-		void(const_array_ref source, const image_transfer_plan &regions),
+	MAKE_MOCK3(
+		write_async,
+		void(
+			const_array source,
+			image_transfer_plan regions,
+			std::shared_ptr<completion_notifier> done
+		),
 		override
 	);
 
-	MAKE_MOCK0(flush, void(), override);
+	MAKE_MOCK1(
+		flush_async,
+		void(std::shared_ptr<completion_notifier> done),
+		override
+	);
 };
 
 } // namespace vitrio

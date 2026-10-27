@@ -7,7 +7,9 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/concurrency/thread_pool_executor.hpp>
 #include <vitrio/file_image_reader_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_read.hpp>
@@ -18,6 +20,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 int main()
@@ -38,16 +41,24 @@ int main()
 		values[i] = static_cast<std::int16_t>(i);
 	}
 
+	// The threads that carry out the transfers of the files, which hand the
+	// conversions to a thread pool.
+	const auto transfers = std::make_shared<vitrio::file_transfer_pool>(
+		std::make_shared<vitrio::thread_pool_executor>(2)
+	);
+
 	// The format is chosen from what the selector holds and the path.
 	vitrio::write_single(
 		image,
 		path,
-		*vitrio::image_file_write_format_selector::get_shared()
+		*vitrio::image_file_write_format_selector::get_shared(),
+		*transfers
 	);
 
 	// Read as 32-bit floats, whatever the file holds.
 	vitrio::file_image_reader_provider readers(
-		vitrio::image_file_read_format_selector::get_shared()
+		vitrio::image_file_read_format_selector::get_shared(),
+		transfers
 	);
 	const vitrio::array converted =
 		vitrio::read(path, readers, vitrio::numerical_type::float32);

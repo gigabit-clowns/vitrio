@@ -61,6 +61,12 @@ DATA_TYPES = ('int8', 'uint8', 'int16', 'uint16', 'float16', 'float32')
 # in flight take.
 BATCH_SIZE = 128
 BATCHES_IN_FLIGHT = 8
+# How many complete stacks are finished at once. Finishing one waits for it
+# to reach the storage, while the next ones are written. Where stacks come
+# faster than one reaches the storage, more at once keep the storage busy:
+# small stacks written from memory went from 1.0 to 1.4 GB/s on NVMe between
+# 4 and 16.
+STACKS_FINISHING = 16
 
 T = TypeVar('T')
 
@@ -177,11 +183,12 @@ def assign_destinations(stacks: pd.Series) -> list[vio.ImageLocation]:
 	return [vio.ImageLocation(*place) for place in zip(stacks, indices)]
 
 class OutputStacks:
-	"""The stacks being written, each closed some time after it is complete.
+	"""The stacks being written, each finished as soon as it is complete.
 
-	Closing a stack flushes it, which holds up whoever asks for it. So a
-	stack whose last particle is stored is only queued, and closed when
-	`close_one` is called.
+	Finishing a stack flushes it, which waits for the storage. So a stack
+	whose last particle is stored starts finishing at once, while the next
+	ones are written, and a few finish at the same time: before another
+	starts, the oldest of them is waited for.
 	"""
 
 	def __init__(
@@ -194,7 +201,7 @@ class OutputStacks:
 		"""Declare every stack at its final size."""
 		self._writers = writers
 		self._awaited = Counter(place.key for place in destinations)
-		self._complete: deque[str] = deque()
+		self._finishing: deque[vio.Completion] = deque()
 		for path, size in self._awaited.items():
 			Path(path).parent.mkdir(parents=True, exist_ok=True)
 			writers.declare(
@@ -208,19 +215,19 @@ class OutputStacks:
 		self,
 		destinations: Iterable[vio.ImageLocation]
 	) -> None:
-		"""Queue the stacks these particles were the last ones of."""
+		"""Finish the stacks these particles were the last ones of."""
 		arrived = Counter(place.key for place in destinations)
 		self._awaited.subtract(arrived)
-		self._complete.extend(
-			path for path in arrived if not self._awaited[path]
-		)
+		for path in arrived:
+			if not self._awaited[path]:
+				if len(self._finishing) == STACKS_FINISHING:
+					self._finishing.popleft().get()
+				self._finishing.append(self._writers.close_async(path))
 
-	def close_one(self) -> bool:
-		"""Close a complete stack, and say whether there was one."""
-		if not self._complete:
-			return False
-		self._writers.close(self._complete.popleft())
-		return True
+	def finish(self) -> None:
+		"""Wait for every stack still finishing."""
+		while self._finishing:
+			self._finishing.popleft().get()
 
 def make_batches(
 	particles: pd.DataFrame,
@@ -252,12 +259,6 @@ def keep_in_flight(items: Iterable[T]) -> Iterator[T]:
 			yield window.popleft()
 	yield from window
 
-def wait(completion: vio.Completion, stacks: OutputStacks) -> None:
-	"""Wait for a completion, closing complete stacks in the meantime."""
-	while not completion.is_ready and stacks.close_one():
-		pass
-	completion.get()
-
 def start_reads(
 	batches: Iterable[Batch],
 	loader: vio.ImageLoader,
@@ -277,12 +278,11 @@ def start_reads(
 
 def start_writes(
 	reads: Iterable[tuple[Batch, np.ndarray, vio.Completion]],
-	saver: vio.ImageSaver,
-	stacks: OutputStacks
+	saver: vio.ImageSaver
 ) -> Iterator[tuple[Batch, vio.Completion]]:
 	"""Start storing each batch once it has been read."""
 	for batch, patches, reading in reads:
-		wait(reading, stacks)
+		reading.get()
 		yield batch, vio.write_batch_async(
 			saver, patches, batch.destinations
 		)
@@ -305,15 +305,14 @@ def extract(
 
 	batches = make_batches(particles, destinations)
 	reads = start_reads(batches, loader, box_size, dtype)
-	writes = start_writes(keep_in_flight(reads), saver, stacks)
+	writes = start_writes(keep_in_flight(reads), saver)
 	with tqdm(total=len(particles), unit='particle') as progress:
 		for batch, writing in keep_in_flight(writes):
-			wait(writing, stacks)
+			writing.get()
 			stacks.mark_stored(batch.destinations)
 			progress.update(len(batch.destinations))
 
-	while stacks.close_one():
-		pass
+	stacks.finish()
 
 def describe_images(
 	optics: pd.DataFrame,

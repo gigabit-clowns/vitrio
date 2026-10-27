@@ -9,12 +9,18 @@ recorded with the run.
 
 On NFS this empties the client's cache only. The server keeps its own, which
 no client can drop.
+
+ZFS keeps what it reads in its ARC, apart from the page cache, and leaves it
+there whatever `POSIX_FADV_DONTNEED` or `drop_caches` ask. The mode `zfs`
+empties the ARC too, by shrinking it to its floor and giving it back its
+limits.
 """
 
 from __future__ import annotations
 
 import ctypes
 import os
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -22,9 +28,16 @@ import numpy as np
 
 from .environment import Unavailable
 
-MODES = ('none', 'fadvise', 'drop')
+MODES = ('none', 'fadvise', 'drop', 'zfs')
 
-def evict(paths: Sequence[str | Path], mode: str) -> None:
+DROP_CACHES = Path('/proc/sys/vm/drop_caches')
+ARCSTATS = Path('/proc/spl/kstat/zfs/arcstats')
+ZFS_PARAMETERS = Path('/sys/module/zfs/parameters')
+# The least limits ZFS takes for its ARC.
+ARC_MIN_FLOOR = 32 << 20
+ARC_MAX_FLOOR = 64 << 20
+
+def evict(paths: Sequence[str | Path], mode: str) -> dict | None:
 	"""
 	Ask the kernel to drop the cached pages of some files.
 
@@ -33,8 +46,13 @@ def evict(paths: Sequence[str | Path], mode: str) -> None:
 		mode: `'fadvise'` drops the pages of those files alone, with
 			`POSIX_FADV_DONTNEED`, and needs no privilege. `'drop'` drops
 			every clean page of the machine, through
-			`/proc/sys/vm/drop_caches`, and needs root. `'none'` does
-			nothing.
+			`/proc/sys/vm/drop_caches`, and needs root. `'zfs'` does what
+			`'drop'` does and empties the ARC of ZFS too, which needs root
+			as well. `'none'` does nothing.
+
+	Returns:
+		For `'zfs'`, the bytes the ARC held before and at its floor, and the
+		seconds emptying it took. Nothing for the other modes.
 
 	Raises:
 		Unavailable: If the system cannot do what `mode` asks.
@@ -61,15 +79,85 @@ def evict(paths: Sequence[str | Path], mode: str) -> None:
 				os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
 			finally:
 				os.close(descriptor)
+	elif mode == 'drop':
+		_drop_caches(3)
 	else:
-		control = '/proc/sys/vm/drop_caches'
-		try:
-			with open(control, 'w', encoding='ascii') as file:
-				file.write('3\n')
-		except OSError as error:
-			raise Unavailable(
-				"Dropping every cached page needs root. Use 'fadvise' instead."
-			) from error
+		return _empty_arc()
+	return None
+
+def _drop_caches(what: int) -> None:
+	try:
+		DROP_CACHES.write_text(f'{what}\n', encoding='ascii')
+	except OSError as error:
+		raise Unavailable(
+			"Dropping every cached page needs root. Use 'fadvise' instead."
+		) from error
+
+def _read_arcstats() -> dict[str, int] | None:
+	try:
+		lines = ARCSTATS.read_text(encoding='ascii').splitlines()[2:]
+	except OSError:
+		return None
+	stats = {}
+	for line in lines:
+		fields = line.split()
+		if len(fields) == 3 and fields[2].lstrip('-').isdigit():
+			stats[fields[0]] = int(fields[2])
+	return stats
+
+def _write_parameter(name: str, value: int) -> None:
+	(ZFS_PARAMETERS / name).write_text(f'{value}\n', encoding='ascii')
+
+def _empty_arc(timeout: float = 30.0) -> dict:
+	"""
+	Drop the page cache and empty the ARC: lower its limits to their floor,
+	drop the caches, which calls the ARC's shrinker, until it reaches the
+	floor or stops shrinking, then give it back the limits it had.
+	"""
+	stats = _read_arcstats()
+	if stats is None:
+		raise Unavailable("There is no ARC to empty: ZFS is not loaded.")
+	parameters = {
+		name: int((ZFS_PARAMETERS / name).read_text(encoding='ascii'))
+		for name in ('zfs_arc_min', 'zfs_arc_max')
+	}
+	if parameters['zfs_arc_max'] == ARC_MAX_FLOOR:
+		raise Unavailable(
+			"zfs_arc_max is at the floor an emptying of the ARC sets, so an "
+			"earlier one was interrupted. Give it back its limit first."
+		)
+	if not os.access(ZFS_PARAMETERS / 'zfs_arc_max', os.W_OK):
+		raise Unavailable("Emptying the ARC needs root.")
+
+	started = time.monotonic()
+	try:
+		_write_parameter('zfs_arc_min', ARC_MIN_FLOOR)
+		_write_parameter('zfs_arc_max', ARC_MAX_FLOOR)
+		_drop_caches(3)
+		least = _read_arcstats()['size']
+		steady_since = time.monotonic()
+		deadline = steady_since + timeout
+		while least > 2 * ARC_MAX_FLOOR and time.monotonic() < deadline:
+			time.sleep(0.5)
+			size = _read_arcstats()['size']
+			if size < least * 0.99:
+				steady_since = time.monotonic()
+			elif time.monotonic() - steady_since > 3.0:
+				break
+			least = min(least, size)
+			_drop_caches(2)
+	finally:
+		# The limits it worked with first, in bytes: a parameter of zero,
+		# which leaves ZFS its own, may not take effect again by itself.
+		_write_parameter('zfs_arc_max', stats['c_max'])
+		_write_parameter('zfs_arc_min', stats['c_min'])
+		_write_parameter('zfs_arc_max', parameters['zfs_arc_max'])
+		_write_parameter('zfs_arc_min', parameters['zfs_arc_min'])
+	return {
+		'arc_bytes_before': stats['size'],
+		'arc_bytes_at_floor': least,
+		'seconds': time.monotonic() - started,
+	}
 
 def _load_libc():
 	try:

@@ -15,6 +15,7 @@
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_saver.hpp"
@@ -75,10 +76,18 @@ TEST_CASE_METHOD(
 	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "out.mrc" && _2 == expected )
 		.RETURN(writer);
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 3 &&
@@ -88,10 +97,17 @@ TEST_CASE_METHOD(
 				std::vector<std::size_t>{0, 0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0, 0}
-		);
-	ALLOW_CALL(*writer, flush());
+		)
+		.SIDE_EFFECT( _3->notify_done() );
+	ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+		.SIDE_EFFECT( _1->notify_done() );
 
-	write_single(arr, "out.mrc", *get_selector());
+	write_single(
+		arr,
+		"out.mrc",
+		*get_selector(),
+		*test::make_file_transfer_pool()
+	);
 }
 
 TEST_CASE_METHOD(
@@ -111,13 +127,29 @@ TEST_CASE_METHOD(
 	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _2 == expected )
 		.RETURN(writer);
-	ALLOW_CALL(*writer, write(trompeloeil::_, trompeloeil::_));
-	ALLOW_CALL(*writer, flush());
+	ALLOW_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
+	ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+		.SIDE_EFFECT( _1->notify_done() );
 
-	write_single(arr, "out.mrc", *get_selector(), numerical_type::int16);
+	write_single(
+		arr,
+		"out.mrc",
+		*get_selector(),
+		*test::make_file_transfer_pool(),
+		numerical_type::int16
+	);
 }
 
 TEST_CASE_METHOD(
@@ -133,7 +165,8 @@ TEST_CASE_METHOD(
 		write_single(
 			make_test_array({}, numerical_type::float32),
 			"out.mrc",
-			*get_selector()
+			*get_selector(),
+			*test::make_file_transfer_pool()
 		),
 		std::invalid_argument
 	);
@@ -151,8 +184,13 @@ TEST_CASE_METHOD(
 
 	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
-	ALLOW_CALL(*writer, write(trompeloeil::_, trompeloeil::_));
-	ALLOW_CALL(*writer, flush());
+	ALLOW_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
+	ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+		.SIDE_EFFECT( _1->notify_done() );
 
 	SECTION( "in the data type of the array" )
 	{
@@ -164,12 +202,22 @@ TEST_CASE_METHOD(
 
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.LR_WITH( _1.get_path() == "stack.mrcs" && _2 == expected )
 			.RETURN(writer);
 
-		write_stack(arr, "stack.mrcs", *get_selector());
+		write_stack(
+			arr,
+			"stack.mrcs",
+			*get_selector(),
+			*test::make_file_transfer_pool()
+		);
 	}
 
 	SECTION( "in the data type it is given" )
@@ -182,12 +230,23 @@ TEST_CASE_METHOD(
 
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.LR_WITH( _2 == expected )
 			.RETURN(writer);
 
-		write_stack(arr, "stack.mrcs", *get_selector(), numerical_type::int16);
+		write_stack(
+			arr,
+			"stack.mrcs",
+			*get_selector(),
+			*test::make_file_transfer_pool(),
+			numerical_type::int16
+		);
 	}
 }
 
@@ -204,7 +263,8 @@ TEST_CASE_METHOD(
 		write_stack(
 			make_test_array({4}, numerical_type::float32),
 			"stack.mrcs",
-			*get_selector()
+			*get_selector(),
+			*test::make_file_transfer_pool()
 		),
 		std::invalid_argument
 	);
@@ -229,19 +289,35 @@ TEST_CASE_METHOD(
 	auto &format = add_format(image_file_format_suitability::normal);
 	const auto writer = std::make_shared<mock_image_writer>();
 
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack.mrcs" && _2 == descriptor )
 		.RETURN(writer);
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 3 &&
 			_2.get_shape().get_array_rank() == 3 &&
 			to_vector(_2.get_shape().get_extents()) == extents
-		);
-	ALLOW_CALL(*writer, flush());
+		)
+		.SIDE_EFFECT( _3->notify_done() );
+	ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+		.SIDE_EFFECT( _1->notify_done() );
 
-	write(arr, "stack.mrcs", *get_selector(), descriptor);
+	write(
+		arr,
+		"stack.mrcs",
+		*get_selector(),
+		*test::make_file_transfer_pool(),
+		descriptor
+	);
 }
 
 TEST_CASE_METHOD(
@@ -262,7 +338,13 @@ TEST_CASE_METHOD(
 	add_format(image_file_format_suitability::normal);
 
 	REQUIRE_THROWS_AS(
-		write(arr, "out.mrc", *get_selector(), descriptor),
+		write(
+			arr,
+			"out.mrc",
+			*get_selector(),
+			*test::make_file_transfer_pool(),
+			descriptor
+		),
 		std::invalid_argument
 	);
 }
@@ -279,14 +361,29 @@ TEST_CASE_METHOD(
 	const auto writer = std::make_shared<mock_image_writer>();
 	trompeloeil::sequence order;
 
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.RETURN(writer);
-	REQUIRE_CALL(*writer, write(trompeloeil::_, trompeloeil::_))
-		.IN_SEQUENCE(order);
-	REQUIRE_CALL(*writer, flush())
-		.IN_SEQUENCE(order);
+	REQUIRE_CALL(
+		*writer,
+		write_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _1->notify_done() );
 
-	write_single(arr, "out.mrc", *get_selector());
+	write_single(
+		arr,
+		"out.mrc",
+		*get_selector(),
+		*test::make_file_transfer_pool()
+	);
 }
 
 TEST_CASE(

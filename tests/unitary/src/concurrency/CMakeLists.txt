@@ -4,6 +4,8 @@ target_sources(
 	vitrio-unitary-tests
 	PRIVATE
 		test_counting_completion.cpp
+		test_counting_notifier.cpp
+		test_failure_forwarding_notifier.cpp
 		test_synchronous_executor.cpp
 		test_thread_pool_executor.cpp
 )

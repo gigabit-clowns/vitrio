@@ -11,6 +11,7 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_write_format.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_file_write_format.hpp"
@@ -49,7 +50,12 @@ TEST_CASE( "an empty write format selector recognizes nothing",
 	SECTION( "opening reports that nothing is suitable" )
 	{
 		REQUIRE_THROWS_MATCHES(
-			selector.open("absent.mrc", file_descriptor, image_metadata()),
+			selector.open(
+				"absent.mrc",
+				file_descriptor,
+				image_metadata(),
+				*test::make_file_transfer_pool()
+			),
 			unsupported_operation_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith("absent.mrc: ")
@@ -91,13 +97,23 @@ TEST_CASE_METHOD(
 
 		REQUIRE_CALL(
 			only,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.LR_WITH( _1.get_path() == "absent.mrc" && _2 == file_descriptor )
 			.RETURN(writer);
 
 		REQUIRE(
-			selector.open("absent.mrc", file_descriptor, image_metadata()) ==
+			selector.open(
+				"absent.mrc",
+				file_descriptor,
+				image_metadata(),
+				*test::make_file_transfer_pool()
+			) ==
 			writer
 		);
 	}

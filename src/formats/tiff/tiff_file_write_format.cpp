@@ -44,7 +44,8 @@ tiff_file_write_format::get_suitability(const image_file_probe &probe) const
 std::shared_ptr<image_writer> tiff_file_write_format::open(
 	const image_file_probe &probe,
 	const image_descriptor &descriptor,
-	const image_metadata &/*metadata*/
+	const image_metadata &/*metadata*/,
+	const file_transfer_pool &/*transfers*/
 ) const
 {
 	const auto extents = descriptor.get_extents();

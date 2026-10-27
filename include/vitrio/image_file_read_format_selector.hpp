@@ -14,6 +14,7 @@ namespace vitrio
 
 class image_file_probe;
 class image_file_read_format;
+class file_transfer_pool;
 
 /**
  * @brief Holds the image formats that can be read, selects the most suitable
@@ -82,6 +83,7 @@ public:
 	 *
 	 * @param path Path to the file to open, or any other locator a
 	 * registered format claims, such as the address of a remote file.
+	 * @param transfers The threads that carry out the transfers of the reader.
 	 * @return std::shared_ptr<image_reader> The opened reader, never null.
 	 * @throws image_file_error If no registered format claims the path and
 	 * no readable file exists there.
@@ -89,7 +91,10 @@ public:
 	 * the file, which exists.
 	 * @throws image_file_format_error If the file is malformed or truncated.
 	 */
-	std::shared_ptr<image_reader> open(const std::string &path) const;
+	std::shared_ptr<image_reader> open(
+		const std::string &path,
+		const file_transfer_pool &transfers
+	) const;
 
 	/**
 	 * @brief Get the format that would open a file, without opening it.

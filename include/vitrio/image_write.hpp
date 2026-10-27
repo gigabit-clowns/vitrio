@@ -17,6 +17,7 @@ namespace vitrio
 {
 
 class completion;
+class file_transfer_pool;
 
 class image_descriptor;
 class image_location;
@@ -32,6 +33,7 @@ class image_saver;
  * @param arr The values to write.
  * @param path Path to the file to create.
  * @param formats The formats the file may be created with.
+ * @param transfers The threads that carry out the writes of the file.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
  * @param metadata How its samples map onto physical space.
@@ -45,6 +47,7 @@ void write_single(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -59,6 +62,7 @@ void write_single(
  * @param arr The values to write.
  * @param path Path to the file to create.
  * @param formats The formats the file may be created with.
+ * @param transfers The threads that carry out the writes of the file.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
  * @param metadata How its samples map onto physical space.
@@ -70,6 +74,7 @@ void write_stack(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	numerical_type data_type = numerical_type::unknown,
 	const image_metadata &metadata = image_metadata()
 );
@@ -86,6 +91,7 @@ void write_stack(
  * @p descriptor.
  * @param path Path to the file to create.
  * @param formats The formats the file may be created with.
+ * @param transfers The threads that carry out the writes of the file.
  * @param descriptor What the file holds.
  * @param metadata How its samples map onto physical space.
  * @throws std::invalid_argument If the extents of @p arr are not those of
@@ -96,6 +102,7 @@ void write(
 	const_array_ref arr,
 	const std::string &path,
 	const image_file_write_format_selector &formats,
+	const file_transfer_pool &transfers,
 	const image_descriptor &descriptor,
 	const image_metadata &metadata = image_metadata()
 );

@@ -212,13 +212,15 @@ target of the build.
 
 ## Building from source
 
-You need a C++14 compiler and CMake 3.24 or newer. The libraries vitrio
-needs are fetched and built with it, static, inside its own library:
+You need a C++14 compiler and CMake 3.24 or newer, and on Linux a C compiler
+and make too. The libraries vitrio needs are fetched and built with it,
+static, inside its own library:
 
 - Boost (Filesystem, Interprocess and ContainerHash)
 - spdlog
 - libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
   too
+- liburing, on Linux, unless io_uring is turned off
 - Catch2 and trompeloeil, for the tests
 
 ```
@@ -230,12 +232,12 @@ cmake --install build --prefix <where>
 
 To use the libraries installed on the system instead, turn
 `VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
-`find_package`, and CMake 3.18 is enough. They have to be Boost 1.70,
-libtiff 4.5, spdlog 1.4 and Catch2 3 or newer. One of them alone is found
-rather than built by turning its own option off, such as
-`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
-`VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_CATCH2` and
-`VITRIO_BUILD_TROMPELOEIL`.
+`find_package`, or pkg-config for liburing, and CMake 3.18 is enough. They
+have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0 and Catch2 3 or
+newer. One of them alone is found rather than built by turning its own option
+off, such as `-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
+`VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_LIBURING`,
+`VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
 directory of its sources instead, such as
@@ -248,6 +250,7 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
+| `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
 | `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen, and with `VITRIO_BUILD_PYTHON` the target `vitrio-python-docs`, which builds that of the Python package with Sphinx |

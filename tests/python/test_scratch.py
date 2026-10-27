@@ -75,14 +75,28 @@ def test_holds_whole_files(tmp_path):
 	readers = vio.reader_provider(scratch=scratch)
 	assert np.array_equal(vio.read(path, readers), __setup_array()[0])
 
-def test_prefetching_on_a_synchronous_executor_is_done_on_return(
+def test_prefetching_takes_in_every_image_on_the_shared_threads(
 	__written_stack
 ):
 	locations = __locations(__written_stack, range(5))
 	scratch = vio.create_host_image_scratch(locations, 2)
-	executor = vio.SynchronousExecutor()
-	completion = vio.prefetch_scratch_async(scratch, locations, executor)
-	assert completion.is_ready
+	vio.prefetch_scratch_async(scratch, locations).get()
+
+	__overwrite(__written_stack)
+	destination = np.zeros((5, 4, 6), dtype=np.float32)
+	loader = vio.loader(scratch=scratch)
+	vio.read_batch_async(loader, destination, locations).get()
+	assert np.array_equal(destination, __setup_array())
+
+def test_opens_the_files_on_the_executor_it_is_given(__written_stack):
+	locations = __locations(__written_stack, [0, 4])
+	scratch = vio.create_host_image_scratch(
+		locations,
+		1,
+		executor=vio.SynchronousExecutor()
+	)
+	readers = vio.reader_provider(scratch=scratch)
+	assert np.array_equal(vio.read(locations[1], readers), __setup_array()[4])
 
 def test_takes_a_grouping_of_the_locations(__written_stack):
 	grouping = vio.ImageLocationGrouping(
@@ -142,19 +156,24 @@ def test_a_provider_serving_through_a_scratch_is_assembled_by_hand(
 ):
 	locations = __locations(__written_stack, [3])
 	files = vio.FileImageReaderProvider(
-		vio.ImageFileReadFormatSelector.get_shared()
+		vio.ImageFileReadFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	scratch = vio.create_host_image_scratch(locations, 1, files=files)
-	readers = vio.ScratchImageReaderProvider(files, scratch)
+	readers = vio.ScratchImageReaderProvider(
+		files,
+		scratch,
+		vio.ThreadPoolExecutor(2)
+	)
 	assert isinstance(readers, vio.ImageReaderProvider)
 	assert np.array_equal(vio.read(locations[0], readers), __setup_array()[3])
 
-def test_a_mapped_file_scratch_reads_what_the_file_holds(
+def test_a_file_scratch_reads_what_the_file_holds(
 	__written_stack,
 	tmp_path
 ):
 	locations = __locations(__written_stack, range(5))
-	scratch = vio.create_mapped_file_image_scratch(
+	scratch = vio.create_file_image_scratch(
 		locations,
 		tmp_path / 'scratch.bin',
 		2
@@ -164,9 +183,9 @@ def test_a_mapped_file_scratch_reads_what_the_file_holds(
 	vio.read_batch_async(loader, destination, locations).get()
 	assert np.array_equal(destination, __setup_array())
 
-def test_the_file_of_a_mapped_scratch_outlives_it(__written_stack, tmp_path):
+def test_the_file_of_a_file_scratch_outlives_it(__written_stack, tmp_path):
 	path = tmp_path / 'scratch.bin'
-	scratch = vio.create_mapped_file_image_scratch(
+	scratch = vio.create_file_image_scratch(
 		__locations(__written_stack, [0]),
 		path,
 		1
@@ -174,10 +193,10 @@ def test_the_file_of_a_mapped_scratch_outlives_it(__written_stack, tmp_path):
 	del scratch
 	assert path.is_file()
 
-def test_a_mapped_scratch_resumes_from_its_file(__written_stack, tmp_path):
+def test_a_file_scratch_resumes_from_its_file(__written_stack, tmp_path):
 	locations = __locations(__written_stack, [1, 2])
 	path = tmp_path / 'scratch.bin'
-	scratch = vio.create_mapped_file_image_scratch(locations, path, 2)
+	scratch = vio.create_file_image_scratch(locations, path, 2)
 	executor = vio.SynchronousExecutor()
 	vio.prefetch_scratch_async(scratch, locations, executor).get()
 	del scratch
@@ -188,17 +207,17 @@ def test_a_mapped_scratch_resumes_from_its_file(__written_stack, tmp_path):
 	__overwrite(__written_stack)
 	os.utime(__written_stack, ns=(status.st_atime_ns, status.st_mtime_ns))
 
-	scratch = vio.create_mapped_file_image_scratch(locations, path, 2)
+	scratch = vio.create_file_image_scratch(locations, path, 2)
 	readers = vio.reader_provider(scratch=scratch)
 	assert np.array_equal(vio.read(locations[1], readers), __setup_array()[2])
 
-def test_a_mapped_scratch_reads_again_a_modified_file(
+def test_a_file_scratch_reads_again_a_modified_file(
 	__written_stack,
 	tmp_path
 ):
 	locations = __locations(__written_stack, [1, 2])
 	path = tmp_path / 'scratch.bin'
-	scratch = vio.create_mapped_file_image_scratch(locations, path, 2)
+	scratch = vio.create_file_image_scratch(locations, path, 2)
 	executor = vio.SynchronousExecutor()
 	vio.prefetch_scratch_async(scratch, locations, executor).get()
 	del scratch
@@ -208,14 +227,14 @@ def test_a_mapped_scratch_reads_again_a_modified_file(
 	later = status.st_mtime_ns + 10 ** 10
 	os.utime(__written_stack, ns=(later, later))
 
-	scratch = vio.create_mapped_file_image_scratch(locations, path, 2)
+	scratch = vio.create_file_image_scratch(locations, path, 2)
 	readers = vio.reader_provider(scratch=scratch)
 	assert np.array_equal(vio.read(locations[1], readers), np.zeros((4, 6)))
 
-def test_a_mapped_scratch_with_nothing_to_hold_creates_no_file(tmp_path):
+def test_a_file_scratch_with_nothing_to_hold_creates_no_file(tmp_path):
 	path = tmp_path / 'scratch.bin'
 	with pytest.raises(ValueError):
-		vio.create_mapped_file_image_scratch([], path, 1)
+		vio.create_file_image_scratch([], path, 1)
 	assert not path.exists()
 
 def test_a_directory_scratch_reads_what_the_file_holds(
@@ -252,7 +271,7 @@ def test_a_directory_scratch_resumes_from_the_file_of_the_same_images(
 	vio.prefetch_scratch_async(scratch, locations, executor).get()
 	del scratch
 
-	# As for a mapped scratch, the values change behind the back of the
+	# As for a file scratch, the values change behind the back of the
 	# time the file was modified at.
 	status = os.stat(__written_stack)
 	__overwrite(__written_stack)

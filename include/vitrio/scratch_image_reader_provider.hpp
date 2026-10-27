@@ -12,6 +12,7 @@
 namespace vitrio
 {
 
+class executor;
 class image_scratch;
 
 /**
@@ -25,6 +26,8 @@ class image_scratch;
  *
  * A reader served through an entry reports what the backing reader reports,
  * and reads through the backing reader only what the entry does not hold.
+ * What the entry takes in for a read is read from it by a task on an
+ * executor, so that no read waits for another.
  */
 class VITRIO_API scratch_image_reader_provider final
 	: public image_reader_provider
@@ -36,11 +39,14 @@ public:
 	 * @param backing The provider asked for the files themselves.
 	 * @param scratch What is held of the files, which reading through this
 	 * provider adds to.
-	 * @throws std::invalid_argument If @p backing or @p scratch is null.
+	 * @param tasks Where what an entry takes in for a read is read from it.
+	 * @throws std::invalid_argument If @p backing, @p scratch or @p tasks is
+	 * null.
 	 */
 	scratch_image_reader_provider(
 		std::shared_ptr<image_reader_provider> backing,
-		std::shared_ptr<image_scratch> scratch
+		std::shared_ptr<image_scratch> scratch,
+		std::shared_ptr<executor> tasks
 	);
 
 	~scratch_image_reader_provider() override;
@@ -53,6 +59,8 @@ private:
 	std::shared_ptr<image_reader_provider> m_backing;
 	VITRIO_STD_MEMBER_INTERFACE
 	std::shared_ptr<image_scratch> m_scratch;
+	VITRIO_STD_MEMBER_INTERFACE
+	std::shared_ptr<executor> m_tasks;
 };
 
 } // namespace vitrio

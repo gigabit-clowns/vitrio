@@ -2,6 +2,7 @@
 
 import os
 
+import numpy as np
 import pytest
 
 import vitrio as vio
@@ -84,10 +85,35 @@ def test_accepts_explicit_formats(tmp_path):
 
 def test_assembled_by_hand(tmp_path):
 	writers = vio.FileImageWriterProvider(
-		vio.ImageFileWriteFormatSelector.get_shared()
+		vio.ImageFileWriteFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	writers.declare(tmp_path / 'stack.mrcs', __setup_descriptor())
 	assert writers.file_count == 1
 
 def __setup_descriptor():
 	return vio.ImageDescriptor((3, 4, 6), 2, vio.NumericalType.float32)
+
+def test_close_async_finishes_a_file_and_forgets_it_at_once(tmp_path):
+	path = str(tmp_path / 'out.mrcs')
+	writers = vio.writer_provider()
+	writers.declare(path, vio.ImageDescriptor((2, 2, 3), 2, vio.NumericalType.float32))
+	written = np.arange(12, dtype=np.float32).reshape(2, 2, 3)
+	vio.write_batch_async(
+		vio.saver(writers), written,
+		[vio.ImageLocation(path, 0), vio.ImageLocation(path, 1)]
+	).get()
+
+	closing = writers.close_async(path)
+
+	assert writers.file_count == 0
+	closing.get()
+	np.testing.assert_array_equal(np.asarray(vio.read(path)), written)
+
+def test_close_async_reports_a_key_never_declared(tmp_path):
+	writers = vio.writer_provider()
+
+	closing = writers.close_async(str(tmp_path / 'absent.mrcs'))
+
+	with pytest.raises(IndexError):
+		closing.get()

@@ -7,6 +7,7 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/concurrency/completion.hpp>
+#include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/concurrency/synchronous_executor.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_transaction_plan.hpp>
@@ -20,6 +21,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -165,10 +167,18 @@ TEST_CASE(
 		.RETURN(std::ref(stack_descriptor));
 	ALLOW_CALL(*reader_one, get_descriptor())
 		.RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*reader_zero, read(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_region_count() == 3 );
-	REQUIRE_CALL(*reader_one, read(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_region_count() == 1 );
+	REQUIRE_CALL(
+		*reader_zero,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_region_count() == 3 )
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*reader_one,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_region_count() == 1 )
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_loader loader(
 		readers,
@@ -199,7 +209,11 @@ TEST_CASE(
 
 	REQUIRE_CALL(*readers, acquire("stack_0.mrcs")).RETURN(reader);
 	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 	// No expectation for "stack_1.mrcs": acquiring it would violate.
 
 	executor_image_loader loader(
@@ -238,7 +252,8 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"executor_image_loader's completion reports what a reader threw",
+	"executor_image_loader's completion reports the failure a reader "
+	"reports",
 	"[executor_image_loader]"
 )
 {
@@ -254,8 +269,13 @@ TEST_CASE(
 
 	REQUIRE_CALL(*readers, acquire("stack_0.mrcs")).RETURN(reader);
 	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
-		.SIDE_EFFECT( throw std::runtime_error("from a reader") );
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done(
+			std::make_exception_ptr(std::runtime_error("from a reader"))
+		) );
 
 	executor_image_loader loader(
 		readers,
@@ -265,6 +285,56 @@ TEST_CASE(
 
 	REQUIRE( completion->is_ready() );
 	REQUIRE_THROWS_AS( completion->get(), std::runtime_error );
+}
+
+TEST_CASE(
+	"executor_image_loader is ready once every read of every file has "
+	"reported, and not before",
+	"[executor_image_loader]"
+)
+{
+	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
+	const auto zero = plan.add_file("stack_0.mrcs");
+	const auto one = plan.add_file("stack_1.mrcs");
+	add_element(plan, zero, 0, 0);
+	add_element(plan, one, 1, 1);
+
+	// Each file's regions become two plans, so each file has two reads.
+	const auto sanitizer = std::make_shared<mock_image_transfer_sanitizer>();
+	ALLOW_CALL(
+		*sanitizer,
+		sanitize(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.RETURN( std::vector<image_transfer_plan>(2, _1) );
+
+	const auto readers = std::make_shared<mock_image_reader_provider>();
+	const auto reader = std::make_shared<mock_image_reader>();
+	ALLOW_CALL(*readers, acquire(trompeloeil::_)).RETURN(reader);
+	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
+
+	// The reads are kept under way: their notifiers are reported to later.
+	std::vector<std::shared_ptr<completion_notifier>> pending;
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.TIMES(4)
+		.LR_SIDE_EFFECT( pending.push_back(_3) );
+
+	executor_image_loader loader(
+		readers,
+		std::make_shared<synchronous_executor>()
+	);
+	const auto completion = loader.load(make_test_array(), plan, sanitizer);
+
+	REQUIRE( pending.size() == 4 );
+	for (std::size_t read = 0; read < pending.size(); ++read)
+	{
+		CHECK_FALSE( completion->is_ready() );
+		pending[read]->notify_done();
+	}
+	CHECK( completion->is_ready() );
+	CHECK_NOTHROW( completion->get() );
 }
 
 TEST_CASE(
@@ -319,8 +389,16 @@ TEST_CASE(
 		.RETURN(std::ref(stack_descriptor));
 	ALLOW_CALL(*reader_one, get_descriptor())
 		.LR_RETURN(std::ref(short_stack_descriptor));
-	REQUIRE_CALL(*reader_zero, read(trompeloeil::_, trompeloeil::_));
-	REQUIRE_CALL(*reader_one, read(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*reader_zero,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*reader_one,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_loader loader(
 		readers,
@@ -364,10 +442,18 @@ TEST_CASE(
 
 	REQUIRE_CALL(*readers, acquire("stack_0.mrcs")).RETURN(reader);
 	ALLOW_CALL(*reader, get_descriptor()).RETURN(std::ref(stack_descriptor));
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_shape().get_extents()[0] == 2 );
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( _2.get_shape().get_extents()[0] == 1 );
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_shape().get_extents()[0] == 2 )
+		.SIDE_EFFECT( _3->notify_done() );
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_shape().get_extents()[0] == 1 )
+		.SIDE_EFFECT( _3->notify_done() );
 
 	executor_image_loader loader(
 		readers,

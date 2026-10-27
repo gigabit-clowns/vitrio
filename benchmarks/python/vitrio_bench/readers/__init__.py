@@ -40,6 +40,7 @@ class Reader:
 	defaults: ClassVar[dict[str, Any]] = {}
 	#: Whether the reader crops patches, which `patches` asks of it.
 	reads_patches: ClassVar[bool] = False
+	reads_slices: ClassVar[bool] = False
 
 	def __init__(
 		self,
@@ -99,6 +100,42 @@ class Reader:
 		rows of a batch come in the order of their images.
 		"""
 		raise NotImplementedError
+
+	def new_slices(self, size: int, axis: str) -> np.ndarray:
+		"""
+		An array for a batch of `size` slices along `axis` of the volume
+		that the single stack of the dataset is.
+		"""
+		box = self.dataset.box
+		shape = (box, box) if axis == 'z' else (self.dataset.count, box)
+		return np.empty((size, *shape), dtype=self.dtype)
+
+	def slices(
+		self,
+		batches: Iterable[np.ndarray],
+		axis: str
+	) -> Iterator[np.ndarray]:
+		"""
+		Hand out the slices along `axis` of each batch of rows, in order, of
+		the volume that the single stack of the dataset is: the planes of
+		its images along `z`, and those across them along `y` and `x`.
+		"""
+		raise NotImplementedError
+
+	@staticmethod
+	def take_slices(
+		volume: np.ndarray,
+		rows: np.ndarray,
+		axis: str,
+		out: np.ndarray
+	) -> None:
+		"""Copy the slices `rows` along `axis` of a volume into `out`."""
+		if axis == 'z':
+			out[...] = volume[rows]
+		elif axis == 'y':
+			out[...] = np.moveaxis(volume[:, rows, :], 1, 0)
+		else:
+			out[...] = np.moveaxis(volume[:, :, rows], 2, 0)
 
 	def crop_patches(
 		self,
@@ -177,10 +214,12 @@ def default_workers() -> int:
 	return os.cpu_count() or 1
 
 from .lmdb_store import LmdbStore    # noqa: E402
-from .mrcfile_open import MrcfileOpen    # noqa: E402
-from .mrcfile_per_read import MrcfilePerRead    # noqa: E402
-from .numpy_memmap import NumpyMemmap    # noqa: E402
+from .mrcfile_mmap_kept import MrcfileMmapKept    # noqa: E402
+from .mrcfile_mmap_per_read import MrcfileMmapPerRead    # noqa: E402
+from .mrcfile_open_last import MrcfileOpenLast    # noqa: E402
+from .numpy_memmap_kept import NumpyMemmapKept    # noqa: E402
 from .preload import Preload    # noqa: E402
+from .python_read_kept import PythonReadKept    # noqa: E402
 from .torch_dataloader import TorchDataloader    # noqa: E402
 from .vitrio_data import VitrioData    # noqa: E402
 from .vitrio_loader import VitrioLoader    # noqa: E402
@@ -189,8 +228,9 @@ from .vitrio_per_item import VitrioPerItem    # noqa: E402
 READERS: dict[str, type[Reader]] = {
 	reader.name: reader
 	for reader in (
-		VitrioLoader, VitrioPerItem, VitrioData, MrcfilePerRead, MrcfileOpen,
-		NumpyMemmap, TorchDataloader, Preload, LmdbStore,
+		VitrioLoader, VitrioPerItem, VitrioData, MrcfileMmapPerRead,
+		MrcfileMmapKept, MrcfileOpenLast, NumpyMemmapKept, PythonReadKept,
+		TorchDataloader, Preload, LmdbStore,
 	)
 }
 

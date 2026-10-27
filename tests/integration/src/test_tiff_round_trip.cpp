@@ -16,8 +16,10 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/image_write.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <cstddef>
@@ -91,18 +93,24 @@ TEST_CASE(
 
 			{
 				const auto writer =
-					writers.open(path.get(), descriptor, image_metadata());
-				writer->write(const_array_ref(source), whole_of(extents));
-				writer->flush();
+					writers.open(
+						path.get(),
+						descriptor,
+						image_metadata(),
+						*test::make_file_transfer_pool()
+					);
+				write_now(*writer, source, whole_of(extents));
+				flush_now(*writer);
 			}
 
-			const auto reader = readers.open(path.get());
+			const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 
 			REQUIRE( reader->get_descriptor() == descriptor );
 
 			auto destination =
 				make_host_array<float>(extents, numerical_type::float32);
-			reader->read(array_ref(destination), whole_of(extents));
+			read_now(*reader, destination, whole_of(extents));
 
 			REQUIRE( get_values<float>(destination) ==
 				values );
@@ -152,13 +160,15 @@ TEST_CASE(
 			const auto writer = writers.open(
 				path.get(),
 				image_descriptor(make_span(extents), 2, file_type),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			);
-			writer->write(const_array_ref(source), whole_of(extents));
-			writer->flush();
+			write_now(*writer, source, whole_of(extents));
+			flush_now(*writer);
 		}
 
-		const auto reader = readers.open(path.get());
+		const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor().get_data_type() == file_type );
 
@@ -166,7 +176,7 @@ TEST_CASE(
 		// conversion a caller asks for rather than the one the file forces.
 		auto destination =
 			make_host_array<double>(extents, numerical_type::float64);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<double>(destination) ==
 			std::vector<double>(values.begin(), values.end()) );
@@ -199,7 +209,8 @@ TEST_CASE(
 		const auto writer = writers.open(
 			path.get(),
 			image_descriptor(make_span(extents), 2, numerical_type::int16),
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		for (std::size_t index = 0; index < extents[0]; ++index)
@@ -209,14 +220,15 @@ TEST_CASE(
 				make_span(std::vector<std::size_t>{index, 0, 0}),
 				make_span(std::vector<std::size_t>{index, 0, 0})
 			);
-			writer->write(const_array_ref(source), regions);
+			write_now(*writer, source, regions);
 		}
 	}
 
-	const auto reader = readers.open(path.get());
+	const auto reader =
+		readers.open(path.get(), *make_file_transfer_pool());
 	auto destination =
 		make_host_array<std::int16_t>(extents, numerical_type::int16);
-	reader->read(array_ref(destination), whole_of(extents));
+	read_now(*reader, destination, whole_of(extents));
 
 	// The file holds integers, so the quarter every value carries is gone.
 	std::vector<std::int16_t> expected(values.size());
@@ -237,7 +249,8 @@ TEST_CASE(
 	const auto writers =
 		image_file_write_format_selector::get_shared();
 	const auto readers = std::make_shared<file_image_reader_provider>(
-		image_file_read_format_selector::get_shared()
+		image_file_read_format_selector::get_shared(),
+		make_file_transfer_pool()
 	);
 
 	SECTION( "a stack" )
@@ -253,7 +266,12 @@ TEST_CASE(
 			values.size() * sizeof(float)
 		);
 
-		write_stack(source, path.get(), *writers);
+		write_stack(
+			source,
+			path.get(),
+			*writers,
+			*test::make_file_transfer_pool()
+		);
 
 		const auto read = vitrio::read(path.get(), *readers);
 
@@ -276,7 +294,12 @@ TEST_CASE(
 			values.size() * sizeof(float)
 		);
 
-		write_single(source, path.get(), *writers);
+		write_single(
+			source,
+			path.get(),
+			*writers,
+			*test::make_file_transfer_pool()
+		);
 
 		const auto read = vitrio::read(path.get(), *readers);
 
@@ -302,7 +325,8 @@ TEST_CASE(
 				path.get(),
 				image_descriptor(
 					make_span(extents), 2, numerical_type::float32),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -317,7 +341,8 @@ TEST_CASE(
 				path.get(),
 				image_descriptor(
 					make_span(extents), 3, numerical_type::float32),
-				image_metadata()
+				image_metadata(),
+				*test::make_file_transfer_pool()
 			),
 			unsupported_operation_error
 		);
@@ -332,7 +357,8 @@ TEST_CASE(
 		const auto writer = writers.open(
 			path.get(),
 			image_descriptor(make_span(extents), 2, numerical_type::float32),
-			image_metadata()
+			image_metadata(),
+			*test::make_file_transfer_pool()
 		);
 
 		image_transfer_plan regions(image_transfer_shape(half, 2, 2));
@@ -342,7 +368,7 @@ TEST_CASE(
 		);
 
 		REQUIRE_THROWS_AS(
-			writer->write(const_array_ref(source), regions),
+			write_now(*writer, source, regions),
 			unsupported_operation_error
 		);
 	}

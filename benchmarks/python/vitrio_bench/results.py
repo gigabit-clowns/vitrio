@@ -31,7 +31,7 @@ try:
 except ImportError:
 	fcntl = None
 
-SCHEMA = 1
+SCHEMA = 2
 PARTS = ('dataset', 'reader', 'workload', 'environment', 'build')
 STATUSES = ('ok', 'skipped', 'failed')
 

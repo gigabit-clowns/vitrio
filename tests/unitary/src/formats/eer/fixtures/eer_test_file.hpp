@@ -199,8 +199,8 @@ inline void write_big_tiff(
 			counts.push_back(strip.size());
 			data.insert(data.end(), strip.begin(), strip.end());
 		}
-		tags[273] = {16, offsets};
-		tags[279] = {16, counts};
+		tags[273] = {std::uint16_t{16}, offsets};
+		tags[279] = {std::uint16_t{16}, counts};
 
 		align();
 		const auto directory = data.size();

@@ -12,6 +12,7 @@
 namespace vitrio
 {
 
+class file_transfer_pool;
 class image_descriptor;
 class image_metadata;
 class image_file_probe;
@@ -85,6 +86,8 @@ public:
 	 * @param path Path to the file to create.
 	 * @param descriptor What the file holds.
 	 * @param metadata How its samples map onto physical space.
+	 * @param transfers The threads that carry out the transfers of the
+	 * writer.
 	 * @return std::shared_ptr<image_writer> The opened writer, never null.
 	 * @throws unsupported_operation_error If no registered format recognizes
 	 * the file, or if the chosen one can not represent the requested file.
@@ -93,7 +96,8 @@ public:
 	std::shared_ptr<image_writer> open(
 		const std::string &path,
 		const image_descriptor &descriptor,
-		const image_metadata &metadata
+		const image_metadata &metadata,
+		const file_transfer_pool &transfers
 	) const;
 
 	/**

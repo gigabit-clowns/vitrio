@@ -9,9 +9,13 @@
 #include "fixtures/format_selector_fixture.hpp"
 #include "mock/mock_image_writer.hpp"
 
+#include <vitrio/concurrency/completion_notifier.hpp>
+#include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -46,7 +50,19 @@ TEST_CASE( "a file writer provider needs a format selector",
 	"[file_image_writer_provider]" )
 {
 	REQUIRE_THROWS_AS(
-		file_image_writer_provider(nullptr),
+		file_image_writer_provider(nullptr, test::make_file_transfer_pool()),
+		std::invalid_argument
+	);
+}
+
+TEST_CASE( "a file writer provider needs a pool of file transfers",
+	"[file_image_writer_provider]" )
+{
+	REQUIRE_THROWS_AS(
+		file_image_writer_provider(
+			image_file_write_format_selector::get_shared(),
+			nullptr
+		),
 		std::invalid_argument
 	);
 }
@@ -59,7 +75,10 @@ TEST_CASE_METHOD(
 {
 	// No expectation on open: creating any file would violate.
 	add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 
 	SECTION( "it starts serving nothing" )
 	{
@@ -104,12 +123,20 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
 	// Once, with what was declared: creating it again would replace it.
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_0.mrcs" && _2 == stack_descriptor )
 		.RETURN(writer);
 
@@ -133,7 +160,10 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	const auto writer = std::make_shared<mock_image_writer>();
 
@@ -152,10 +182,16 @@ TEST_CASE_METHOD(
 	{
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.RETURN(writer);
-		REQUIRE_CALL(*writer, flush());
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -167,10 +203,16 @@ TEST_CASE_METHOD(
 		// and strand everything already written to it.
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.RETURN(writer);
-		ALLOW_CALL(*writer, flush());
+		ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -197,17 +239,28 @@ TEST_CASE_METHOD(
 
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.IN_SEQUENCE(order)
 			.RETURN(writer);
 		REQUIRE_CALL(
 			format,
-			open(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
 		)
 			.IN_SEQUENCE(order)
 			.RETURN(again);
-		ALLOW_CALL(*writer, flush());
+		ALLOW_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.acquire("stack_0.mrcs");
 		provider.close("stack_0.mrcs");
@@ -219,12 +272,123 @@ TEST_CASE_METHOD(
 
 TEST_CASE_METHOD(
 	write_format_selector_fixture,
+	"closing a file asynchronously forgets it at once and finishes it once "
+	"its flush reports",
+	"[file_image_writer_provider]"
+)
+{
+	auto &format = add_format(image_file_format_suitability::normal);
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
+	declare_stack(provider, "stack_0.mrcs");
+	const auto done = std::make_shared<counting_completion>(1);
+
+	SECTION( "closing what was never declared is reported" )
+	{
+		provider.close_async("absent.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_THROWS_AS( done->get(), std::out_of_range );
+	}
+
+	SECTION( "a file never acquired is finished at once" )
+	{
+		// No expectation on open: creating the file would violate.
+		provider.close_async("stack_0.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_NOTHROW( done->get() );
+		CHECK( provider.get_file_count() == 0 );
+	}
+
+	SECTION( "the writer is flushed, and dropped once the flush reports" )
+	{
+		auto writer = std::make_shared<mock_image_writer>();
+		REQUIRE_CALL(
+			format,
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
+		)
+			.LR_RETURN(writer);
+		std::shared_ptr<completion_notifier> flushed;
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.LR_SIDE_EFFECT( flushed = _1 );
+
+		provider.acquire("stack_0.mrcs");
+		provider.close_async("stack_0.mrcs", done);
+
+		// Forgotten before the flush reports, and the writer kept for it.
+		CHECK( provider.get_file_count() == 0 );
+		CHECK_THROWS_AS(
+			provider.acquire("stack_0.mrcs"),
+			std::out_of_range
+		);
+		REQUIRE( flushed != nullptr );
+		CHECK_FALSE( done->is_ready() );
+		CHECK( writer.use_count() > 1 );
+
+		flushed->notify_done();
+		flushed.reset();
+
+		REQUIRE( done->is_ready() );
+		CHECK_NOTHROW( done->get() );
+		CHECK( writer.use_count() == 1 );
+	}
+
+	SECTION( "a flush that fails is reported" )
+	{
+		const auto writer = std::make_shared<mock_image_writer>();
+		REQUIRE_CALL(
+			format,
+			open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		)
+		)
+			.RETURN(writer);
+		REQUIRE_CALL(*writer, flush_async(trompeloeil::_))
+			.SIDE_EFFECT(
+				_1->notify_done(
+					std::make_exception_ptr(image_file_error("flush"))
+				)
+			);
+
+		provider.acquire("stack_0.mrcs");
+		provider.close_async("stack_0.mrcs", done);
+
+		REQUIRE( done->is_ready() );
+		CHECK_THROWS_AS( done->get(), image_file_error );
+	}
+
+	SECTION( "a null notifier is refused" )
+	{
+		CHECK_THROWS_AS(
+			provider.close_async("stack_0.mrcs", nullptr),
+			std::invalid_argument
+		);
+		CHECK( provider.get_file_count() == 1 );
+	}
+}
+
+TEST_CASE_METHOD(
+	write_format_selector_fixture,
 	"a file writer provider flushes what it opened and no more",
 	"[file_image_writer_provider]"
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_writer_provider provider(get_selector());
+	file_image_writer_provider provider(
+		get_selector(),
+		test::make_file_transfer_pool()
+	);
 	declare_stack(provider, "stack_0.mrcs");
 	declare_stack(provider, "stack_1.mrcs");
 	declare_stack(provider, "stack_2.mrcs");
@@ -232,10 +396,20 @@ TEST_CASE_METHOD(
 	// Nothing lets stack_2.mrcs be opened, so creating it would violate.
 	const auto zero = std::make_shared<mock_image_writer>();
 	const auto one = std::make_shared<mock_image_writer>();
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_0.mrcs" )
 		.RETURN(zero);
-	REQUIRE_CALL(format, open(trompeloeil::_, trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(format, open(
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_,
+			trompeloeil::_
+		))
 		.LR_WITH( _1.get_path() == "stack_1.mrcs" )
 		.RETURN(one);
 
@@ -244,8 +418,10 @@ TEST_CASE_METHOD(
 
 	SECTION( "every writer it created is flushed" )
 	{
-		REQUIRE_CALL(*zero, flush());
-		REQUIRE_CALL(*one, flush());
+		REQUIRE_CALL(*zero, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
+		REQUIRE_CALL(*one, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.flush();
 	}
@@ -253,8 +429,10 @@ TEST_CASE_METHOD(
 	SECTION( "a declared file that was never acquired is not created" )
 	{
 		// Not even by a flush, which reaches only what it opened.
-		ALLOW_CALL(*zero, flush());
-		ALLOW_CALL(*one, flush());
+		ALLOW_CALL(*zero, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
+		ALLOW_CALL(*one, flush_async(trompeloeil::_))
+			.SIDE_EFFECT( _1->notify_done() );
 
 		provider.flush();
 

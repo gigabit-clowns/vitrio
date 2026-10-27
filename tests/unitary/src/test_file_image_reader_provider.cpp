@@ -10,18 +10,27 @@
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <memory>
 #include <stdexcept>
 #include <trompeloeil.hpp>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
-TEST_CASE( "a file reader provider needs a format selector",
+TEST_CASE( "a file reader provider needs a format selector and a pool",
 	"[file_image_reader_provider]" )
 {
 	REQUIRE_THROWS_AS(
-		file_image_reader_provider(nullptr),
+		file_image_reader_provider(nullptr, make_file_transfer_pool()),
+		std::invalid_argument
+	);
+	REQUIRE_THROWS_AS(
+		file_image_reader_provider(
+			std::make_shared<image_file_read_format_selector>(),
+			nullptr
+		),
 		std::invalid_argument
 	);
 }
@@ -33,14 +42,20 @@ TEST_CASE_METHOD(
 )
 {
 	auto &format = add_format(image_file_format_suitability::normal);
-	file_image_reader_provider provider(get_selector());
+	const auto transfers = make_file_transfer_pool();
+	file_image_reader_provider provider(get_selector(), transfers);
 
-	SECTION( "one request opens the file once" )
+	SECTION( "one request opens the file once, with the pool" )
 	{
 		const auto reader = std::make_shared<mock_image_reader>();
 
-		REQUIRE_CALL(format, open(ANY(const image_file_probe&)))
-			.LR_WITH( _1.get_path() == "stack_0.mrcs" )
+		REQUIRE_CALL(
+			format,
+			open(ANY(const image_file_probe&), trompeloeil::_)
+		)
+			.LR_WITH(
+				_1.get_path() == "stack_0.mrcs" && &_2 == transfers.get()
+			)
 			.RETURN(reader);
 
 		REQUIRE( provider.acquire("stack_0.mrcs") == reader );
@@ -49,7 +64,10 @@ TEST_CASE_METHOD(
 	SECTION( "the same path asked twice is opened twice" )
 	{
 		// It keeps nothing, which is what makes it the plain one.
-		REQUIRE_CALL(format, open(ANY(const image_file_probe&)))
+		REQUIRE_CALL(
+			format,
+			open(ANY(const image_file_probe&), trompeloeil::_)
+		)
 			.LR_WITH( _1.get_path() == "stack_0.mrcs" )
 			.TIMES(2)
 			.RETURN(std::make_shared<mock_image_reader>());
@@ -62,10 +80,16 @@ TEST_CASE_METHOD(
 
 	SECTION( "distinct paths are opened separately" )
 	{
-		REQUIRE_CALL(format, open(ANY(const image_file_probe&)))
+		REQUIRE_CALL(
+			format,
+			open(ANY(const image_file_probe&), trompeloeil::_)
+		)
 			.LR_WITH( _1.get_path() == "stack_0.mrcs" )
 			.RETURN(std::make_shared<mock_image_reader>());
-		REQUIRE_CALL(format, open(ANY(const image_file_probe&)))
+		REQUIRE_CALL(
+			format,
+			open(ANY(const image_file_probe&), trompeloeil::_)
+		)
 			.LR_WITH( _1.get_path() == "stack_1.mrcs" )
 			.RETURN(std::make_shared<mock_image_reader>());
 
@@ -82,7 +106,8 @@ TEST_CASE(
 	// A selector with no format recognizes nothing, and the provider adds
 	// no opinion of its own.
 	file_image_reader_provider provider(
-		std::make_shared<image_file_read_format_selector>()
+		std::make_shared<image_file_read_format_selector>(),
+		make_file_transfer_pool()
 	);
 
 	REQUIRE_THROWS_AS(

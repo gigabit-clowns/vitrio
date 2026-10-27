@@ -5,6 +5,7 @@
 foreach(
 	SOURCE
 	__init__.py
+	_default_transfers.py
 	_functions.py
 	_numerical_type.py
 	py.typed

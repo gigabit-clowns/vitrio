@@ -21,6 +21,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from . import _binding
+from ._default_transfers import default_executor, default_file_transfer_pool
 from ._binding import (
 	Array,
 	CachingImageReaderProvider,
@@ -38,6 +39,7 @@ from ._binding import (
 	FileDetectorEventTimelineReaderProvider,
 	FileImageReaderProvider,
 	FileImageWriterProvider,
+	FileTransferPool,
 	ImageDescriptor,
 	ImageFileReadFormatSelector,
 	ImageFileWriteFormatSelector,
@@ -83,6 +85,18 @@ def _resolve_write_formats(
 		formats = ImageFileWriteFormatSelector.get_shared()
 	return formats
 
+def _resolve_transfers(
+	transfers: FileTransferPool | None
+) -> FileTransferPool:
+	if transfers is None:
+		transfers = default_file_transfer_pool()
+	return transfers
+
+def _resolve_scratch_executor(executor: Executor | None) -> Executor:
+	if executor is None:
+		executor = default_executor()
+	return executor
+
 def _resolve_readers(
 	readers: ImageReaderProvider | None
 ) -> ImageReaderProvider:
@@ -105,7 +119,8 @@ def _resolve_data_type(data_type: object | None) -> NumericalType | None:
 def reader_provider(
 	cache: int | None = None,
 	formats: ImageFileReadFormatSelector | None = None,
-	scratch: ImageScratch | None = None
+	scratch: ImageScratch | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageReaderProvider:
 	"""
 	Assemble a reader provider that opens files.
@@ -118,16 +133,28 @@ def reader_provider(
 			bundled ones.
 		scratch: A scratch to serve reads through: what it holds is read
 			from it, and what it does not yet hold is read from the file
-			and taken in. Defaults to reading the files alone.
+			and taken in. What it takes in is copied out of it on a thread
+			pool shared by the process. Defaults to reading the files
+			alone.
+		transfers: The threads that carry out the reads of the files.
+			Defaults to a pool shared by the process, whose conversions
+			run on a thread pool of its own.
 
 	Returns:
 		ImageReaderProvider: The assembled provider. Its keys are paths.
 	"""
-	readers = FileImageReaderProvider(_resolve_read_formats(formats))
+	readers = FileImageReaderProvider(
+		_resolve_read_formats(formats),
+		_resolve_transfers(transfers)
+	)
 	if cache is not None:
 		readers = CachingImageReaderProvider(readers, cache)
 	if scratch is not None:
-		readers = ScratchImageReaderProvider(readers, scratch)
+		readers = ScratchImageReaderProvider(
+			readers,
+			scratch,
+			default_executor()
+		)
 	return readers
 
 def detector_event_timeline_reader_provider(
@@ -237,35 +264,46 @@ def loader(
 	cache: int | None = None,
 	formats: ImageFileReadFormatSelector | None = None,
 	executor: Executor | None = None,
-	scratch: ImageScratch | None = None
+	scratch: ImageScratch | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ExecutorImageLoader:
 	"""
 	Assemble an image loader over a thread pool.
 
-	Wires the four objects a loader stands on: the formats, a reader
-	provider, an executor and the loader itself. A caller reaches
-	`read_batch_async` and `read_patches_async` without naming them.
+	Wires the objects a loader stands on: the formats, a reader provider,
+	the threads that carry out the reads of files, an executor and the
+	loader itself. A caller reaches `read_batch_async` and
+	`read_patches_async` without naming them.
+
+	The threads of the executor open the files and start their reads, which
+	the threads of `transfers` carry out, many at once. A format read where
+	it is asked, such as TIFF, is read and decoded on the executor.
 
 	Each loader built this way owns its executor. Two of them are two
 	thread pools, each sized to the machine. Pass one executor to both to
 	avoid that.
 
 	Args:
-		workers: How many threads to run reads on. Defaults to what the
-			machine reports. Ignored when `executor` is given.
+		workers: How many threads to open files and start reads on.
+			Defaults to what the machine reports. Ignored when `executor`
+			is given.
 		cache: How many open readers to keep between reads. Defaults to
 			opening a file every time it is asked for.
 		formats: The formats to recognize files with. Defaults to the
 			bundled ones.
-		executor: Where reads run. Defaults to a thread pool of its own.
+		executor: Where files are opened and their reads started. Defaults
+			to a thread pool of its own.
 		scratch: A scratch to serve reads through, as `reader_provider`
 			takes one. Defaults to reading the files alone.
+		transfers: The threads that carry out the reads of the files, as
+			`reader_provider` takes them. Defaults to the pool shared by
+			the process.
 
 	Returns:
 		ExecutorImageLoader: The assembled loader.
 	"""
 	return ExecutorImageLoader(
-		reader_provider(cache, formats, scratch),
+		reader_provider(cache, formats, scratch, transfers),
 		_resolve_executor(executor, workers)
 	)
 
@@ -273,7 +311,8 @@ def create_host_image_scratch(
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
 	run_length: int,
 	max_size: int | None = None,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in main memory.
@@ -290,7 +329,7 @@ def create_host_image_scratch(
 	`prefetch_scratch_async`. The memory is released once nothing holds
 	the scratch, the providers and loaders made with it included.
 
-	Every file is opened, twice, before this returns.
+	Every file is opened twice before this returns, many of them at once.
 
 	Args:
 		locations: The images to hold, as an `ImageLocationGrouping` or
@@ -302,6 +341,9 @@ def create_host_image_scratch(
 		max_size: The most bytes to allocate. Defaults to no maximum.
 		files: Where the files become readers. Defaults to a provider
 			that opens the file at the path each key is.
+		executor: Where the files are opened, all at once. Defaults to a
+			thread pool shared by the process. This waits for it, so it
+			must not be called on a thread of it.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -315,30 +357,37 @@ def create_host_image_scratch(
 	return _binding.create_host_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
 		run_length,
 		max_size
 	)
 
-def create_mapped_file_image_scratch(
+def create_file_image_scratch(
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
 	path: Key,
 	run_length: int,
 	max_size: int | None = None,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageScratch:
 	"""
-	Create a scratch that keeps its copies in a file mapped into memory.
+	Create a scratch that keeps its copies in a file.
 
 	Holds what `create_host_image_scratch` would, with the same
-	arguments, but in a file at `path`. The file may be larger than the
-	main memory, and it outlives the scratch: a scratch created later
-	over the same file, for the same images, resumes from what was taken
-	in before, except for the images whose files have been modified
-	since. Programs that hold the same images may use the file at the
-	same time, and share it.
+	arguments, but in a file at `path`, which the threads of `transfers`
+	read and write. The file may be larger than the main memory, and it
+	outlives the scratch: a scratch created later over the same file, for
+	the same images, resumes from what was taken in before, except for
+	the images whose files have been modified since. Programs that hold
+	the same images may use the file at the same time, and share it.
 
 	A file at `path` that holds anything else is overwritten, and the
 	scratch starts empty.
+
+	The file is read and written by threads, which the child of a fork
+	does not have. A child creates a scratch of its own over the same
+	file, and resumes from what is in it.
 
 	vitrio never removes the file. Remove it once no program is using it
 	any more. On Windows it can be removed only once nothing holds the
@@ -355,6 +404,10 @@ def create_mapped_file_image_scratch(
 			maximum.
 		files: Where the image files become readers. Defaults to a
 			provider that opens the file at the path each key is.
+		executor: Where the image files are opened, as
+			`create_host_image_scratch` opens them.
+		transfers: The threads that read and write the file of copies.
+			Defaults to a pool shared by the process.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -364,9 +417,11 @@ def create_mapped_file_image_scratch(
 			hold. No file is created then.
 		IndexError: If a location has an index its stack does not have.
 	"""
-	return _binding.create_mapped_file_image_scratch(
+	return _binding.create_file_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
+		_resolve_transfers(transfers),
 		path,
 		run_length,
 		max_size
@@ -377,13 +432,15 @@ def create_directory_image_scratch(
 	directory: Key,
 	run_length: int,
 	budget: int,
-	files: ImageReaderProvider | None = None
+	files: ImageReaderProvider | None = None,
+	executor: Executor | None = None,
+	transfers: FileTransferPool | None = None
 ) -> ImageScratch:
 	"""
 	Create a scratch that keeps its copies in a file of a directory kept
 	within a budget.
 
-	Holds what `create_mapped_file_image_scratch` would, in a file of
+	Holds what `create_file_image_scratch` would, in a file of
 	`directory` named after the images and how they are laid out. A later
 	scratch of the same images, with the same `run_length`, finds that
 	file and resumes from it, and programs that hold the same images may
@@ -402,8 +459,10 @@ def create_directory_image_scratch(
 	A file that is in use elsewhere can not be removed on Windows, and
 	keeps its room. On Linux and macOS it is removed, but its space on
 	the disk is freed only once nothing uses it. The disk must have room
-	for the budget: the space is taken as images are taken in, and a
-	program that finds the disk full then is ended.
+	for the budget. On Linux a new file is given its room on the disk at
+	once, where its file system can, so a full disk fails the creation.
+	Elsewhere the room is taken as images are taken in, and a disk that
+	is full by then fails the reads that take them in.
 
 	Args:
 		locations: The images to hold, as `create_host_image_scratch`
@@ -416,6 +475,10 @@ def create_directory_image_scratch(
 			take together.
 		files: Where the image files become readers. Defaults to a
 			provider that opens the file at the path each key is.
+		executor: Where the image files are opened, as
+			`create_host_image_scratch` opens them.
+		transfers: The threads that read and write the files of
+			scratches. Defaults to a pool shared by the process.
 
 	Returns:
 		ImageScratch: The scratch.
@@ -429,6 +492,8 @@ def create_directory_image_scratch(
 	return _binding.create_directory_image_scratch(
 		_resolve_grouping(locations),
 		_resolve_readers(files),
+		_resolve_scratch_executor(executor),
+		_resolve_transfers(transfers),
 		directory,
 		run_length,
 		budget
@@ -437,27 +502,26 @@ def create_directory_image_scratch(
 def prefetch_scratch_async(
 	scratch: ImageScratch,
 	locations: ImageLocationGrouping | Iterable[ImageLocation],
-	executor: Executor,
+	executor: Executor | None = None,
 	files: ImageReaderProvider | None = None
 ) -> Completion:
 	"""
 	Take images into a scratch ahead of the reads that need them.
 
 	Returns before the images are in. Each file is one task on
-	`executor`, which reads what `locations` names of it in one go. A
-	file the scratch holds nothing of is passed over. The scratch may be
-	read through in the meantime, and a read takes in what it needs
-	itself.
-
-	The executor is not defaulted: one made for the call would be
-	destroyed when the call returns, and that waits for its work.
+	`executor`, which opens it and starts reading what `locations` names
+	of it, and the reads of many files are under way at once. A file the
+	scratch holds nothing of is passed over. The scratch may be read
+	through in the meantime, and a read takes in what it needs itself,
+	or waits for what is being taken in already.
 
 	Args:
 		scratch: The scratch to fill.
 		locations: The images to take in, as an `ImageLocationGrouping`
 			or as any iterable of `ImageLocation`. Usually those the
 			scratch was created with.
-		executor: Where the files are read.
+		executor: Where the files are opened and their reads started.
+			Defaults to a thread pool shared by the process.
 		files: Where the files become readers. It has to read the files
 			themselves and not through `scratch`. Defaults to a provider
 			that opens the file at the path each key is.
@@ -469,12 +533,13 @@ def prefetch_scratch_async(
 	return _binding.prefetch_scratch_async(
 		scratch,
 		_resolve_readers(files),
-		executor,
+		_resolve_scratch_executor(executor),
 		_resolve_grouping(locations)
 	)
 
 def writer_provider(
-	formats: ImageFileWriteFormatSelector | None = None
+	formats: ImageFileWriteFormatSelector | None = None,
+	transfers: FileTransferPool | None = None
 ) -> FileImageWriterProvider:
 	"""
 	Assemble a writer provider that creates files.
@@ -486,12 +551,18 @@ def writer_provider(
 	Args:
 		formats: The formats to create files with. Defaults to the bundled
 			ones.
+		transfers: The threads that carry out the writes of the files.
+			Defaults to a pool shared by the process, whose conversions
+			run on a thread pool of its own.
 
 	Returns:
 		FileImageWriterProvider: The assembled provider, with no file
 		declared. Its keys are paths.
 	"""
-	return FileImageWriterProvider(_resolve_write_formats(formats))
+	return FileImageWriterProvider(
+		_resolve_write_formats(formats),
+		_resolve_transfers(transfers)
+	)
 
 def saver(
 	writers: ImageWriterProvider,
@@ -633,7 +704,8 @@ def write_single(
 	array: HostArray,
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
-	data_type: object | None = None
+	data_type: object | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as one image or volume.
@@ -644,11 +716,14 @@ def write_single(
 		formats: The formats to choose from. Defaults to the bundled ones.
 		data_type: The type to store the values as. Defaults to the one
 			the array already carries.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
 	_binding.write_single(
 		array,
 		path,
 		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
 		_resolve_data_type(data_type)
 	)
 
@@ -656,7 +731,8 @@ def write_stack(
 	array: HostArray,
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
-	data_type: object | None = None
+	data_type: object | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a stack of images or volumes.
@@ -670,11 +746,14 @@ def write_stack(
 		formats: The formats to choose from. Defaults to the bundled ones.
 		data_type: The type to store the values as. Defaults to the one
 			the array already carries.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
 	_binding.write_stack(
 		array,
 		path,
 		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
 		_resolve_data_type(data_type)
 	)
 
@@ -682,7 +761,8 @@ def write(
 	array: HostArray,
 	path: Key,
 	descriptor: ImageDescriptor,
-	formats: ImageFileWriteFormatSelector | None = None
+	formats: ImageFileWriteFormatSelector | None = None,
+	transfers: FileTransferPool | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a descriptor states.
@@ -697,5 +777,13 @@ def write(
 		path: The file to write them to.
 		descriptor: What the file holds.
 		formats: The formats to choose from. Defaults to the bundled ones.
+		transfers: The threads that carry out the writes of the file.
+			Defaults to a pool shared by the process.
 	"""
-	_binding.write(array, path, _resolve_write_formats(formats), descriptor)
+	_binding.write(
+		array,
+		path,
+		_resolve_write_formats(formats),
+		_resolve_transfers(transfers),
+		descriptor
+	)

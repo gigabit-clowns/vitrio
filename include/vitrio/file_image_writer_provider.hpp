@@ -13,6 +13,8 @@
 namespace vitrio
 {
 
+class completion_notifier;
+class file_transfer_pool;
 class image_descriptor;
 class image_metadata;
 class image_file_write_format_selector;
@@ -54,10 +56,13 @@ public:
 	 * @brief Construct a provider creating files through a format selector.
 	 *
 	 * @param formats The formats a file may be created with.
-	 * @throws std::invalid_argument If @p formats is null.
+	 * @param transfers The threads that carry out the transfers of the
+	 * writers.
+	 * @throws std::invalid_argument If @p formats or @p transfers is null.
 	 */
-	explicit file_image_writer_provider(
-		std::shared_ptr<const image_file_write_format_selector> formats
+	file_image_writer_provider(
+		std::shared_ptr<const image_file_write_format_selector> formats,
+		std::shared_ptr<const file_transfer_pool> transfers
 	);
 
 	~file_image_writer_provider() override;
@@ -104,14 +109,38 @@ public:
 	void close(const std::string &key);
 
 	/**
+	 * @brief Start finishing a file, and report once it is finished.
+	 *
+	 * Does what @ref close does, without waiting for the flush: the
+	 * declaration is forgotten before this returns, as @ref close forgets
+	 * it, and the writer is dropped once its flush has reported. A file
+	 * declared but never acquired is reported finished at once.
+	 *
+	 * A program that finishes its files as it completes them keeps a few
+	 * of these under way while it writes the next ones, so that waiting for
+	 * one file to reach the storage never holds up the others.
+	 *
+	 * @param key Key of the file to finish.
+	 * @param done Where the outcome is reported, exactly once: an
+	 * std::out_of_range if that key is not declared, or what the flush
+	 * failed with. Must not be null.
+	 * @throws std::invalid_argument If @p done is null.
+	 */
+	void close_async(
+		const std::string &key,
+		std::shared_ptr<completion_notifier> done
+	);
+
+	/**
 	 * @brief Make everything written to the files reach the storage.
 	 *
 	 * Flushes the writer of every file acquired so far and creates none: a
 	 * file declared and never acquired stays uncreated. Every file stays
-	 * declared and writable.
+	 * declared and writable. The writers are flushed together, and every
+	 * one of them is flushed even where another fails.
 	 *
 	 * @throws image_file_error If the pending writes could not be
-	 * completed.
+	 * completed: the first failure of the flushes.
 	 */
 	void flush();
 

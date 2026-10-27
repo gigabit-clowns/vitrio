@@ -27,7 +27,8 @@ def test_always_returns_the_same_write_format_selector():
 def test_the_shared_selectors_hold_the_bundled_formats(tmp_path):
 	path = tmp_path / 'image.mrc'
 	writers = vio.FileImageWriterProvider(
-		vio.ImageFileWriteFormatSelector.get_shared()
+		vio.ImageFileWriteFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	writers.declare(
 		path, vio.ImageDescriptor((4, 6), 2, vio.NumericalType.float32)

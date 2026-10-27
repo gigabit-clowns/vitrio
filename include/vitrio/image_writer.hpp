@@ -5,11 +5,13 @@
 #include <vitrio/export.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
+#include <memory>
+
 namespace vitrio
 {
 
-class const_array_ref;
-
+class completion_notifier;
+class const_array;
 class image_descriptor;
 
 /**
@@ -47,9 +49,10 @@ public:
 	virtual const image_descriptor& get_descriptor() const noexcept = 0;
 
 	/**
-	 * @brief Write a set of hyperrectangles of the file from one array.
+	 * @brief Start writing a set of hyperrectangles of the file from one
+	 * array.
 	 *
-	 * The mirror of @ref image_reader::read, sharing its plan and naming its
+	 * The mirror of @ref image_reader::read_async, sharing its plan and naming its
 	 * sides the same way: the file is the file side and @p source the array
 	 * side, so every region names where it is taken from in @p source and
 	 * where it lands in the file, and all of them share the extents the plan
@@ -69,36 +72,57 @@ public:
 	 *
 	 * A region that is never written keeps whatever the format leaves in a
 	 * file it has laid out but not filled. An empty plan writes nothing
-	 * and succeeds.
+	 * and reports success.
+	 *
+	 * The write may still be under way when this returns. It reports to
+	 * @p done exactly once: when every region has been written, or with
+	 * what made it fail. It keeps @p source, and with it the memory it
+	 * writes from, until then.
 	 *
 	 * @param source The values to write. Must be initialized.
 	 * @param regions The regions to write and where each one comes from.
-	 * @throws std::invalid_argument If the array offsets do not have the
-	 * rank of @p source, if the file offsets do not have the rank of
-	 * the file, or if @p source is not initialized.
-	 * @throws std::out_of_range If a region is not contained in the file,
-	 * or is not contained in @p source where it is taken from.
-	 * @throws unsupported_operation_error If the data type of the file can
-	 * not be produced from the one of @p source.
-	 * @throws image_file_error If the file can not be written.
+	 * @param done Where the outcome is reported. Must not be null.
+	 * @throws std::invalid_argument If @p done is null. Every other failure
+	 * is reported to @p done rather than thrown:
+	 * - std::invalid_argument if the array offsets do not have the rank of
+	 *   @p source, if the file offsets do not have the rank of the file, or
+	 *   if @p source is not initialized;
+	 * - std::out_of_range if a region is not contained in the file, or is
+	 *   not contained in @p source where it is taken from;
+	 * - unsupported_operation_error if the data type of the file can not be
+	 *   produced from the one of @p source;
+	 * - image_file_error if the file can not be written.
 	 */
-	virtual void write(
-		const_array_ref source,
-		const image_transfer_plan &regions
+	virtual void write_async(
+		const_array source,
+		image_transfer_plan regions,
+		std::shared_ptr<completion_notifier> done
 	) = 0;
 
 	/**
-	 * @brief Make everything written so far reach the storage.
+	 * @brief Start making what has been written reach the storage.
+	 *
+	 * What has been written is what every write that reported to its
+	 * notifier before this was called wrote. A write still under way is not
+	 * covered.
 	 *
 	 * Call this before dropping a writer whose failures matter. A writer
 	 * flushes itself when it is destroyed, but a destructor can not report
 	 * a failure, so a write that only fails on the way out is lost unless it
 	 * was flushed explicitly.
 	 *
-	 * @throws image_file_error If the pending writes could not be
-	 * completed.
+	 * The flush may still be under way when this returns. It reports to
+	 * @p done exactly once: when what has been written has reached the
+	 * storage, or with what made it fail.
+	 *
+	 * @param done Where the outcome is reported. Must not be null.
+	 * @throws std::invalid_argument If @p done is null. Every other failure
+	 * is reported to @p done rather than thrown: image_file_error if what
+	 * has been written could not reach the storage.
 	 */
-	virtual void flush() = 0;
+	virtual void flush_async(
+		std::shared_ptr<completion_notifier> done
+	) = 0;
 };
 
 } // namespace vitrio

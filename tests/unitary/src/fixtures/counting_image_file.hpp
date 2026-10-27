@@ -8,8 +8,8 @@
 #include <vitrio/image_reader.hpp>
 #include <vitrio/tests/host_array.hpp>
 
-#include <formats/memory_mapping/image_file_layout.hpp>
-#include <formats/memory_mapping/mapped_image_reader.hpp>
+#include <formats/raw/mapped/mapped_image_reader.hpp>
+#include <formats/raw/raw_image_layout.hpp>
 #include <memory/byte_order.hpp>
 
 #include <cstddef>
@@ -90,7 +90,7 @@ inline std::shared_ptr<const image_reader> open_counting_image_file(
 
 	return std::make_shared<mapped_image_reader>(
 		path,
-		image_file_layout(
+		raw_image_layout(
 			image_descriptor(
 				make_span(extents),
 				core_rank,

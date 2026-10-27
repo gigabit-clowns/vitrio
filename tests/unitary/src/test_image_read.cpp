@@ -9,6 +9,7 @@
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/clipping_image_transfer_sanitizer.hpp>
 #include <vitrio/concurrency/completion.hpp>
+#include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/concurrency/synchronous_executor.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -153,7 +154,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 2 &&
@@ -163,7 +167,8 @@ TEST_CASE(
 				std::vector<std::size_t>{0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("plane.mrc")).RETURN(reader);
 
@@ -189,7 +194,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 2 &&
@@ -198,7 +206,8 @@ TEST_CASE(
 				std::vector<std::size_t>{0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("plane.mrc")).RETURN(reader);
 
@@ -227,7 +236,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_2.get_region_count() == 1 &&
 			_2.get_shape().get_file_rank() == 3 &&
@@ -237,7 +249,8 @@ TEST_CASE(
 				std::vector<std::size_t>{2, 0, 0} &&
 			to_vector(_2.get_array_offset(0)) ==
 				std::vector<std::size_t>{0, 0}
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
@@ -269,14 +282,18 @@ TEST_CASE(
 	{
 		auto destination = make_float_array(file_extents);
 
-		REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*reader,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH(
 				_1.get_data() == destination.get_data() &&
 				_2.get_region_count() == 1 &&
 				to_vector(_2.get_shape().get_extents()) == file_extents &&
 				to_vector(_2.get_file_offset(0)) ==
 					std::vector<std::size_t>{0, 0, 0}
-			);
+			)
+			.SIDE_EFFECT( _3->notify_done() );
 		REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
 		read(array_ref(destination), image_location("stack.mrcs"), readers);
@@ -286,14 +303,18 @@ TEST_CASE(
 	{
 		auto destination = make_float_array(core_extents);
 
-		REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+		REQUIRE_CALL(
+			*reader,
+			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+		)
 			.LR_WITH(
 				_1.get_data() == destination.get_data() &&
 				_2.get_region_count() == 1 &&
 				to_vector(_2.get_shape().get_extents()) == core_extents &&
 				to_vector(_2.get_file_offset(0)) ==
 					std::vector<std::size_t>{2, 0, 0}
-			);
+			)
+			.SIDE_EFFECT( _3->notify_done() );
 		REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
 		read(
@@ -320,7 +341,10 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 	ALLOW_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
-	FORBID_CALL(*reader, read(trompeloeil::_, trompeloeil::_));
+	FORBID_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
 
 	SECTION( "one that is larger" )
 	{
@@ -375,10 +399,14 @@ TEST_CASE(
 	);
 	ALLOW_CALL(*reader, get_descriptor()).LR_RETURN(std::ref(descriptor));
 
-	REQUIRE_CALL(*reader, read(trompeloeil::_, trompeloeil::_))
+	REQUIRE_CALL(
+		*reader,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
 		.LR_WITH(
 			_1.get_descriptor().get_data_type() == numerical_type::float32
-		);
+		)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	REQUIRE_CALL(readers, acquire("stack.mrcs")).RETURN(reader);
 
@@ -1021,15 +1049,23 @@ TEST_CASE(
 	REQUIRE_CALL(*files, acquire("stack_0.mrcs"))
 		.IN_SEQUENCE(order)
 		.RETURN(first_file);
-	REQUIRE_CALL(*first_entry, store(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( &_1 == first_file.get() && spans_images(_2, {1, 4}) )
-		.IN_SEQUENCE(order);
+	REQUIRE_CALL(
+		*first_entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _1.get() == first_file.get() && spans_images(_2, {1, 4}) )
+		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _3->notify_done() );
 	REQUIRE_CALL(*files, acquire("stack_1.mrcs"))
 		.IN_SEQUENCE(order)
 		.RETURN(second_file);
-	REQUIRE_CALL(*second_entry, store(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( &_1 == second_file.get() && spans_images(_2, {2}) )
-		.IN_SEQUENCE(order);
+	REQUIRE_CALL(
+		*second_entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _1.get() == second_file.get() && spans_images(_2, {2}) )
+		.IN_SEQUENCE(order)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	const auto completion = prefetch(
 		scratch,
@@ -1059,8 +1095,12 @@ TEST_CASE(
 	REQUIRE_CALL(scratch, find("stack.mrcs")).RETURN(entry);
 	ALLOW_CALL(*file, get_descriptor()).RETURN(std::ref(stack_descriptor));
 	REQUIRE_CALL(*files, acquire("stack.mrcs")).RETURN(file);
-	REQUIRE_CALL(*entry, store(trompeloeil::_, trompeloeil::_))
-		.LR_WITH( &_1 == file.get() && spans_whole_stack(_2) );
+	REQUIRE_CALL(
+		*entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _1.get() == file.get() && spans_whole_stack(_2) )
+		.SIDE_EFFECT( _3->notify_done() );
 
 	const auto completion = prefetch(
 		scratch,
@@ -1088,7 +1128,11 @@ TEST_CASE(
 	// The file with no entry is not even opened.
 	FORBID_CALL(*files, acquire("unheld.mrcs"));
 	REQUIRE_CALL(*files, acquire("stack.mrcs")).RETURN(file);
-	REQUIRE_CALL(*entry, store(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	const auto completion = prefetch(
 		scratch,
@@ -1120,11 +1164,18 @@ TEST_CASE(
 	REQUIRE_CALL(*files, acquire("absent.mrcs"))
 		.SIDE_EFFECT( throw std::out_of_range("from the provider") )
 		.RETURN(nullptr);
-	FORBID_CALL(*first_entry, store(trompeloeil::_, trompeloeil::_));
+	FORBID_CALL(
+		*first_entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
 
 	// The file after the one that failed is still loaded.
 	REQUIRE_CALL(*files, acquire("stack.mrcs")).RETURN(second_file);
-	REQUIRE_CALL(*second_entry, store(trompeloeil::_, trompeloeil::_));
+	REQUIRE_CALL(
+		*second_entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.SIDE_EFFECT( _3->notify_done() );
 
 	const auto completion = prefetch(
 		scratch,
@@ -1134,6 +1185,37 @@ TEST_CASE(
 
 	CHECK( completion->is_ready() );
 	CHECK_THROWS_AS( completion->get(), std::out_of_range );
+}
+
+TEST_CASE(
+	"prefetch_scratch_async is done once every store has reported, and not "
+	"before",
+	"[image_read]"
+)
+{
+	mock_image_scratch scratch;
+	const auto entry = std::make_shared<mock_image_scratch_entry>();
+	const auto files = std::make_shared<mock_image_reader_provider>();
+	const auto file = std::make_shared<mock_image_reader>();
+	std::shared_ptr<completion_notifier> stored;
+
+	REQUIRE_CALL(scratch, find("stack.mrcs")).RETURN(entry);
+	ALLOW_CALL(*file, get_descriptor()).RETURN(std::ref(stack_descriptor));
+	REQUIRE_CALL(*files, acquire("stack.mrcs")).RETURN(file);
+	REQUIRE_CALL(
+		*entry,
+		store_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_SIDE_EFFECT( stored = _3 );
+
+	const auto completion =
+		prefetch(scratch, files, {image_location("stack.mrcs", 0)});
+	CHECK_FALSE( completion->is_ready() );
+
+	REQUIRE( stored != nullptr );
+	stored->notify_done();
+	REQUIRE( completion->is_ready() );
+	CHECK_NOTHROW( completion->get() );
 }
 
 TEST_CASE(

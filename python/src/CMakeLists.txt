@@ -25,6 +25,7 @@ target_sources(
 		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
 		file_image_writer_provider.cpp
+		file_transfer_pool.cpp
 		guarded_detector_event_timeline.cpp
 		image_descriptor.cpp
 		image_file_read_format_selector.cpp

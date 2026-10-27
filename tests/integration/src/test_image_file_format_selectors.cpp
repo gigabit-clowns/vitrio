@@ -11,11 +11,13 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 
 #include <cstddef>
 #include <vector>
 
 using namespace vitrio;
+using namespace vitrio::test;
 
 TEST_CASE( "a file that is not there is claimed by no bundled format",
 	"[image_file_format_selector]" )
@@ -32,7 +34,7 @@ TEST_CASE( "a file that is not there is claimed by no bundled format",
 
 		REQUIRE( selector->get_most_suitable_format(probe) == nullptr );
 		REQUIRE_THROWS_AS(
-			selector->open("absent.mrc"),
+			selector->open("absent.mrc", *make_file_transfer_pool()),
 			image_file_error
 		);
 	}
@@ -61,7 +63,12 @@ TEST_CASE( "a file that is not there is claimed by no bundled format",
 
 		REQUIRE( selector->get_most_suitable_format(other) == nullptr );
 		REQUIRE_THROWS_AS(
-			selector->open("absent.eer", descriptor, image_metadata()),
+			selector->open(
+				"absent.eer",
+				descriptor,
+				image_metadata(),
+				*test::make_file_transfer_pool()
+			),
 			unsupported_operation_error
 		);
 	}

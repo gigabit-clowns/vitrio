@@ -2,6 +2,7 @@
 
 #include "scratch_image_reader_provider.hpp"
 
+#include <vitrio/concurrency/executor.hpp>
 #include <vitrio/image_reader_provider.hpp>
 #include <vitrio/image_scratch.hpp>
 #include <vitrio/scratch_image_reader_provider.hpp>
@@ -28,15 +29,18 @@ void bind_scratch_image_reader_provider(nb::module_ &m)
 		.def(
 			nb::init<
 				std::shared_ptr<image_reader_provider>,
-				std::shared_ptr<image_scratch>
+				std::shared_ptr<image_scratch>,
+				std::shared_ptr<executor>
 			>(),
-			nb::arg("backing"), nb::arg("scratch"),
+			nb::arg("backing"), nb::arg("scratch"), nb::arg("executor"),
 			"Put a scratch in front of a provider.\n"
 			"\n"
 			"Args:\n"
 			"    backing: The `ImageReaderProvider` that reads what is not "
 			"held.\n"
-			"    scratch: The `ImageScratch` to serve reads from."
+			"    scratch: The `ImageScratch` to serve reads from.\n"
+			"    executor: Where what the scratch takes in for a read is read "
+			"out of it."
 		);
 }
 

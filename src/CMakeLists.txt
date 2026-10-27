@@ -62,6 +62,7 @@ target_sources(
 		builtin_image_file_format_registry.cpp
 		caching_image_reader_provider.cpp
 		clipping_image_transfer_sanitizer.cpp
+		const_memory_range.cpp
 		counting_detector_event_renderer.cpp
 		detector_event_binning.cpp
 		detector_event_fractionation.cpp
@@ -79,7 +80,10 @@ target_sources(
 		executor_image_saver.cpp
 		file_detector_event_timeline_reader_provider.cpp
 		file_image_reader_provider.cpp
+		file_image_scratch_storage.cpp
 		file_image_writer_provider.cpp
+		file_transfer_pool.cpp
+		file_transfer_pool_implementation.cpp
 		host_image_scratch_storage.cpp
 		image_descriptor.cpp
 		image_file_probe.cpp
@@ -103,6 +107,7 @@ target_sources(
 		image_scratch_directory.cpp
 		image_scratch_entry.cpp
 		image_scratch_storage.cpp
+		image_scratch_storage_bounds.cpp
 		image_transaction_plan.cpp
 		image_transfer_plan.cpp
 		image_transfer_sanitizer.cpp
@@ -116,21 +121,30 @@ target_sources(
 		interned_key_list.cpp
 		library_version.cpp
 		logger.cpp
-		mapped_file_image_scratch_storage.cpp
 		memory_range.cpp
 		scratch_image_reader.cpp
 		scratch_image_reader_provider.cpp
 		strict_image_transfer_sanitizer.cpp
+		synchronous_image_reader.cpp
+		synchronous_image_writer.cpp
+		tuning.cpp
+		waiting_transfers.cpp
 )
 
 if(VITRIO_ENABLE_TIFF)
 	target_link_libraries(vitrio-obj PUBLIC TIFF::TIFF)
 endif()
 
+if(VITRIO_ENABLE_IO_URING)
+	target_link_libraries(vitrio-obj PUBLIC liburing::liburing)
+endif()
+
 add_subdirectory(array)
 add_subdirectory(concurrency)
+add_subdirectory(file_transfer)
 add_subdirectory(formats)
 add_subdirectory(memory)
+add_subdirectory(strided_transfer)
 add_subdirectory(system)
 
 # vitrio is a shared library only. Its image formats register themselves

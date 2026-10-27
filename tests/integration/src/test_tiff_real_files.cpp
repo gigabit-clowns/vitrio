@@ -11,7 +11,9 @@
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
+#include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
+#include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
 #include <cstddef>
@@ -89,14 +91,14 @@ TEST_CASE(
 		REQUIRE( selector.get_most_suitable_format(image_file_probe(path)) !=
 			nullptr );
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint8) );
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			uint8_samples(144) );
@@ -108,14 +110,14 @@ TEST_CASE(
 			get_tiff_asset_path("image_uint16_deflate_predictor.tif");
 		const std::vector<std::size_t> extents = {6, 8};
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint16) );
 
 		auto destination =
 			make_host_array<std::uint16_t>(extents, numerical_type::uint16);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint16_t>(destination) ==
 			uint16_samples(48) );
@@ -126,14 +128,14 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("image_float32_tiled.tif");
 		const std::vector<std::size_t> extents = {24, 40};
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::float32) );
 
 		auto destination =
 			make_host_array<float>(extents, numerical_type::float32);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<float>(destination) ==
 			float32_samples(960) );
@@ -144,14 +146,14 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("image_int16_big_endian.tif");
 		const std::vector<std::size_t> extents = {6, 8};
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::int16) );
 
 		auto destination =
 			make_host_array<std::int16_t>(extents, numerical_type::int16);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::int16_t>(destination) ==
 			int16_samples(48) );
@@ -162,14 +164,14 @@ TEST_CASE(
 		const auto path = get_tiff_asset_path("stack_uint8_bigtiff.tif");
 		const std::vector<std::size_t> extents = {2, 6, 8};
 
-		const auto reader = selector.open(path);
+		const auto reader = selector.open(path, *make_file_transfer_pool());
 
 		REQUIRE( reader->get_descriptor() ==
 			image_descriptor(make_span(extents), 2, numerical_type::uint8) );
 
 		auto destination =
 			make_host_array<std::uint8_t>(extents, numerical_type::uint8);
-		reader->read(array_ref(destination), whole_of(extents));
+		read_now(*reader, destination, whole_of(extents));
 
 		REQUIRE( get_values<std::uint8_t>(destination) ==
 			uint8_samples(96) );
@@ -186,8 +188,10 @@ TEST_CASE(
 
 	SECTION( "one page of a stack, converted on the way" )
 	{
-		const auto reader =
-			selector.open(get_tiff_asset_path("stack_uint8_lzw.tif"));
+		const auto reader = selector.open(
+			get_tiff_asset_path("stack_uint8_lzw.tif"),
+			*make_file_transfer_pool()
+		);
 
 		const std::vector<std::size_t> extents = {6, 8};
 		auto destination =
@@ -198,7 +202,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>{0, 0})
 		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto samples = uint8_samples(144);
 
@@ -208,8 +212,10 @@ TEST_CASE(
 
 	SECTION( "a patch across the tiles of an image" )
 	{
-		const auto reader =
-			selector.open(get_tiff_asset_path("image_float32_tiled.tif"));
+		const auto reader = selector.open(
+			get_tiff_asset_path("image_float32_tiled.tif"),
+			*make_file_transfer_pool()
+		);
 
 		// Two rows from the fifteenth and three columns from the thirty
 		// first, where two rows and two columns of tiles meet.
@@ -222,7 +228,7 @@ TEST_CASE(
 			make_span(std::vector<std::size_t>{0, 0})
 		);
 
-		reader->read(array_ref(destination), regions);
+		read_now(*reader, destination, regions);
 
 		const auto samples = float32_samples(960);
 
@@ -256,6 +262,9 @@ TEST_CASE(
 
 		REQUIRE( selector.get_most_suitable_format(image_file_probe(path)) !=
 			nullptr );
-		REQUIRE_THROWS_AS( selector.open(path), image_file_format_error );
+		REQUIRE_THROWS_AS( selector.open(
+			path,
+			*make_file_transfer_pool()
+		), image_file_format_error );
 	}
 }

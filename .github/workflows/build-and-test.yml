@@ -138,7 +138,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes abigail-tools \
             libboost-filesystem-dev libboost-dev libspdlog-dev \
-            libtiff-dev zlib1g-dev
+            libtiff-dev zlib1g-dev liburing-dev
 
       - name: Check out the last release beside this tree
         run: |
@@ -152,7 +152,8 @@ jobs:
             cmake -S "$tree" --preset debug \
               -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF \
               -DVITRIO_BUILD_BOOST=OFF -DVITRIO_BUILD_SPDLOG=OFF \
-              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF
+              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF \
+              -DVITRIO_BUILD_LIBURING=OFF
             cmake --build "$tree/build/debug" --parallel 4
           done
 
@@ -204,7 +205,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes \
             libboost-filesystem-dev libboost-dev libspdlog-dev \
-            libtiff-dev zlib1g-dev catch2 libtrompeloeil-cpp-dev
+            libtiff-dev zlib1g-dev liburing-dev catch2 \
+            libtrompeloeil-cpp-dev
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

@@ -108,7 +108,8 @@ def test_loader_returns_an_image_loader():
 
 def test_assembled_by_hand(__written_files):
 	readers = vio.FileImageReaderProvider(
-		vio.ImageFileReadFormatSelector.get_shared()
+		vio.ImageFileReadFormatSelector.get_shared(),
+		vio.FileTransferPool(vio.ThreadPoolExecutor(2))
 	)
 	executor = vio.ThreadPoolExecutor(2)
 	loader = vio.ExecutorImageLoader(readers, executor)

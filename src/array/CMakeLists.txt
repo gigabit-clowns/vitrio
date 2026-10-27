@@ -9,6 +9,7 @@ target_sources(
 		array_implementation.cpp
 		array_memory.cpp
 		array_ref.cpp
+		borrowed_array.cpp
 		checked_arithmetic.cpp
 		const_array.cpp
 		const_array_ref.cpp

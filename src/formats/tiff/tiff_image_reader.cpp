@@ -2,10 +2,10 @@
 
 #include "tiff_image_reader.hpp"
 
-#include <formats/strided_transfer/image_page_regions.hpp>
-#include <formats/strided_transfer/image_region_bounds.hpp>
-#include <formats/strided_transfer/image_region_read_walk.hpp>
-#include <formats/strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/image_page_regions.hpp>
+#include <strided_transfer/image_region_bounds.hpp>
+#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/image_region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>

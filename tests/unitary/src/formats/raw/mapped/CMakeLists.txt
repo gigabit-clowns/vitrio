@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+target_sources(
+	vitrio-unitary-tests
+	PRIVATE
+		test_image_file_mapping.cpp
+		test_image_prefetched_read.cpp
+		test_mapped_image_reader.cpp
+		test_unaligned_mapped_image_reader.cpp
+)

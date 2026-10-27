@@ -54,7 +54,10 @@ public:
 		return ite->get();
 	}
 
-	std::shared_ptr<image_reader> open(const image_file_probe &probe) const
+	std::shared_ptr<image_reader> open(
+		const image_file_probe &probe,
+		const file_transfer_pool &transfers
+	) const
 	{
 		const auto *format = get_most_suitable_format(probe);
 		if (!format)
@@ -76,7 +79,7 @@ public:
 			);
 		}
 
-		return format->open(probe);
+		return format->open(probe, transfers);
 	}
 
 private:
@@ -124,10 +127,12 @@ bool image_file_read_format_selector::register_format(
 	return true;
 }
 
-std::shared_ptr<image_reader>
-image_file_read_format_selector::open(const std::string &path) const
+std::shared_ptr<image_reader> image_file_read_format_selector::open(
+	const std::string &path,
+	const file_transfer_pool &transfers
+) const
 {
-	return m_implementation->open(image_file_probe(path));
+	return m_implementation->open(image_file_probe(path), transfers);
 }
 
 const image_file_read_format*

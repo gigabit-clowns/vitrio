@@ -4,74 +4,27 @@
 
 #include <vitrio/host_image_scratch_storage.hpp>
 
-#include <memory/align.hpp>
+#include "fixtures/image_scratch_storage_contract.hpp"
+
 #include <vitrio/image_scratch_storage.hpp>
-#include <vitrio/memory_range.hpp>
-#include <vitrio/span.hpp>
 
 #include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <stdexcept>
-#include <string>
-#include <vector>
 
 using namespace vitrio;
 
 TEST_CASE(
-	"create_host_image_scratch_storage gives memory of the size it is asked "
-	"for",
+	"a host image scratch storage keeps the contract of a scratch storage",
 	"[host_image_scratch_storage]"
 )
 {
-	// A size that is not a multiple of any alignment.
-	const auto storage = create_host_image_scratch_storage(1001);
-
-	REQUIRE( storage != nullptr );
-
-	SECTION( "the storage has that size" )
-	{
-		CHECK( storage->get_size() == 1001 );
-	}
-
-	SECTION( "its memory is aligned for 64-bit integers" )
-	{
-		REQUIRE( storage->get_data() != nullptr );
-		CHECK( is_aligned(storage->get_data(), alignof(std::uint64_t)) );
-	}
-
-	SECTION( "what is written to it is read back" )
-	{
-		const std::string text = "what a scratch holds";
-		const image_scratch_storage &const_storage = *storage;
-
-		std::memcpy(
-			storage->get_data() + 1001 - text.size(),
-			text.data(),
-			text.size()
-		);
-
-		const auto *data = const_storage.get_data() + 1001 - text.size();
-		CHECK( std::memcmp(data, text.data(), text.size()) == 0 );
-	}
-
-	SECTION( "prefetching it leaves what it holds as it was" )
-	{
-		const std::string text = "what a scratch holds";
-		std::memcpy(storage->get_data() + 100, text.data(), text.size());
-		const std::vector<memory_range> ranges = {
-			{storage->get_data(), 1001},
-			{storage->get_data() + 100, text.size()}
-		};
-
-		storage->prefetch(make_span(ranges));
-
-		CHECK( std::memcmp(
-			storage->get_data() + 100,
-			text.data(),
-			text.size()
-		) == 0 );
-	}
+	check_image_scratch_storage_contract(
+		"host_scratch_storage_contract",
+		[](std::size_t size)
+		{
+			return create_host_image_scratch_storage(size);
+		}
+	);
 }
 
 TEST_CASE(

@@ -4,9 +4,9 @@
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array.hpp>
-#include <vitrio/array/const_array_ref.hpp>
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
+#include <vitrio/concurrency/counting_notifier.hpp>
 #include <vitrio/concurrency/executor.hpp>
 #include <vitrio/concurrency/task.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -16,6 +16,7 @@
 #include <vitrio/image_writer.hpp>
 #include <vitrio/image_writer_provider.hpp>
 
+#include <concurrency/failure_forwarding_notifier.hpp>
 #include <image_region_grouping.hpp>
 
 #include <cstddef>
@@ -39,29 +40,42 @@ public:
 		image_transfer_plan transfer,
 		std::shared_ptr<const_array> source,
 		std::shared_ptr<image_writer_provider> writers,
-		std::shared_ptr<const image_transfer_sanitizer> sanitizer
+		std::shared_ptr<const image_transfer_sanitizer> sanitizer,
+		std::shared_ptr<completion_notifier> done
 	)
 		: m_key(std::move(key))
 		, m_transfer(std::move(transfer))
 		, m_source(std::move(source))
 		, m_writers(std::move(writers))
 		, m_sanitizer(std::move(sanitizer))
+		, m_done(std::move(done))
 	{
 	}
 
+	// Opens the file and starts its writes, which report the file to the
+	// batch once they all have. A failure before they start is the task's,
+	// and the executor reports it.
 	void run() override
 	{
 		const auto writer = m_writers->acquire(m_key);
-		const_array_ref source(*m_source);
 
-		const auto sanitized = m_sanitizer->sanitize(
+		auto sanitized = m_sanitizer->sanitize(
 			m_transfer,
 			writer->get_descriptor().get_extents(),
-			source.get_descriptor().get_extents()
+			m_source->get_descriptor().get_extents()
 		);
-		for (const auto &regions : sanitized)
+
+		const auto file_done =
+			sanitized.size() == 1 ?
+			m_done :
+			std::make_shared<counting_notifier>(sanitized.size(), m_done);
+		for (auto &regions : sanitized)
 		{
-			writer->write(source, regions);
+			writer->write_async(
+				m_source->share(),
+				std::move(regions),
+				file_done
+			);
 		}
 	}
 
@@ -71,6 +85,7 @@ private:
 	std::shared_ptr<const_array> m_source;
 	std::shared_ptr<image_writer_provider> m_writers;
 	std::shared_ptr<const image_transfer_sanitizer> m_sanitizer;
+	std::shared_ptr<completion_notifier> m_done;
 };
 
 } // anonymous namespace
@@ -134,9 +149,10 @@ std::shared_ptr<completion> executor_image_saver::save(
 				make_file_transfer_plan(grouping, plan, file_index),
 				shared_source,
 				m_writers,
-				sanitizer
+				sanitizer,
+				result
 			),
-			result
+			std::make_shared<failure_forwarding_notifier>(result)
 		);
 	}
 
