@@ -1,6 +1,7 @@
 # Benchmarks
 
-How fast vitrio reads, against the ways other software reads, and the
+How fast vitrio reads, against the ways other software reads, how fast it
+writes and reads ZARR, against the libraries Python does it with, and the
 questions asked of it to tune it.
 
 A benchmark here is a **procedure**: what a run does with a reader, and what
@@ -14,6 +15,7 @@ and campaigns of runs are left to ReFrame.
 | `python/vitrio_bench/readers/` | The readers: vitrio's, and the baselines that read as other software does |
 | `python/vitrio_bench/writers.py` | The writers of the procedure that writes: vitrio's, and mrcfile's |
 | `python/vitrio_bench/procedures/` | The procedures |
+| `python/vitrio_bench/zarr_libraries/` | The libraries the procedure `zarr` writes and reads stores with: vitrio's, zarr-python and tensorstore |
 | `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
 | `reframe/` | The ReFrame tests: a base test per procedure, and its named sweeps |
 | `reframe/config/` | Example configurations of machines |
@@ -22,8 +24,9 @@ and campaigns of runs are left to ReFrame.
 The harness is not part of the package and is not built. CI runs none of
 the benchmarks, apart from two smoke tests: `tests/python/test_benchmarks.py`
 checks that every reader and every scratch delivers the same batches, every
-reader of slices the same slices, that every writer writes each layout, and
-that every record follows its schema, and the C++ benchmark runs each of its
+reader of slices the same slices, that every writer writes each layout, that
+every ZARR library reads back the same store, and that every record follows
+its schema, and the C++ benchmark runs each of its
 benchmarks for a moment.
 
 ## Getting started
@@ -257,6 +260,39 @@ and random reads of a particle's size at queue depths 1, 4, 16 and 64. Its
 "reader" is fio: `runtime_s` (10), `ioengine` (`libaio`), `direct`,
 `depths`, `sequential_block`, `sequential_depth`. It has no workload.
 
+### `zarr`
+
+How fast a ZARR store is written and read. The values of a dataset of one
+stack (`single-stack`, the default) are written as a store, as a volume of
+its particles as slices or as a stack of them as images, then read back
+whole, then read as patches at corners drawn at random: cubes of a volume,
+or squares of the images of a stack. Each step is done `repeats` times and
+reported by its median and its best. Its "reader" is the library that
+writes and reads, `--reader.name` (below).
+
+Every library writes the store vitrio writes: an image of OME-Zarr 0.5
+over an array of version 3, its chunks as vitrio chooses them, compressed
+by blosc with zstd at level 5, the bytes shuffled. So the writes do the
+same work, and the reads read the same bytes. The stores are written beside
+the dataset, on the storage being measured, and removed after.
+
+| Workload | Default | |
+|---|---|---|
+| `kind` | `volume` | `volume`, or `stack` of images |
+| `chunk_edge` | vitrio's: 128 for a volume, 1024 for an image | The side of a chunk: a cube of a volume, or a square one image deep of a stack. vitrio is given it through `VITRIO_ZARR_VOLUME_CHUNK_EDGE` or `VITRIO_ZARR_IMAGE_CHUNK_EDGE` |
+| `repeats` | 3 | |
+| `patch` | 64 | The side of a patch |
+| `patches` | 100 | |
+| `seed` | 0 | What decides the corners |
+| `cold` | `none` | How the store's pages are dropped before each read, as `--environment.cold` drops the dataset's |
+| `sync` | `true` | Whether a write lasts until what it wrote is on the storage, through `os.sync`. vitrio syncs every file it writes as it flushes; the others leave it to the system |
+| `verify` | `false` | Check what is read against what was written, and hash it, outside what is timed |
+
+It reports `write_bytes_per_s`, `read_bytes_per_s`, `patches_per_s` and
+`patches_bytes_per_s`, each from the median, the seconds of each step
+(`write_s`, `write_best_s` and so on), `stored_bytes`, `files`,
+`compression_ratio` and `peak_memory_bytes`.
+
 ## Readers
 
 | Reader | Stands for | Parameters |
@@ -297,6 +333,18 @@ each read, `kept` keeps every file open, and `last` the last one.
 Every reader takes `dtype`, the data type it delivers, `float32` by
 default.
 
+### ZARR libraries
+
+Each writes and reads as its users do.
+
+| Library | Writes and reads | Parameters |
+|---|---|---|
+| `vitrio` | `vio.write` and `vio.read`, a task per chunk on the threads of the pool of transfers; patches with `read_patches_async`, those of an image in one call, every call under way at once | `workers`: the threads of the pool and of the loader |
+| `zarr-python` | A whole array assigned to the array of the store, and read by indexing it, one patch at a time | `concurrency`: its `async.concurrency`; `threads`: its `threading.max_workers` |
+| `tensorstore` | A future for the write and for the read, and one per patch, all under way at once. It writes the group's document as a file, since it writes arrays alone | `concurrency`: the limit of its `file_io_concurrency` and `data_copy_concurrency` |
+
+Every parameter defaults to the library's own default.
+
 ## Named sweeps
 
 Each answers one question, most of them about what the code predicts and
@@ -322,6 +370,11 @@ the defaults do not account for.
 | `slice_readers` | `slices` | Slices of a tomogram along each axis: a plane of the file along `z`, pieces of every plane along `y` and `x` |
 | `writers` | `write_batches` | Where vitrio stands against mrcfile's maps writing a stack, a stack per micrograph and micrographs, until they are on the storage |
 | `write_dtype` | `write_batches` | Writing fewer bytes: float16 or int16 stored from float32 images, every value converted |
+| `zarr_libraries` | `zarr` | Where vitrio stands against zarr-python and tensorstore, writing and reading a volume of 512 cubed and a tilt series of 41 images of 2048 square, of floats and of integers |
+| `zarr_cold_reads` | `zarr` | The same, the store's pages dropped before each read |
+| `zarr_workers` | `zarr` | What the threads of vitrio's pool are worth, a write and a read being a task per chunk |
+| `zarr_volume_chunks` | `zarr` | The side of the cubes a volume is chunked in, `VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE`, for every library |
+| `zarr_image_chunks` | `zarr` | The side of the squares the images of a stack are chunked in, `VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE`, for every library |
 
 Tied to the benchmark strategy of issue #26: `read_batches` covers its C1,
 C2 and C4; `epochs` C3, C7 and the loader side of A6; `ceiling` its storage

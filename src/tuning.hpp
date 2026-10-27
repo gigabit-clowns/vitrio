@@ -97,6 +97,51 @@ std::size_t get_file_transfer_queue_capacity() noexcept;
 std::size_t get_file_transfer_workers() noexcept;
 
 /**
+ * @brief Get how many bytes of its chunks a read of a ZARR array holds at
+ * once: the variable @c VITRIO_CHUNK_BYTE_BUDGET of the environment, or
+ * @c VITRIO_DEFAULT_CHUNK_BYTE_BUDGET.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_chunk_byte_budget() noexcept;
+
+/**
+ * @brief Get how many chunks of a ZARR array a read has open at once: the
+ * variable @c VITRIO_CHUNKS_IN_FLIGHT of the environment, or
+ * @c VITRIO_DEFAULT_CHUNKS_IN_FLIGHT.
+ *
+ * @return std::size_t The chunks.
+ */
+std::size_t get_chunks_in_flight() noexcept;
+
+/**
+ * @brief Get the width of a chunk of an image of two axes written to ZARR:
+ * the variable @c VITRIO_ZARR_IMAGE_CHUNK_EDGE of the environment, or
+ * @c VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE.
+ *
+ * @return std::size_t The width.
+ */
+std::size_t get_zarr_image_chunk_edge() noexcept;
+
+/**
+ * @brief Get the width of a chunk of a volume written to ZARR: the variable
+ * @c VITRIO_ZARR_VOLUME_CHUNK_EDGE of the environment, or
+ * @c VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE.
+ *
+ * @return std::size_t The width.
+ */
+std::size_t get_zarr_volume_chunk_edge() noexcept;
+
+/**
+ * @brief Get how many bytes of chunks a writer of a ZARR array holds in
+ * memory: the variable @c VITRIO_CHUNK_WRITE_BYTE_BUDGET of the environment,
+ * or @c VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_chunk_write_byte_budget() noexcept;
+
+/**
  * @brief Tell whether files are to be transferred without asynchronous
  * ports, as where the process can not have them: whether the variable
  * @c VITRIO_DISABLE_ASYNCHRONOUS_IO of the environment is set.

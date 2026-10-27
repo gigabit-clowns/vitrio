@@ -26,8 +26,8 @@ void bind_image_file_write_format_selector(nb::module_ &m)
 			"Get the selector that holds the formats that come with vitrio.\n"
 			"\n"
 			"Returns:\n"
-			"    ImageFileWriteFormatSelector: MRC and, when built with TIFF, "
-			"TIFF."
+			"    ImageFileWriteFormatSelector: MRC, TIFF (when built with "
+			"TIFF) and ZARR (when built with ZARR)."
 		);
 }
 

@@ -23,6 +23,11 @@ namespace vitrio
  * A file that does not exist yields a probe with no leading bytes rather
  * than an error, so a probe can name a file yet to be created, and what
  * fits it then rests on the extension alone.
+ *
+ * The path may also name a directory, which is what a format that stores
+ * one image as many files, such as ZARR, is opened by. A directory has no
+ * leading bytes, and what fits it rests on its extension and on the entries
+ * it holds.
  */
 class image_file_probe
 {
@@ -37,7 +42,8 @@ public:
 	 * @brief Construct a probe by reading the leading bytes of a file.
 	 *
 	 * Reads at most @ref max_leading_bytes bytes, fewer when the file is
-	 * shorter and none when it does not exist or can not be read.
+	 * shorter and none when it does not exist, can not be read or is a
+	 * directory.
 	 *
 	 * @param path Path to the file to probe.
 	 */
@@ -68,7 +74,8 @@ public:
 	 * @brief Get the extension of the probed file.
 	 *
 	 * Folded to lower case and including the leading dot. Empty when the
-	 * file name has no extension.
+	 * file name has no extension. Separators that end the path are not part
+	 * of the name, so @c "volume.zarr/" has the extension @c ".zarr".
 	 *
 	 * @return const std::string& The extension.
 	 */
@@ -83,7 +90,7 @@ public:
 	 * as its header is up to each format.
 	 *
 	 * @return span<const byte> The bytes. Empty when the file does not
-	 * exist, is empty, or could not be read.
+	 * exist, is empty, could not be read or is a directory.
 	 */
 	VITRIO_API
 	span<const byte> get_leading_bytes() const noexcept;
@@ -91,18 +98,34 @@ public:
 	/**
 	 * @brief Check whether the probed file exists and could be read.
 	 *
-	 * @return true The file exists and its leading bytes were read.
+	 * @return true The file exists and its leading bytes were read, or it
+	 * is a directory.
 	 * @return false The file does not exist or could not be read, in which
 	 * case @ref get_leading_bytes is empty.
 	 */
 	VITRIO_API
 	bool exists() const noexcept;
 
+	/**
+	 * @brief Check whether the probed path names a directory.
+	 *
+	 * A directory has no leading bytes. A format that stores an image as a
+	 * directory recognizes it by the entries it holds, which it may look
+	 * for by name.
+	 *
+	 * @return true The path names a directory, which @ref exists then
+	 * reports too.
+	 * @return false The path names anything else, or nothing.
+	 */
+	VITRIO_API
+	bool is_directory() const noexcept;
+
 private:
 	std::string m_path;
 	std::string m_extension;
 	std::vector<byte> m_leading_bytes;
 	bool m_exists;
+	bool m_is_directory;
 };
 
 } // namespace vitrio

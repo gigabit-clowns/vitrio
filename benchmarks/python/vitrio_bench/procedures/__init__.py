@@ -23,6 +23,7 @@ from types import ModuleType
 
 from . import (
 	ceiling, epochs, patches, read_batches, slices, write_batches,
+	zarr_io,
 )
 
 PROCEDURES: dict[str, ModuleType] = {
@@ -32,6 +33,7 @@ PROCEDURES: dict[str, ModuleType] = {
 	'read_batches': read_batches,
 	'slices': slices,
 	'write_batches': write_batches,
+	'zarr': zarr_io,
 }
 
 def get(name: str) -> ModuleType:

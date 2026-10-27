@@ -38,7 +38,7 @@ SOURCES = Path(__file__).resolve().parents[2]
 HARNESS = SOURCES / 'benchmarks' / 'python'
 sys.path.insert(0, str(HARNESS))
 
-from vitrio_bench import readers, writers    # noqa: E402
+from vitrio_bench import readers, writers, zarr_libraries    # noqa: E402
 
 # The value of a reader's option that leaves it at the reader's default,
 # for options whose default differs from one reader to another.
@@ -553,3 +553,117 @@ class Ceiling(VitrioBenchmark):
 	@performance_function('IOPS')
 	def random_qd64_iops(self):
 		return self.metric('random_qd64_iops')
+
+class Zarr(VitrioBenchmark):
+	"""
+	A ZARR store written by a library, then read whole and in patches by it
+	(`zarr`).
+
+	Every library writes the store vitrio writes, its chunks and codecs the
+	same, so that they do the same work. The dataset is one stack: the
+	slices of a volume, or the images of a stack. Its size follows the
+	kind unless `count` and `box` are given: a volume of 512 cubed, or a
+	tilt series of 41 images of 2048 square.
+	"""
+
+	procedure = 'zarr'
+
+	#: The library: `vitrio`, `zarr-python` or `tensorstore`.
+	library = parameter(['vitrio'], type=str)
+	#: `volume`, or `stack` of images.
+	kind = parameter(['volume'], type=str)
+	dtype = parameter(['float32'], type=str)
+	#: The images of the dataset, the slices of a volume. 0 follows the
+	#: kind.
+	count = variable(int, value=0)
+	#: The side of an image. 0 follows the kind.
+	box = variable(int, value=0)
+	seed = variable(int, value=0)
+
+	#: The side of a chunk. -1 takes vitrio's for the kind.
+	chunk_edge = parameter([READER_DEFAULT], type=int)
+	#: Threads of vitrio. -1 takes its default.
+	workers = parameter([READER_DEFAULT], type=int)
+	#: Threads zarr-python encodes on. -1 takes its default.
+	threads = parameter([READER_DEFAULT], type=int)
+	#: Chunks zarr-python has under way, and the limit of tensorstore's
+	#: I/O and codecs. -1 takes their defaults.
+	concurrency = parameter([READER_DEFAULT], type=int)
+
+	#: How the store's pages are dropped before each read: `none`,
+	#: `fadvise`, or `drop`, which needs the feature `root`.
+	store_cold = parameter(['none'], type=str)
+	#: The side of a patch.
+	patch = parameter([64], type=int)
+	#: Patches read.
+	patches = variable(int, value=100)
+	#: Times each step is done.
+	repeats = variable(int, value=3)
+	#: Whether a write lasts until what it wrote is on the storage.
+	sync = variable(typ.Bool, value=True)
+
+	#: The images, and their side, of a dataset of each kind.
+	SIZES = {'volume': (512, 512), 'stack': (41, 2048)}
+	#: The options of libraries the test may pass, under their names.
+	LIBRARY_OPTIONS = ('workers', 'threads', 'concurrency')
+
+	@run_after('init')
+	def check_library(self):
+		needed = zarr_libraries.missing(zarr_libraries.get(self.library))
+		self.skip_if(bool(needed), f"{self.library} needs {needed}.")
+
+	@run_after('setup')
+	def check_store_cold(self):
+		self.skip_if(
+			self.store_cold == 'drop'
+			and 'root' not in self.current_partition.features,
+			"Dropping every cached page needs the feature 'root'."
+		)
+
+	def dataset_options(self):
+		count, box = self.SIZES.get(self.kind, self.SIZES['volume'])
+		return [
+			f'--dataset.count={self.count or count}',
+			f'--dataset.box={self.box or box}',
+			f'--dataset.dtype={self.dtype}',
+			f'--dataset.seed={self.seed}',
+		]
+
+	def run_options(self):
+		options = [f'--reader.name={self.library}']
+		has = zarr_libraries.get(self.library).defaults
+		for name in self.LIBRARY_OPTIONS:
+			value = getattr(self, name)
+			if name in has and value != READER_DEFAULT:
+				options.append(f'--reader.{name}={value}')
+		options += [
+			f'--workload.kind={self.kind}',
+			f'--workload.patch={self.patch}',
+			f'--workload.patches={self.patches}',
+			f'--workload.repeats={self.repeats}',
+			f'--workload.cold={self.store_cold}',
+			f'--workload.sync={json.dumps(self.sync)}',
+		]
+		if self.chunk_edge != READER_DEFAULT:
+			options.append(f'--workload.chunk_edge={self.chunk_edge}')
+		return options
+
+	@performance_function('B/s')
+	def write_bytes_per_s(self):
+		return self.metric('write_bytes_per_s')
+
+	@performance_function('B/s')
+	def read_bytes_per_s(self):
+		return self.metric('read_bytes_per_s')
+
+	@performance_function('patches/s')
+	def patches_per_s(self):
+		return self.metric('patches_per_s')
+
+	@performance_function('')
+	def compression_ratio(self):
+		return self.metric('compression_ratio')
+
+	@performance_function('B')
+	def peak_memory_bytes(self):
+		return self.metric('peak_memory_bytes')

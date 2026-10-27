@@ -3,12 +3,14 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
+		image_chunk_regions.cpp
 		image_page_regions.cpp
 		image_region_bounds.cpp
 		image_region_layout.cpp
 		image_region_offsets.cpp
 		image_region_read_walk.cpp
 		image_region_transfer.cpp
+		image_region_transfer_boolean.cpp
 		image_region_transfer_complex_float16.cpp
 		image_region_transfer_complex_float32.cpp
 		image_region_transfer_complex_float64.cpp

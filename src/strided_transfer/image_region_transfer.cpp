@@ -5,6 +5,7 @@
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
 #include <array/fixed_width_float.hpp>
+#include <array/stored_boolean.hpp>
 
 #include <complex>
 #include <cstdint>
@@ -17,10 +18,11 @@ namespace vitrio
 // the image_region_transfer_<type>.cpp files. Only the dispatch onto them is
 // here.
 
-// Every data type files are transferred in: the integers, the floating
-// point numbers and the complex ones. A boolean and a character are left
-// out, since neither is what a sample of an image is held as.
+// Every data type files are transferred in: the booleans, which a file holds
+// as a byte each, the integers, the floating point numbers and the complex
+// ones.
 #define VITRIO_IMAGE_REGION_FILE_TYPES(visit) \
+	visit(boolean, stored_boolean); \
 	visit(int8, std::int8_t); \
 	visit(uint8, std::uint8_t); \
 	visit(int16, std::int16_t); \

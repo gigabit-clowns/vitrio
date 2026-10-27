@@ -8,3 +8,7 @@ if(VITRIO_ENABLE_TIFF)
 	add_subdirectory(eer)
 	add_subdirectory(tiff)
 endif()
+
+if(VITRIO_ENABLE_ZARR)
+	add_subdirectory(zarr)
+endif()

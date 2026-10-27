@@ -8,6 +8,8 @@
 
 #include <vitrio/tests/scoped_path.hpp>
 
+#include "fixtures/scoped_directory.hpp"
+
 #include <cstddef>
 #include <fstream>
 #include <string>
@@ -95,6 +97,55 @@ TEST_CASE(
 		REQUIRE( probe.get_path() == "test_image_file_probe_absent.mrc" );
 		REQUIRE( probe.get_extension() == ".mrc" );
 	}
+
+	SECTION( "it is not a directory" )
+	{
+		REQUIRE_FALSE( probe.is_directory() );
+	}
+}
+
+TEST_CASE(
+	"image_file_probe tells a directory from a file",
+	"[image_file_probe]"
+)
+{
+	SECTION( "a directory exists, is a directory and has no leading bytes" )
+	{
+		const scoped_directory directory(
+			"test_image_file_probe_directory.zarr"
+		);
+		boost::filesystem::create_directory(directory.get());
+		const image_file_probe probe(directory.get());
+
+		REQUIRE( probe.exists() );
+		REQUIRE( probe.is_directory() );
+		REQUIRE( probe.get_leading_bytes().empty() );
+		REQUIRE( probe.get_extension() == ".zarr" );
+	}
+
+	SECTION( "a separator after a directory changes nothing but the path" )
+	{
+		const scoped_directory directory(
+			"test_image_file_probe_directory_separator.zarr"
+		);
+		boost::filesystem::create_directory(directory.get());
+		const image_file_probe probe(directory.get() + "/");
+
+		REQUIRE( probe.exists() );
+		REQUIRE( probe.is_directory() );
+		REQUIRE( probe.get_extension() == ".zarr" );
+		REQUIRE( probe.get_path() == directory.get() + "/" );
+	}
+
+	SECTION( "a file is not a directory" )
+	{
+		const scoped_path path("test_image_file_probe_not_directory.bin");
+		write_counting_bytes(path.get(), 16);
+		const image_file_probe probe(path.get());
+
+		REQUIRE( probe.exists() );
+		REQUIRE_FALSE( probe.is_directory() );
+	}
 }
 
 TEST_CASE( "image_file_probe normalizes the extension", "[image_file_probe]" )
@@ -130,6 +181,21 @@ TEST_CASE( "image_file_probe normalizes the extension", "[image_file_probe]" )
 	SECTION( "a dot in a directory is not an extension" )
 	{
 		const image_file_probe probe("a.b/absent");
+
+		REQUIRE( probe.get_extension().empty() );
+	}
+
+	SECTION( "separators that end the path are not part of the name" )
+	{
+		REQUIRE( image_file_probe("absent.ZARR/").get_extension() ==
+			".zarr" );
+		REQUIRE( image_file_probe("a/absent.zarr//").get_extension() ==
+			".zarr" );
+	}
+
+	SECTION( "the root has no extension" )
+	{
+		const image_file_probe probe("/");
 
 		REQUIRE( probe.get_extension().empty() );
 	}

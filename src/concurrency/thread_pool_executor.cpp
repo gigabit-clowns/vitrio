@@ -128,7 +128,9 @@ private:
 			error = std::current_exception();
 		}
 
-		entry.second->notify_done(error);
+		// Handed over, so that no copy of the failure is left on this thread
+		// to be released after whoever it reaches reads it.
+		entry.second->notify_done(std::move(error));
 	}
 };
 

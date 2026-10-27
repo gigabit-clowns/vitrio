@@ -48,10 +48,26 @@ vitrio is young and its API and ABI are subject to change.
 | TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
 | EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
 | DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
+| ZARR | yes | yes | any: a directory; `.zarr` when writing | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c, alone or in shards; a chunk that is not stored reads as the fill value. Filters, other codecs and shards compressed whole are not read yet. Written as version 3 and, with two or three axes of space, an image of OME-Zarr 0.5 of one level: chunks of 1024 by 1024 of each image, or 128 cubed of each volume, compressed with blosc and zstd, and none written of a chunk that holds only zeros. Shards are not written yet. |
 
 A file is recognized by its contents where the format allows it, and by its
-extension otherwise. TIFF and EER go through libtiff and can be left out of a
-build. More formats will follow.
+extension otherwise. A ZARR array is recognized by the metadata in its
+directory. TIFF and EER go through libtiff, and ZARR through nlohmann/json,
+c-blosc, zstd and zlib, and either can be left out of a build. More formats
+will follow.
+
+ZARR does not say whether three axes are a volume or a stack of images. The
+axes of OME-Zarr say which are of space, and a stack is told apart from a
+volume by levels of resolution that never scale its first axis, as the tilt
+series of the CryoET Data Portal are stored. Without OME-Zarr, the names of
+the dimensions of version 3 decide, and otherwise up to three trailing axes
+are one image or volume. A scratch that holds the images of a ZARR array does
+not notice a chunk rewritten in place: it goes by when the directory was last
+written, which a file inside it changing does not change.
+
+A ZARR store written over a path replaces what is there only when it is a
+file or another ZARR store: a directory that holds anything else is refused
+and left as it is.
 
 ## Installing
 
@@ -220,6 +236,7 @@ static, inside its own library:
 - spdlog
 - libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
   too
+- nlohmann/json, c-blosc, zstd and zlib, unless ZARR is turned off
 - liburing, on Linux, unless io_uring is turned off
 - Catch2 and trompeloeil, for the tests
 
@@ -232,11 +249,13 @@ cmake --install build --prefix <where>
 
 To use the libraries installed on the system instead, turn
 `VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
-`find_package`, or pkg-config for liburing, and CMake 3.18 is enough. They
-have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0 and Catch2 3 or
-newer. One of them alone is found rather than built by turning its own option
-off, such as `-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
+`find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
+is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
+nlohmann/json 3.6, c-blosc 1.14, zstd 1.4 and Catch2 3 or newer. One of them
+alone is found rather than built by turning its own option off, such as
+`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
 `VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_LIBURING`,
+`VITRIO_BUILD_NLOHMANN_JSON`, `VITRIO_BUILD_BLOSC`, `VITRIO_BUILD_ZSTD`,
 `VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
@@ -250,6 +269,7 @@ A few options change what gets built:
 | `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
+| `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
 | `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |

@@ -133,6 +133,51 @@ std::size_t get_scratch_load_byte_budget() noexcept
 	return value;
 }
 
+std::size_t get_chunk_byte_budget() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_CHUNK_BYTE_BUDGET",
+		VITRIO_DEFAULT_CHUNK_BYTE_BUDGET
+	);
+	return value;
+}
+
+std::size_t get_chunks_in_flight() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_CHUNKS_IN_FLIGHT",
+		VITRIO_DEFAULT_CHUNKS_IN_FLIGHT
+	);
+	return value;
+}
+
+std::size_t get_zarr_image_chunk_edge() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_ZARR_IMAGE_CHUNK_EDGE",
+		VITRIO_DEFAULT_ZARR_IMAGE_CHUNK_EDGE
+	);
+	return value;
+}
+
+std::size_t get_zarr_volume_chunk_edge() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_ZARR_VOLUME_CHUNK_EDGE",
+		VITRIO_DEFAULT_ZARR_VOLUME_CHUNK_EDGE
+	);
+	return value;
+}
+
+std::size_t get_chunk_write_byte_budget() noexcept
+{
+	static const auto value = read_value(
+		"VITRIO_CHUNK_WRITE_BYTE_BUDGET",
+		VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET
+	);
+	return value;
+}
+
 std::size_t get_file_transfer_queue_capacity() noexcept
 {
 	static const auto value = read_value(

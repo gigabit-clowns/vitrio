@@ -5,6 +5,7 @@
 #include <memory/byte_order.hpp>
 
 #include <array/fixed_width_float.hpp>
+#include <array/stored_boolean.hpp>
 
 #include <algorithm>
 #include <array>
@@ -81,6 +82,14 @@ TEST_CASE(
 		REQUIRE( reverse_byte_order(uint64_t(0x123456789ABCDEF0)) ==
 			0xF0DEBC9A78563412 );
 	}
+}
+
+TEST_CASE(
+	"reverse_byte_order keeps a boolean of a file, which is one byte",
+	"[byte_order]"
+)
+{
+	REQUIRE( reverse_byte_order(stored_boolean{0x12}).value == 0x12 );
 }
 
 TEST_CASE(

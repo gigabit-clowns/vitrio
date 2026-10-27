@@ -28,13 +28,14 @@ in the same commit that causes it.
 | `src/formats/mrc/` | The MRC format: its header, how a header resolves into the layout of a file, and the two formats that register themselves |
 | `src/formats/eer/` | The EER format, a TIFF file whose pages hold the events of a detector: how a frame encodes them, the decoder of one strip, the reader of the events and the format that registers itself. Built only with `VITRIO_ENABLE_TIFF` |
 | `src/formats/tiff/` | The TIFF format, over libtiff: the file, the layout of a page, the decoder that holds one page at a time, and the reader and writer. Built only with `VITRIO_ENABLE_TIFF` |
-| `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
-| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks, the cast between two of them, their byte order, and the bits of one read as another |
+| `src/formats/zarr/` | The ZARR format, versions 2 and 3, read, and version 3 with OME-Zarr 0.5 written: the metadata documents of a node, the layout of an array and of its chunks, their data types, fill values and keys, the codecs that turn bytes into bytes and their pipeline, the images of OME-Zarr and the core rank they decide, the layout and the index of shards, the read operation that opens and reads a file at a time and decodes its chunks, the reader and the read format that registers itself; and for writing, the metadata of a store, the chunks held in memory until they are stored, the operations that write and flush them, the writer and the write format. Built only with `VITRIO_ENABLE_ZARR` |
+| `src/strided_transfer/` | Moves regions between a file and an array: checks them against both, splits them by page for a file moved a page at a time and by chunk for one moved a chunk at a time, resolves where each one starts, works out the order to walk it in, and converts its elements. The formats move their values with it, and so do the rendering of detector events and the scratch |
+| `src/array/`, `src/memory/` | Beside the array classes, the private helpers on element types: the C++ type of each, among them the half precision number C++14 lacks and the boolean of a file, the cast between two of them, their byte order, and the bits of one read as another |
 | `src/system/` | What is asked of the operating system. Each has one source file per family of systems, and the build takes the one that applies. Among them the queues of file transfers, which read, write and sync: one through io_uring, built only with liburing, and one that transfers as it is asked. Over them the ports, queues whose wait another thread can end: one through io_uring, woken by a read of an eventfd in the same ring, and one that transfers as it is asked and waits on a condition variable. The openers of ports make one kind each, and the asynchronous one says whether the process can have its kind |
 | `src/file_transfer/` | Carries out transfers between files and memory without blocking: a few threads, each waiting on a port of its own for the transfers of many operations at once and for the outcomes of the tasks they run on the executor of computations. An operation is called as what it started completes, and is reported once nothing it started is outstanding. The public `file_transfer_pool` holds such an executor, which its implementation, defined under `src/`, hands to the library |
 | `tests/unitary/` | White-box Catch2 suite, built from the objects of the library, which sees `src/` |
 | `tests/unitary/src/mock/`, `fixtures/` | The trompeloeil mocks of the interfaces, and what several test files set up alike |
-| `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to |
+| `tests/assets/` | The files the tests are given, read where they are, and the directory under the build tree the tests write to. A format has a directory of its own, with a README.txt that says where each file comes from and what it holds, and the script that wrote the synthetic ones. `.gitattributes` keeps git from taking the files of the ZARR stores for text |
 | `tests/assets/include/vitrio/tests/` | What both suites set up alike, written against the public headers only: paths, arrays that hold given values, the plan of a whole region, transfers waited for, and a pool of file transfers for the files a case opens |
 | `tests/integration/` | Black-box Catch2 suite, linked with the shared library as a consumer is |
 | `tests/headers/` | Compiles each public header on its own under every C++ standard the compiler has |
@@ -46,9 +47,9 @@ in the same commit that causes it.
 | `tests/python/` | pytest suite of the Python package, imported from the build tree |
 | `examples/python/` | Programs that show the Python package at work, in `basic/` (vitrio assembles the pieces) and `advanced/` (the example names them). An example that needs no arguments makes its own images and asserts what it shows, and `tests/python/test_examples.py` runs it. One that is a tool takes files, and has a test file of its own that runs it on the files of `tests/assets/` or on ones it makes. Add a new one to the list of `TESTED_APART` in that test if it is a tool |
 | `examples/cpp/` | The C++ examples, a target each. Built with `-DVITRIO_BUILD_EXAMPLES=ON`, and run by CTest |
-| `benchmarks/` | How fast vitrio reads, against the ways other software reads, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
+| `benchmarks/` | How fast vitrio reads, against the ways other software reads, how fast it writes and reads ZARR, against the libraries Python does it with, and the sweeps that tune it. Run by hand, as its README says. CI runs only their smoke tests |
 | `benchmarks/cpp/` | The C++ benchmarks, built with `-DVITRIO_BUILD_BENCHMARKS=ON`: that of the engine of `src/strided_transfer/`, white-box, linked with the objects of the library as the unit tests are |
-| `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, or a writer for the procedure that writes, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch |
+| `benchmarks/python/vitrio_bench/` | The harness: one run of a procedure with a reader, or a writer for the procedure that writes, measured from outside vitrio and recorded as one line of JSON. Its command line, `python -m vitrio_bench run`, is what ReFrame and the smoke test launch. The "reader" of the procedure `zarr` is a library of `zarr_libraries/`, which writes a store as well as reading it |
 | `benchmarks/reframe/` | The ReFrame tests that run campaigns of the harness: a base test per procedure, whose parameters are what a sweep may vary, its named sweeps, the fixture that builds vitrio for the sweeps of its tuning macros, and example configurations of machines |
 | `benchmarks/datasets/` | The manifests of real datasets, in JSON: where to download each, what its files are, how to check them (`python -m vitrio_bench dataset check`) and how to make its variants. The data is never committed |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
@@ -187,7 +188,10 @@ since the archive of a commit lacks its libraries, which are submodules.
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
 | libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | liburing 2.0 or newer | The library, privately and on Linux only, for the queue of file reads through io_uring. Not needed with `-DVITRIO_ENABLE_IO_URING=OFF`. It installs no CMake package, so it is found with pkg-config. It has no CMake build either: built, its own configure script is run into the build tree, which needs a POSIX shell and make |
-| zlib | libtiff, for Deflate compression. Fetched before libtiff, it is the one a fetched libtiff finds, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
+| zlib | libtiff, for Deflate compression, and the ZARR format, for its zlib and gzip codecs. Fetched before libtiff and c-blosc, it is the one a fetched libtiff and c-blosc find, which needs CMake 3.24. Not needed with both `-DVITRIO_ENABLE_TIFF=OFF` and `-DVITRIO_ENABLE_ZARR=OFF` |
+| nlohmann/json 3.6 or newer | The library, privately and header only, for the metadata of ZARR. Not needed with `-DVITRIO_ENABLE_ZARR=OFF` |
+| zstd 1.4 or newer | The library, privately, for the zstd codec of ZARR, and c-blosc. Found through pkg-config. Not needed with `-DVITRIO_ENABLE_ZARR=OFF` |
+| c-blosc 1.14 or newer | The library, privately, for the blosc codec of ZARR. Fetched, it is built over the zstd and zlib of the project rather than its own copies of them, and keeps its own lz4. Found through pkg-config. Not needed with `-DVITRIO_ENABLE_ZARR=OFF` |
 | Catch2 3 | The test suites |
 | trompeloeil | The unit tests, for their mocks |
 | Google Benchmark 1.8 or newer | The C++ benchmarks. Not needed without `-DVITRIO_BUILD_BENCHMARKS=ON`. Unlike the others it is cloned with git, not fetched as an archive, since it reads its version from the tags of its repository |
@@ -195,8 +199,10 @@ since the archive of a commit lacks its libraries, which are submodules.
 | numpy | `vitrio.data`, and the tests of the Python package. Not a dependency of the package: `vitrio.data` reports it missing when imported |
 | PyTorch, JAX | Neither is needed. `vitrio.data` imports each when a batch is handed to it, and its tests and the cases that exchange arrays with them are skipped without them. PyTorch is also a baseline of the benchmarks, which skip it without it |
 | pytest | The tests of the Python package |
+| zarr-python, numcodecs | The tests of the Python package that read what zarr-python writes, and the script that writes the stores of `tests/assets/zarr`. They are skipped without it, which needs Python 3.12 |
 | psutil | The harness of the benchmarks, for the CPU time, memory and bytes read of a run |
 | mrcfile, lmdb | The baselines of the benchmarks that read as other software does |
+| zarr-python, tensorstore | The baselines of the benchmarks that write and read ZARR. Each is skipped without it; zarr-python needs Python 3.12 and tensorstore 3.11 |
 | ReFrame | Running campaigns of the benchmarks. Not installed on Windows, where it does not run |
 | Sphinx, Furo | The reference of the Python package, which imports it with `vitrio.data` and so needs numpy too. Not needed without `-DVITRIO_BUILD_DOCS=ON` and `-DVITRIO_BUILD_PYTHON=ON` |
 | scikit-build-core | A build of the Python package by pip |
@@ -333,7 +339,10 @@ since the archive of a commit lacks its libraries, which are submodules.
   it. Hiding a dependency is for public headers only.
 - **Element conversions.** `cast`, in `src/array/cast.hpp`, converts one
   element as `static_cast` does. Any type is produced from any other, except
-  that a complex number is only produced into another complex type.
+  that a complex number is only produced into another complex type. A
+  boolean of a file is a `stored_boolean`, in `src/array/stored_boolean.hpp`,
+  a byte that is true unless it is zero, and never a `bool`: a file may hold
+  any byte, and C++ leaves a `bool` that is neither zero nor one undefined.
 - **Half precision.** `float16_t`, in `src/array/float16_t.hpp`, is a class
   of vitrio's own, which converts and does no arithmetic. Its conversions
   are bit arithmetic without a branch, and no intrinsic, so that a compiler
@@ -349,7 +358,10 @@ since the archive of a commit lacks its libraries, which are submodules.
   provider's business. An `image_location` is a key and an index in a stack,
   and the plans, the loader and the saver carry keys too. What is about
   files says so in its name: `image_file_probe`, `image_file_error`,
-  `image_file_format_error`, and three roles that are kept apart:
+  `image_file_format_error`, and three roles that are kept apart. A file
+  may be a directory, as a ZARR array is: its probe has no leading bytes and
+  says it is one, and a format of directories tells them by the entries
+  they hold, without reading them. The roles are:
   - A file format (`image_file_read_format`, `image_file_write_format`, and
     for one kind of file `mrc_file_read_format`, `tiff_file_write_format`)
     knows one format, and registers itself at namespace scope with the
@@ -375,6 +387,25 @@ since the archive of a commit lacks its libraries, which are submodules.
   it with; the counting one bins pixels of the detector by a
   `detector_event_binning`, stated in pixels rather than in quanta. That is chosen by whoever reads, not by the file, so it is
   stated where readers are made and never registered as a format of images.
+- **ZARR.** A ZARR array is a directory, and every chunk a file of its own,
+  or every shard of chunks, with an index of where each lies. The format
+  opens no file until it reads: a read resolves its regions into the chunks
+  they reach with `image_chunk_regions`, and its operation opens and reads
+  each file, its index first for a shard, and decodes its chunks, a few
+  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+  bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
+  the order of the bytes are the strides and the byte order the strided
+  transfer reads a chunk with. A chunk that is not stored is read as its fill
+  value through strides of zero. Metadata that is not what ZARR states is an
+  `image_file_format_error`, and what ZARR allows but the format does not
+  read an `unsupported_operation_error`. A write holds the chunks it reaches
+  in memory, in the order of the system, in `zarr_chunk_store`, and stores
+  each once all of it in the array is written, or when what is held passes
+  `VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET`, or on a flush. A chunk is
+  written beside its file and renamed over it, a chunk of the fill value
+  alone is not stored, and one written again after it was stored is read
+  back first. The store records the core rank under `vitrio` in its
+  attributes, so that it reads back as it was written.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

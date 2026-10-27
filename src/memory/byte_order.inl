@@ -101,6 +101,11 @@ inline float16_t reverse_byte_order(float16_t x) noexcept
 	return float16_t::from_bits(reverse_byte_order(x.get_bits()));
 }
 
+inline stored_boolean reverse_byte_order(stored_boolean x) noexcept
+{
+	return x;
+}
+
 template <typename T>
 inline std::complex<T> reverse_byte_order(const std::complex<T> &x) noexcept
 {

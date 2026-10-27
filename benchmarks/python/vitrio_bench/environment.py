@@ -23,7 +23,10 @@ import psutil
 
 # The packages whose versions a record states, besides vitrio. They are
 # looked up without being imported, which for PyTorch takes seconds.
-SOFTWARE = ('numpy', 'psutil', 'mrcfile', 'torch', 'reframe-hpc')
+SOFTWARE = (
+	'numpy', 'psutil', 'mrcfile', 'torch', 'reframe-hpc', 'zarr', 'numcodecs',
+	'tensorstore',
+)
 
 class Unavailable(RuntimeError):
 	"""A capability was asked for, and the machine does not have it."""

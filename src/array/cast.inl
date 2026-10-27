@@ -79,4 +79,37 @@ inline void cast(std::complex<T> *destination, const Q *source) noexcept
 	*destination = std::complex<T>(real);
 }
 
+template <typename T>
+inline typename std::enable_if<std::is_arithmetic<T>::value>::type
+cast(T *destination, const stored_boolean *source) noexcept
+{
+	VITRIO_ASSERT(destination);
+	VITRIO_ASSERT(source);
+	*destination = static_cast<T>(source->value != 0);
+}
+
+inline void cast(float16_t *destination, const stored_boolean *source) noexcept
+{
+	VITRIO_ASSERT(destination);
+	VITRIO_ASSERT(source);
+	*destination = float16_t(source->value != 0 ? 1.0f : 0.0f);
+}
+
+template <typename Q>
+inline typename std::enable_if<std::is_arithmetic<Q>::value>::type
+cast(stored_boolean *destination, const Q *source) noexcept
+{
+	VITRIO_ASSERT(destination);
+	VITRIO_ASSERT(source);
+	destination->value = static_cast<std::uint8_t>(*source != 0);
+}
+
+inline void cast(stored_boolean *destination, const float16_t *source) noexcept
+{
+	VITRIO_ASSERT(destination);
+	VITRIO_ASSERT(source);
+	destination->value =
+		static_cast<std::uint8_t>(static_cast<float>(*source) != 0.0f);
+}
+
 } // namespace vitrio

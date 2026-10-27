@@ -51,7 +51,8 @@ public:
 	 * The file named by @p probe need not exist, in which case the probe
 	 * carries no leading bytes and the decision rests on the extension
 	 * alone. Check @ref image_file_probe::exists rather than assuming there are
-	 * leading bytes to read.
+	 * leading bytes to read. A path that names a directory has none either,
+	 * which @ref image_file_probe::is_directory tells.
 	 *
 	 * @param probe The file under consideration.
 	 * @return image_file_format_suitability How well this format fits @p probe.

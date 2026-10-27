@@ -3,6 +3,7 @@
 #pragma once
 
 #include <array/fixed_width_float.hpp>
+#include <array/stored_boolean.hpp>
 
 #include <complex>
 #include <type_traits>
@@ -70,6 +71,14 @@ double reverse_byte_order(double x) noexcept;
  * @see reverse_byte_order(float)
  */
 float16_t reverse_byte_order(float16_t x) noexcept;
+
+/**
+ * @brief Reverse the bytes of a boolean of a file, which is one byte.
+ *
+ * @param x The boolean.
+ * @return stored_boolean @p x itself, as a single byte has no order.
+ */
+stored_boolean reverse_byte_order(stored_boolean x) noexcept;
 
 /**
  * @brief Reverse the bytes of each component of a complex number.

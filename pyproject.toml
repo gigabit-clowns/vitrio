@@ -51,6 +51,8 @@ test = [
     "numpy==2.2.6; python_version == '3.10'",
     "numpy==2.4.6; python_version == '3.11'",
     "numpy==2.5.3; python_version >= '3.12'",
+    "zarr==3.4.1; python_version >= '3.12'",
+    "numcodecs==0.17.0; python_version >= '3.12'",
 ]
 # What the example reads STAR files and shows its progress with. Its test
 # is skipped without them.
@@ -59,8 +61,8 @@ example = [
     "tqdm==4.70.1",
 ]
 # What the harness of the benchmarks measures with, the baselines it
-# compares vitrio against, what reads the STAR files of real datasets, and
-# ReFrame, which runs campaigns of it.
+# compares vitrio against, of reads and of ZARR, what reads the STAR files of
+# real datasets, and ReFrame, which runs campaigns of it.
 # ReFrame does not run on Windows. PyTorch, another baseline, is left out
 # for its size. The smoke test of the benchmarks skips what it lacks.
 bench = [
@@ -69,6 +71,9 @@ bench = [
     "lmdb==2.3.0",
     "starfile==0.5.13",
     "reframe-hpc==4.10.4; sys_platform != 'win32'",
+    "zarr==3.4.1; python_version >= '3.12'",
+    "numcodecs==0.17.0; python_version >= '3.12'",
+    "tensorstore==0.1.85; python_version >= '3.11'",
 ]
 # What building the package with CMake alone takes, besides its tests and
 # those of the example and the benchmarks.
