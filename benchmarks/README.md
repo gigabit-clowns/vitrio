@@ -97,7 +97,7 @@ left for the next. The point is given part by part, as
 |---|---|---|
 | `dataset` | What is read, or written | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
 | `reader` | Who reads it, or writes it, with which settings | `name`, and the reader's own (below), or the writer's |
-| `workload` | How it is read, or written | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `axis`, `sync`, `verify` |
+| `workload` | How it is read, or written | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `crowding`, `axis`, `sync`, `verify` |
 | `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
@@ -206,9 +206,20 @@ first and later parts, and the bytes read from storage in each epoch.
 Patches cropped out of the images of a dataset, micrographs as a rule, as
 many per image, at corners drawn at random: particles read out of
 micrographs without extracting them first. The patches of a batch are read
-image by image, in the order extraction reads them. Its workload is that of
-`read_batches`, and `patch`, the side of a patch (128), and `patches`, how
-many each image has (100). The readers that crop patches are
+image by image. How they are spread is the `crowding`, which the results of
+a reader depend on, so that a campaign measures both:
+
+- `sparse` (the default): batches drawn across the images in the order of
+  the workload, a few patches of each image a batch, as a model trained on
+  patches draws them;
+- `crowded`: every patch of an image in one batch, an image after another,
+  as extraction reads them. It sets the order and the batches itself, and
+  takes neither.
+
+Its workload is that of `read_batches`, and `patch`, the side of a patch
+(128), `crowding`, and `patches`, how many each image has: 100 when sparse,
+and as many as cover 40% of an image when crowded. The readers that crop
+patches are
 `vitrio-loader`, with one `read_patches_async` per image of a batch, and
 the readers of mrcfile, numpy and Python's files, one patch at a time.
 
@@ -304,8 +315,8 @@ the defaults do not account for.
 | `loaders` | `epochs` | vitrio against PyTorch's DataLoader, preloading and converting to LMDB, each at its best |
 | `torch_workers` | `epochs` | How many workers PyTorch's DataLoader needs to be at its best |
 | `convert_first` | `epochs` | A converted dataset's first run, which converts it, against a rerun |
-| `patch_readers` | `patches` | Every reader that crops patches, at three sides |
-| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value |
+| `patch_readers` | `patches` | Every reader that crops patches, at three sides, sparse and crowded |
+| `gap_cap` | `patches` | **H7**: the rows of a patch lie a micrograph's row apart, and a read bridges the gaps between them up to `VITRIO_DEFAULT_PREFETCH_GAP_CAP`. A build per value, sparse and crowded |
 | `prefetch_budget` | `read_batches` | How many bytes a read asks the kernel for at once, ahead of copying them: `VITRIO_DEFAULT_PREFETCH_BYTE_BUDGET`. A build per value |
 | `ceiling` | `ceiling` | What the storage delivers |
 | `slice_readers` | `slices` | Slices of a tomogram along each axis: a plane of the file along `z`, pieces of every plane along `y` and `x` |

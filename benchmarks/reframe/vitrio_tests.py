@@ -336,15 +336,29 @@ class Patches(ReaderBenchmark):
 
 	#: Side of a patch.
 	patch = parameter([128], type=int)
-	#: Patches per micrograph.
-	patches = variable(int, value=100)
+	#: How the patches of a batch are spread: sparse, a few of each
+	#: micrograph drawn across them, or crowded, every patch of a micrograph
+	#: in a batch, as extraction reads them.
+	crowding = parameter(['sparse', 'crowded'], type=str)
+	#: Patches per micrograph. None: 100 when sparse, as many as cover 40%
+	#: of a micrograph when crowded.
+	patches = variable(int, type(None), value=None)
 
 	def workload_options(self):
-		return [
+		options = [
 			*super().workload_options(),
 			f'--workload.patch={self.patch}',
-			f'--workload.patches={self.patches}',
+			f'--workload.crowding={self.crowding}',
 		]
+		if self.patches is not None:
+			options.append(f'--workload.patches={self.patches}')
+		if self.crowding == 'crowded':
+			# A crowded workload sets its order and its batches itself.
+			options = [
+				option for option in options
+				if not option.startswith(('--workload.order=', '--workload.batch='))
+			]
+		return options
 
 class Slices(ReaderBenchmark):
 	"""

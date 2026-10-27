@@ -213,7 +213,11 @@ MICROGRAPHS = [
 	'--dataset.count=3', '--dataset.box=128', '--dataset.layout=one-per-file',
 ]
 
-def test_every_patch_reader_crops_the_same_patches(tmp_path):
+@pytest.mark.parametrize('crowding, spread', [
+	('sparse', ['--workload.batch=8']),
+	('crowded', []),
+])
+def test_every_patch_reader_crops_the_same_patches(tmp_path, crowding, spread):
 	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
 	records_file = tmp_path / 'results.jsonl'
 	for name, reader in readers.READERS.items():
@@ -223,8 +227,8 @@ def test_every_patch_reader_crops_the_same_patches(tmp_path):
 			'run', 'patches', '--datadir', str(tmp_path),
 			'--results', str(records_file), *MICROGRAPHS,
 			f'--reader.name={name}', '--workload.patch=32',
-			'--workload.patches=10', '--workload.batch=8',
-			'--workload.verify=true'
+			'--workload.patches=10', f'--workload.crowding={crowding}',
+			*spread, '--workload.verify=true'
 		)
 	records = results.load(records_file)
 	for record in records:
@@ -233,6 +237,39 @@ def test_every_patch_reader_crops_the_same_patches(tmp_path):
 	assert len(succeeded) >= 2
 	assert len({record['metrics']['batch_hash'] for record in succeeded}) == 1
 	assert all(record['metrics']['images'] == 30 for record in succeeded)
+
+def test_crowded_patches_read_an_image_a_batch(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
+	records_file = tmp_path / 'results.jsonl'
+	harness(
+		'run', 'patches', '--datadir', str(tmp_path),
+		'--results', str(records_file), *MICROGRAPHS,
+		'--reader.name=vitrio-loader', '--workload.patch=32',
+		'--workload.crowding=crowded'
+	)
+	(record,) = results.load(records_file)
+	assert record['status'] == 'ok'
+	workload = record['workload']
+	# As many patches as cover 40% of an image, in batches of an image.
+	assert workload['patches'] == round(0.4 * 128**2 / 32**2)
+	assert workload['batch'] == workload['patches']
+	assert workload['order'] == 'sequential'
+	assert record['metrics']['images'] == 3 * workload['patches']
+
+def test_a_crowded_workload_takes_no_order(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *MICROGRAPHS)
+	records_file = tmp_path / 'results.jsonl'
+	completed = harness(
+		'run', 'patches', '--datadir', str(tmp_path),
+		'--results', str(records_file), *MICROGRAPHS,
+		'--reader.name=vitrio-loader', '--workload.crowding=crowded',
+		'--workload.order=shuffled', check=False
+	)
+	assert completed.returncode == 1
+	(record,) = results.load(records_file)
+	results.check(record)
+	assert record['status'] == 'failed'
+	assert 'crowded' in record['reason']
 
 VOLUME = [
 	'--dataset.count=24', '--dataset.box=20', '--dataset.layout=single-stack',
