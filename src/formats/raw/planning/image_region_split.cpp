@@ -22,7 +22,6 @@ std::vector<std::size_t> find_split_axes(
 	const image_transfer_shape &shape,
 	span<const std::ptrdiff_t> file_strides,
 	std::size_t element_size,
-	std::size_t page_size,
 	std::size_t gap_cap,
 	std::size_t byte_budget
 )
@@ -70,8 +69,7 @@ std::vector<std::size_t> find_split_axes(
 		}
 
 		const auto gap = stride - span;
-		const auto tolerance = std::min(std::max(span, page_size), gap_cap);
-		if (gap <= tolerance && joined <= byte_budget)
+		if (gap <= gap_cap && joined <= byte_budget)
 		{
 			span = joined;
 			continue;
@@ -89,7 +87,6 @@ image_transfer_plan split_scattered_regions(
 	const image_transfer_plan &regions,
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
-	std::size_t page_size,
 	std::size_t gap_cap,
 	std::size_t byte_budget
 )
@@ -101,7 +98,6 @@ image_transfer_plan split_scattered_regions(
 		shape,
 		file_strides,
 		get_size(data_type),
-		page_size,
 		gap_cap,
 		byte_budget
 	);

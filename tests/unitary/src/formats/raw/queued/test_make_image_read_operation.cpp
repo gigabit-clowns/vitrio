@@ -34,6 +34,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <trompeloeil.hpp>
@@ -399,6 +400,75 @@ TEST_CASE(
 		);
 
 		CHECK( reads_started(*operation).empty() );
+	}
+}
+
+TEST_CASE(
+	"make_image_read_operation reads a patch in one stretch, unless its rows "
+	"lie farther apart than a read bridges",
+	"[make_image_read_operation]"
+)
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	image_transfer_plan regions(image_transfer_shape({4, 3}, 2, 2));
+	regions.add(
+		make_span(std::vector<std::size_t>{0, 10}),
+		make_span(std::vector<std::size_t>{0, 0})
+	);
+
+	// Reads a patch of 4 rows of 3 float32 out of an image of rows of a
+	// width, and gives the reads it starts and what lands.
+	const auto read = [&](const char *name, std::size_t width)
+	{
+		const scoped_path path(name);
+		const std::vector<std::size_t> extents = {4, width};
+		const auto size = write_file(path.get(), 16, counting(0, 4 * width));
+		const auto make = [&](array destination)
+		{
+			return make_image_read_operation(
+				path.get(),
+				open_file(path.get()),
+				size,
+				make_layout(extents, 16),
+				std::move(destination),
+				regions,
+				any_budget
+			);
+		};
+		auto destination =
+			make_host_array<float>({4, 3}, numerical_type::float32);
+		const auto reads = reads_started(*make(destination.share()));
+		run_now(*transfers, make(destination.share()));
+		return std::make_pair(reads, get_values<float>(destination));
+	};
+
+	SECTION( "rows two pages apart, in one stretch" )
+	{
+		const std::size_t width = 2048;
+		const auto read_patch =
+			read("make_image_read_operation_patch_close.raw", width);
+
+		REQUIRE( read_patch.first.size() == 1 );
+		CHECK( read_patch.first[0].offset == 16 + 10 * sizeof(float) );
+		CHECK( read_patch.first[0].size ==
+			(3 * width + 3) * sizeof(float) );
+		CHECK( read_patch.second == std::vector<float>{
+			10, 11, 12, 2058, 2059, 2060, 4106, 4107, 4108, 6154, 6155, 6156,
+		} );
+	}
+
+	SECTION( "rows 256 KiB apart, one by one" )
+	{
+		const std::size_t width = 65536;
+		const auto read_patch =
+			read("make_image_read_operation_patch_far.raw", width);
+
+		REQUIRE( read_patch.first.size() == 4 );
+		CHECK( read_patch.first[1].offset ==
+			16 + (width + 10) * sizeof(float) );
+		CHECK( read_patch.first[1].size == 3 * sizeof(float) );
+		CHECK( read_patch.second[3] == static_cast<float>(width + 10) );
 	}
 }
 

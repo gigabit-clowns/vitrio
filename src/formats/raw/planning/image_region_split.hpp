@@ -20,8 +20,10 @@ namespace vitrio
  * planes of a volume, would be read with all that lies between them. Its
  * axes are gathered from the one the file lays out fastest: an axis joins
  * those gathered so far while the gaps it leaves between their parts are no
- * wider than what those parts span, floored at a page and capped at
- * @p gap_cap, and while a part with gaps in it stays within @p byte_budget.
+ * wider than @p gap_cap, as a read bridges, and while a part with gaps in it
+ * stays within @p byte_budget. The rows of a patch of a micrograph are then
+ * read together, as the file system and its disks serve best, and the rows
+ * of a slice across the planes of a volume one plane at a time.
  * Every region is split along every axis that does not join, the slower ones
  * included, into parts one position deep along them.
  *
@@ -32,8 +34,7 @@ namespace vitrio
  * @param file_strides Distance between consecutive elements of the file
  * along each of its axes, in elements. None is negative.
  * @param data_type Data type of the elements of the file.
- * @param page_size The least gap that is always bridged, in bytes.
- * @param gap_cap The widest gap that is ever bridged, in bytes.
+ * @param gap_cap The widest gap that is bridged, in bytes.
  * @param byte_budget The most bytes a part with gaps in it spans, unless a
  * single position along its slowest axis spans more.
  * @return image_transfer_plan The parts, of the ranks of the plan, each
@@ -44,7 +45,6 @@ image_transfer_plan split_scattered_regions(
 	const image_transfer_plan &regions,
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type,
-	std::size_t page_size,
 	std::size_t gap_cap,
 	std::size_t byte_budget
 );

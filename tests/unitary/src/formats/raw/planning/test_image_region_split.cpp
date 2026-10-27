@@ -16,7 +16,6 @@ using namespace vitrio;
 namespace
 {
 
-constexpr std::size_t page = 4096;
 constexpr std::size_t gap_cap = 128 << 10;
 constexpr std::size_t budget = 8 << 20;
 
@@ -27,6 +26,10 @@ const std::vector<std::ptrdiff_t> volume_strides = {1024 * 1024, 1024, 1};
 // A micrograph of 4096 by 4096 float32, whose rows lie 16 KiB apart.
 const std::vector<std::ptrdiff_t> micrograph_strides = {4096, 1};
 
+// An image 65536 float32 wide, whose rows lie 256 KiB apart: farther than a
+// read bridges.
+const std::vector<std::ptrdiff_t> wide_strides = {65536, 1};
+
 image_transfer_plan split(
 	const image_transfer_plan &regions,
 	const std::vector<std::ptrdiff_t> &strides
@@ -36,7 +39,6 @@ image_transfer_plan split(
 		regions,
 		make_span(strides),
 		numerical_type::float32,
-		page,
 		gap_cap,
 		budget
 	);
@@ -91,8 +93,33 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"split_scattered_regions splits a patch of a micrograph into its rows, "
-	"whose gaps are wider than they are",
+	"split_scattered_regions keeps the rows of a patch of a micrograph "
+	"together, whose gaps a read bridges",
+	"[image_region_split]"
+)
+{
+	image_transfer_plan patches(
+		image_transfer_shape(std::vector<std::size_t>{128, 128}, 2, 3)
+	);
+	patches.add(
+		make_span(std::vector<std::size_t>{100, 200}),
+		make_span(std::vector<std::size_t>{0, 0, 0})
+	);
+	patches.add(
+		make_span(std::vector<std::size_t>{900, 10}),
+		make_span(std::vector<std::size_t>{1, 0, 0})
+	);
+
+	const auto parts = split(patches, micrograph_strides);
+
+	REQUIRE( parts.get_region_count() == 2 );
+	CHECK( extents_of(parts) == std::vector<std::size_t>{128, 128} );
+	CHECK( file_offset(parts, 1) == std::vector<std::size_t>{900, 10} );
+}
+
+TEST_CASE(
+	"split_scattered_regions splits a patch into its rows where they lie "
+	"farther apart than a read bridges",
 	"[image_region_split]"
 )
 {
@@ -109,7 +136,7 @@ TEST_CASE(
 		make_span(std::vector<std::size_t>{1, 0, 0})
 	);
 
-	const auto parts = split(patches, micrograph_strides);
+	const auto parts = split(patches, wide_strides);
 
 	REQUIRE( parts.get_region_count() == 8 );
 	CHECK( extents_of(parts) == std::vector<std::size_t>{1, 128} );
@@ -126,29 +153,6 @@ TEST_CASE(
 		CHECK( array_offset(parts, 4 + row) ==
 			std::vector<std::size_t>{1, row, 0} );
 	}
-}
-
-TEST_CASE(
-	"split_scattered_regions keeps rows whose gaps are no wider than a page "
-	"together",
-	"[image_region_split]"
-)
-{
-	// A patch of 3 by 64 of an image 256 wide: rows of 256 bytes, 768 bytes
-	// apart.
-	const std::vector<std::ptrdiff_t> strides = {256, 1};
-	image_transfer_plan patch(
-		image_transfer_shape(std::vector<std::size_t>{3, 64}, 2, 2)
-	);
-	patch.add(
-		make_span(std::vector<std::size_t>{5, 7}),
-		make_span(std::vector<std::size_t>{0, 0})
-	);
-
-	const auto parts = split(patch, strides);
-
-	REQUIRE( parts.get_region_count() == 1 );
-	CHECK( extents_of(parts) == std::vector<std::size_t>{3, 64} );
 }
 
 TEST_CASE(
@@ -203,9 +207,9 @@ TEST_CASE(
 	"[image_region_split]"
 )
 {
-	// A micrograph whose first axis is its fastest, as a transposed layout
+	// A wide image whose first axis is its fastest, as a transposed layout
 	// has it: what is a column of the plan is a row of the file.
-	const std::vector<std::ptrdiff_t> transposed = {1, 4096};
+	const std::vector<std::ptrdiff_t> transposed = {1, 65536};
 	image_transfer_plan patch(
 		image_transfer_shape(std::vector<std::size_t>{128, 2}, 2, 2)
 	);

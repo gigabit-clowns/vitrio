@@ -16,7 +16,6 @@
 
 #include <array/array_data.hpp>
 #include <memory/byte_order.hpp>
-#include <system/page_size.hpp>
 #include <tuning.hpp>
 
 #include <algorithm>
@@ -110,14 +109,13 @@ std::unique_ptr<file_transfer_operation> make_image_read_operation(
 	get_array_data(array_ref(destination));
 	const auto &target = destination.get_descriptor();
 
-	// A region whose parts lie far apart, such as a slice across the planes
-	// of a volume or the rows of a patch of a micrograph, is read a part at
-	// a time, rather than with everything between its parts.
+	// A region whose parts lie farther apart than a read bridges, such as a
+	// slice across the planes of a volume, is read a part at a time, rather
+	// than with everything between its parts.
 	const auto parts = split_scattered_regions(
 		regions,
 		layout.get_strides(),
 		layout.get_descriptor().get_data_type(),
-		get_page_size(),
 		get_prefetch_gap_cap(),
 		byte_budget
 	);
