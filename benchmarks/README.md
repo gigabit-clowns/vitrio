@@ -267,21 +267,24 @@ first and later parts, and the bytes read from storage in each epoch.
 
 Patches cropped out of the images of a dataset, micrographs as a rule, as
 many per image, at corners drawn at random: particles read out of
-micrographs without extracting them first. The patches of a batch are read
-image by image. How they are spread is the `crowding`, which the results of
-a reader depend on, so that a campaign measures both:
+micrographs without extracting them first, as extraction does, and as the
+steps that go back to the particles in their micrographs do, such as
+polishing and the CTF of each particle. How many patches an image has,
+`patches`, is the data's: how densely the particles were picked. The
+patches of a batch are read image by image. In which order the patches of
+the dataset are asked for is the `crowding`, which the results of a reader
+depend on, so that a campaign measures both:
 
-- `sparse` (the default): batches drawn across the images in the order of
-  the workload, a few patches of each image a batch, as a model trained on
-  patches draws them;
 - `crowded`: every patch of an image in one batch, an image after another,
-  as extraction reads them. It sets the order and the batches itself, and
-  takes neither.
+  as extraction and the steps that follow it read them. It sets the order
+  and the batches itself, and takes neither;
+- `sparse` (the default): batches drawn across the images in the order of
+  the workload, a few patches of each image a batch, as a loop that crops
+  its patches as it goes would draw them.
 
 Its workload is that of `read_batches`, and `patch`, the side of a patch
-(128), `crowding`, and `patches`, how many each image has: 100 when sparse,
-and as many as cover 40% of an image when crowded. The readers that crop
-patches are
+(128), `crowding`, and `patches`: 100 an image unless given, or as many as
+cover 40% of an image when crowded. The readers that crop patches are
 `vitrio-loader`, with one `read_patches_async` per image of a batch, and
 the readers of mrcfile, numpy and Python's files, one patch at a time.
 

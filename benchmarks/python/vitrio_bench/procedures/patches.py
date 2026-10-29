@@ -2,15 +2,17 @@
 
 """Patches cropped out of the images of a dataset, as many per image, at
 corners drawn at random: particles read out of micrographs without being
-extracted first.
+extracted first, as extraction does, and as the steps that go back to the
+particles in their micrographs do. How many patches an image has is the
+data's: how densely the particles were picked.
 
-How the patches of a request are spread is the crowding:
-- sparse: batches of patches drawn across the images in the order of the
-  workload, a few of each image a batch, as a model trained on patches draws
-  them;
+In which order the patches are asked for is the crowding:
 - crowded: every patch of an image in one batch, an image after another, as
-  extraction reads them, the patches covering 40% of an image unless told
-  how many there are.
+  extraction and the steps that follow it read them, the patches covering
+  40% of an image unless told how many there are;
+- sparse: batches of patches drawn across the images in the order of the
+  workload, a few of each image a batch, as a loop that crops its patches
+  as it goes would draw them.
 
 A batch of patches is read image by image: its rows are put in the order of
 their images, so that a reader that crops the patches of an image in one
