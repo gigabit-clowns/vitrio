@@ -294,7 +294,7 @@ def _run_point(
 			)
 		if settings['memory_max'] is not None:
 			metrics['cgroup_memory_peak_bytes'] = environment.memory_peak()
-		if shared and reader.uses_scratchdir:
+		if shared and getattr(reader, 'uses_scratchdir', False):
 			warnings.append(
 				"the scratch directory is on the storage of the dataset, "
 				"where a scratch only copies what is there. Put it on "
