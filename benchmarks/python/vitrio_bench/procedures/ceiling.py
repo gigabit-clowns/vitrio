@@ -6,7 +6,9 @@ Every reader is held against this ceiling: once one reaches it, the only
 ways to be faster are to read fewer bytes or to read them fewer times. fio
 reads the largest file of the dataset with direct I/O, past the page cache:
 once sequentially in large blocks, then at random in blocks the size of a
-particle, at several queue depths.
+particle, at several queue depths. Then it writes a file of its own beside
+the dataset sequentially, in the same blocks, synced at the end and removed
+after, which is the ceiling of the writers.
 
 The "reader" of this procedure is fio, with these parameters:
 	fio: The fio to run.
@@ -15,8 +17,10 @@ The "reader" of this procedure is fio, with these parameters:
 	direct: Whether to read past the page cache.
 	runtime_s: Seconds each measurement lasts.
 	depths: The queue depths of the random reads.
-	sequential_block: Bytes per sequential read.
-	sequential_depth: Queue depth of the sequential reads.
+	sequential_block: Bytes per sequential read, and write.
+	sequential_depth: Queue depth of the sequential reads, and writes.
+	write_bytes: The size of the file written, over and over while the
+		measurement lasts; 0 writes nothing.
 
 It has no workload.
 """
@@ -39,6 +43,7 @@ FIO = {
 	'depths': [1, 4, 16, 64],
 	'sequential_block': 1 << 20,
 	'sequential_depth': 16,
+	'write_bytes': 1 << 30,
 }
 WORKLOAD: dict[str, Any] = {}
 
@@ -106,13 +111,16 @@ def _measure(
 	name: str,
 	pattern: str,
 	block: int,
-	depth: int
+	depth: int,
+	size: int = 0
 ) -> dict[str, Any]:
 	params = fio.params
+	writes = pattern == 'write'
+	options = ['--end_fsync=1', f'--size={size}'] if writes else ['--readonly']
 	completed = subprocess.run(
 		[
-			params['fio'], f'--name={name}', f'--filename={path}',
-			'--readonly', f'--rw={pattern}', f'--bs={block}',
+			params['fio'], f'--name={name}', f'--filename={path}', *options,
+			f'--rw={pattern}', f'--bs={block}',
 			f'--iodepth={depth}', f'--ioengine={params["ioengine"]}',
 			f'--direct={int(bool(params["direct"]))}', '--time_based',
 			f'--runtime={params["runtime_s"]}', '--output-format=json',
@@ -124,7 +132,8 @@ def _measure(
 		raise RuntimeError(f"fio failed on {name}: {message}")
 	# fio may print notes before its JSON.
 	output = completed.stdout
-	read = json.loads(output[output.index('{'):])['jobs'][0]['read']
+	job = json.loads(output[output.index('{'):])['jobs'][0]
+	read = job['write' if writes else 'read']
 	percentile = read['clat_ns']['percentile']
 	return {
 		f'{name}_bytes_per_s': read['bw_bytes'],
@@ -163,4 +172,13 @@ def run(
 		metrics.update(
 			_measure(reader, target, name, 'randread', block, depth)
 		)
+	if params['write_bytes']:
+		written = target.parent / f'ceiling-write-{started:.0f}'
+		try:
+			metrics.update(_measure(
+				reader, written, 'sequential_write', 'write', sequential,
+				params['sequential_depth'], params['write_bytes']
+			))
+		finally:
+			written.unlink(missing_ok=True)
 	return metrics

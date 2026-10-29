@@ -319,9 +319,13 @@ the readers.
 
 What the storage behind a dataset can deliver, measured with fio on its
 largest file, with direct I/O: sequential reads of 1 MiB at queue depth 16,
-and random reads of a particle's size at queue depths 1, 4, 16 and 64. Its
-"reader" is fio: `runtime_s` (10), `ioengine` (`libaio`), `direct`,
-`depths`, `sequential_block`, `sequential_depth`. It has no workload.
+and random reads of a particle's size at queue depths 1, 4, 16 and 64; then
+sequential writes of 1 MiB at queue depth 16 to a file of its own beside
+the dataset, synced at the end and removed after, the ceiling of the
+writers. Its "reader" is fio: `runtime_s` (10), `ioengine` (`libaio`),
+`direct`, `depths`, `sequential_block`, `sequential_depth`, `write_bytes`
+(1 GiB, the file written over and over; 0 writes nothing). It has no
+workload.
 
 ### `zarr`
 

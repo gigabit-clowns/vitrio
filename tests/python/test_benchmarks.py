@@ -102,12 +102,15 @@ def test_the_ceiling_is_measured(tmp_path):
 	harness(
 		'run', 'ceiling', '--datadir', str(tmp_path),
 		'--results', str(records_file), *DATASET, '--reader.runtime_s=1',
-		'--reader.depths=[1]', '--reader.ioengine=psync'
+		'--reader.depths=[1]', '--reader.ioengine=psync',
+		'--reader.write_bytes=1048576'
 	)
 	(record,) = results.load(records_file)
 	results.check(record)
 	assert record['status'] == 'ok', record['reason']
 	assert record['metrics']['random_qd1_iops'] > 0
+	assert record['metrics']['sequential_write_bytes_per_s'] > 0
+	assert not list(tmp_path.glob('**/ceiling-write-*'))
 
 def memory_limits_work():
 	if shutil.which('systemd-run') is None:

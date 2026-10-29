@@ -568,6 +568,10 @@ class Ceiling(VitrioBenchmark):
 	def sequential_bytes_per_s(self):
 		return self.metric('sequential_bytes_per_s')
 
+	@performance_function('B/s')
+	def sequential_write_bytes_per_s(self):
+		return self.metric('sequential_write_bytes_per_s')
+
 	@performance_function('IOPS')
 	def random_qd1_iops(self):
 		return self.metric('random_qd1_iops')
