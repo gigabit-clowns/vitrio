@@ -404,7 +404,9 @@ since the archive of a commit lacks its libraries, which are submodules.
   in memory, in the order of the system, in `zarr_chunk_store`, and stores
   each once all of it in the array is written, or when what is held passes
   `VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET`, or on a flush. A chunk is
-  written beside its file and renamed over it, a chunk of the fill value
+  written beside its file, synced, and renamed over it, so that the storage
+  works on it while the next chunks are encoded and a flush syncs the
+  metadata alone; a chunk of the fill value
   alone is not stored, and one written again after it was stored is read
   back first. The store records the core rank under `vitrio` in its
   attributes, so that it reads back as it was written.

@@ -367,6 +367,10 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 			);
 		}
 
+		// Synced before it is put in place, so that the file in place holds
+		// what was written whatever happens next, and so that the storage
+		// works on this chunk while the next ones are encoded: a flush that
+		// synced every chunk at the end left the storage idle until then.
 		create_image_file(written, encoded.size());
 		{
 			const writable_image_file file(written);
@@ -374,6 +378,10 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 			std::error_code failure;
 			const auto size = write_scattered(
 				file.get_file(), 0, make_span(&range, 1), failure);
+			if (!failure && size == encoded.size())
+			{
+				sync_file(file.get_file(), failure);
+			}
 			if (failure || size != encoded.size())
 			{
 				boost::filesystem::remove(written, error);
@@ -397,7 +405,6 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_stored.insert(chunk);
-		m_unsynced.insert(path);
 	}
 
 	// Stored: whoever finds it from now on reads it back.

@@ -121,12 +121,10 @@ TEST_CASE( "zarr_flush_operation stores the chunks held, then syncs",
 	REQUIRE( boost::filesystem::exists(fixture.path_of(1, 1)) );
 	REQUIRE( fixture.m_store->get_held_chunks().empty() );
 
-	// The metadata and both chunks, each in a task with an odd tag.
-	REQUIRE( fixture.m_tasks.size() == 3 );
-	for (const std::uint64_t tag : {1, 3, 5})
-	{
-		fixture.finish(operation, tag);
-	}
+	// The metadata alone, in a task with an odd tag: the chunks were synced
+	// as they were stored.
+	REQUIRE( fixture.m_tasks.size() == 1 );
+	fixture.finish(operation, 1);
 	REQUIRE( fixture.m_tasks.empty() );
 	REQUIRE( fixture.m_store->take_unsynced().empty() );
 }

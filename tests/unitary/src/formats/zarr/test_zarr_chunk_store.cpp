@@ -187,8 +187,7 @@ TEST_CASE( "zarr_chunk_store stores a chunk once all of it is written",
 	REQUIRE( fixture.file_of(0, 0) ==
 		std::vector<std::uint8_t>({100, 0, 101, 0, 102, 0, 103, 0}) );
 
-	const auto unsynced = fixture.m_store->take_unsynced();
-	REQUIRE( unsynced == std::vector<std::string>({fixture.path_of(0, 0)}) );
+	// A chunk is synced as it is stored, and leaves nothing for a flush.
 	REQUIRE( fixture.m_store->take_unsynced().empty() );
 }
 

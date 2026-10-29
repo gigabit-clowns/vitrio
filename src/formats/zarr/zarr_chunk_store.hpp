@@ -111,8 +111,9 @@ public:
 	void store(span<const std::size_t> chunk);
 
 	/**
-	 * @brief Take the files written since this was last called, which a
-	 * flush syncs.
+	 * @brief Take the files noted since this was last called, which a
+	 * flush syncs. The files of the chunks are synced as they are stored,
+	 * and are never among them.
 	 *
 	 * @return std::vector<std::string> Their paths.
 	 */
