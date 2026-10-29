@@ -212,6 +212,12 @@ def _run_point(
 			)
 		if hasattr(os, 'sched_getaffinity'):
 			record['environment']['usable_cpus'] = len(os.sched_getaffinity(0))
+		# What tunes vitrio from the environment, such as
+		# VITRIO_DISABLE_ASYNCHRONOUS_IO, which a campaign varies.
+		record['environment']['tuning'] = {
+			name: value for name, value in sorted(os.environ.items())
+			if name.startswith('VITRIO_') and not name.startswith('VITRIO_BENCH_')
+		}
 		if settings['memory_max'] is not None:
 			limit = environment.memory_limit()
 			record['environment']['memory_limit_bytes'] = limit

@@ -222,6 +222,34 @@ def test_an_arc_cap_needs_a_zfs_target(tmp_path):
 	assert 'ZFS' in record['reason']
 	assert record['environment']['arc_max'] == '1G'
 
+def test_a_run_records_what_tunes_vitrio_from_the_environment(tmp_path):
+	harness('generate', '--datadir', str(tmp_path), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	run(tmp_path, records_file, '--workload.verify=true')
+	environment_run = subprocess.run(
+		[sys.executable, '-m', 'vitrio_bench', 'run', 'read_batches',
+		'--datadir', str(tmp_path), '--results', str(records_file),
+		*DATASET, '--workload.verify=true'],
+		env={**os.environ, 'PYTHONPATH': os.pathsep.join(
+			[str(HARNESS), os.environ.get('PYTHONPATH', '')]
+		), 'VITRIO_DISABLE_ASYNCHRONOUS_IO': '1'},
+		check=True, capture_output=True, text=True, timeout=120
+	)
+	assert 'status ok' in environment_run.stdout
+	first, second = results.load(records_file)
+	assert 'VITRIO_DISABLE_ASYNCHRONOUS_IO' not in first['environment']['tuning']
+	assert second['environment']['tuning'] == {
+		'VITRIO_DISABLE_ASYNCHRONOUS_IO': '1'
+	}
+	# Read as a process without asynchronous ports does, the batches are
+	# the same.
+	assert first['metrics']['batch_hash'] == second['metrics']['batch_hash']
+
+@pytest.mark.skipif(sys.platform == 'win32', reason="ReFrame needs POSIX")
+def test_every_test_runs_without_asynchronous_transfers(tmp_path):
+	listed = list_reframe_tests(tmp_path, '-P', 'transfers=synchronous')
+	assert '%transfers=synchronous' in listed
+
 def test_bytes_are_read_as_systemd_states_them():
 	assert environment.parse_bytes('8G') == 8 << 30
 	assert environment.parse_bytes('512M') == 512 << 20

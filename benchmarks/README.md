@@ -76,6 +76,13 @@ reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
 - **One-off questions.** `-P` turns any parameter or variable of a test
   into a sweep from the command line, such as `-P cold=fadvise` or
   `-P cache=0,64 -P workers=4`, and `-S` sets one value.
+- **Without io_uring.** Every test takes `transfers`: `asynchronous`, the
+  default, or `synchronous`, which sets `VITRIO_DISABLE_ASYNCHRONOUS_IO`
+  so that vitrio reads and writes as a process without asynchronous ports
+  does, as in a container that forbids io_uring and on every platform
+  without it. `-P transfers=asynchronous,synchronous` measures both. The
+  record keeps the `VITRIO_*` variables the run had, as
+  `environment.tuning`.
 - **Your machine.** `reframe/config/workstation.py` reads it from the
   environment: `VITRIO_BENCH_FEATURES` lists what it can do (below),
   `VITRIO_BENCH_DATADIR` and `VITRIO_BENCH_SCRATCHDIR` where datasets and

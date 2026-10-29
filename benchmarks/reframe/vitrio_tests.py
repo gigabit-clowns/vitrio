@@ -89,6 +89,13 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 	#: never bounds the ARC. Empty for no cap. It needs the feature `root`.
 	arc_max = parameter([''], type=str)
 
+	#: How vitrio transfers files: `asynchronous`, through io_uring where
+	#: the kernel offers it, or `synchronous`, as a process without
+	#: asynchronous ports does, which is what a container that forbids
+	#: io_uring, and every platform without it, gets. It sets
+	#: `VITRIO_DISABLE_ASYNCHRONOUS_IO` for the run.
+	transfers = parameter(['asynchronous'], type=str)
+
 	procedure = ''
 	#: Whether the procedure writes its dataset rather than reading one.
 	writes = False
@@ -133,6 +140,11 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 			bool(self.arc_max) and 'root' not in partition.features,
 			"Capping the ARC needs the feature 'root'."
 		)
+		if self.transfers not in ('asynchronous', 'synchronous'):
+			raise ValueError(
+				"transfers is 'asynchronous' or 'synchronous', not "
+				f"{self.transfers!r}."
+			)
 
 	@run_before('run')
 	def set_command(self):
@@ -142,6 +154,8 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 		if os.environ.get('PYTHONPATH'):
 			paths.append(os.environ['PYTHONPATH'])
 		self.env_vars['PYTHONPATH'] = os.pathsep.join(paths)
+		if self.transfers == 'synchronous':
+			self.env_vars['VITRIO_DISABLE_ASYNCHRONOUS_IO'] = '1'
 
 		harness = [sys.executable, '-m', 'vitrio_bench']
 		dataset = self.dataset_options()
