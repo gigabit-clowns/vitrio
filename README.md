@@ -20,6 +20,9 @@ particle = vio.read(vio.ImageLocation.from_string("12@particles.mrcs"))
 tomogram = vio.read("tomogram.zarr")
 ```
 
+vitrio is young. Its API and ABI may change between minor releases until
+version 1.0.
+
 ## Highlights
 
 - **One interface for many formats.** The same calls read and write every
@@ -59,15 +62,6 @@ tomogram = vio.read("tomogram.zarr")
   format selector, even at run time. The library does not need to change,
   and every read and write can use the new format right away.
 
-## Status
-
-vitrio is young. Its API and ABI may change between minor releases until
-version 1.0.
-
-[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
-compares vitrio with other ways of reading and writing. Storage varies a
-lot from one machine to another, so it is best run on your own.
-
 ## Supported formats
 
 | Format | Extensions | Holds | Read | Write |
@@ -84,7 +78,8 @@ directory.
 
 An EER file holds the events a detector counted rather than images. They are
 read as they are, a stretch of time at a time, or counted into a movie of as
-many fractions as you ask for, after which the file is read like any other.
+many fractions as you ask for, after which the file is read like any other
+image.
 
 A read of an MRC file compressed with gzip inflates it from its start, so
 such a file is best read once, whole.
