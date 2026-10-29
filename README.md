@@ -70,19 +70,45 @@ lot from one machine to another, so it is best run on your own.
 
 ## Supported formats
 
-| Format | Read | Write | Extensions | Notes |
-|---|---|---|---|---|
-| MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading, and any of these compressed with gzip, such as `.map.gz` | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. A file compressed with gzip, as the EMDB holds its maps, is read but not written. |
-| TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
-| DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
-| ZARR | yes | yes | any: a directory; `.zarr` when writing | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c, alone or in shards; a chunk that is not stored reads as the fill value. Filters, other codecs and shards compressed whole are not read yet. Written as version 3 and, with two or three axes of space, an image of OME-Zarr 0.5 of one level: chunks of 1024 by 1024 of each image, or 128 cubed of each volume, compressed with blosc and zstd, and none written of a chunk that holds only zeros. Shards are not written yet. |
+| Format | Extensions | Read | Write | Holds | Data types |
+|---|---|---|---|---|---|
+| MRC | `.mrc`, `.mrcs`, `.map` | yes | yes | Images, volumes, stacks of either | 8- and 16-bit integers, 16- and 32-bit floats, complex |
+| TIFF | `.tif`, `.tiff` | yes | yes | Images, stacks | Integers and floats up to 64 bits, complex |
+| EER | `.eer` | yes | no | Movies | Electron events, rendered into counts |
+| DM (DigitalMicrograph) | `.dm3`, `.dm4` | yes | no | Images, stacks | Integers, floats, complex |
+| ZARR | a directory, `.zarr` when writing | yes | yes | Images, volumes, stacks | Booleans, integers, floats, complex |
+
+What each format allows beyond that:
+
+- **MRC.** Either byte order. Reading takes `.st`, `.rec` and `.ali` too, and
+  any of these extensions compressed with gzip, such as the `.map.gz` of the
+  EMDB. A compressed file is read but never written.
+- **TIFF.** Classic and BigTIFF, with one page or many.
+- **EER.** The events of an electron-counting detector, with compression
+  65000, 65001 or 65002. A file is read as a raw electron-event timeline, or
+  rendered into a movie of as many fractions as you ask for.
+- **DM.** Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark
+  references. Either byte order. Only the first image of a file is read, and
+  its thumbnail is skipped. Versions 2 and 5 are not read, and neither are
+  RGB or packed complex.
+- **ZARR, reading.** Versions 2 and 3, as a plain array or as an image of
+  OME-Zarr 0.4 or 0.5, whose finest level is read. Either byte order, C or F
+  order, and transposes. Chunks compressed with blosc, zstd, zlib or gzip,
+  and checked with crc32c, alone or in shards. A chunk that is not stored
+  reads as the fill value. Filters, other codecs and shards compressed whole
+  are not read yet.
+- **ZARR, writing.** Version 3, and an image of OME-Zarr 0.5 of one level
+  when two or three axes are of space. Chunks of 1024 by 1024 of each image,
+  or of 128 cubed of each volume, compressed with blosc and zstd. A chunk
+  that holds only zeros is not written. Shards are not written yet.
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. A ZARR array is recognized by the metadata in its
-directory. TIFF and EER go through libtiff, ZARR through nlohmann/json,
-c-blosc, zstd and zlib, and MRC compressed with gzip through zlib, and each
-can be left out of a build. More formats will follow.
+directory.
+
+TIFF and EER go through libtiff, ZARR through nlohmann/json, c-blosc, zstd
+and zlib, and MRC compressed with gzip through zlib. Each of them can be left
+out of a build.
 
 gzip can only be inflated from its start, so a read of an MRC file
 compressed with gzip inflates the file again from its start up to the last
@@ -103,6 +129,8 @@ written, which a file inside it changing does not change.
 A ZARR store written over a path replaces what is there only when it is a
 file or another ZARR store: a directory that holds anything else is refused
 and left as it is.
+
+More formats will follow.
 
 ## Installing
 
