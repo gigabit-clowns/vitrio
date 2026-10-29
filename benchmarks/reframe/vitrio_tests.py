@@ -71,8 +71,9 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 	#: A build tree to import vitrio from, instead of the installed one.
 	build_tree = variable(str, value='')
 
-	#: How the page cache is emptied before reading: `none`, `fadvise`, or
-	#: `drop`, which needs the feature `root`.
+	#: How the page cache is emptied before reading: `none`, `fadvise`,
+	#: `drop`, or `zfs`, which empties the ARC too. The last two need the
+	#: feature `root`.
 	cold = parameter(['none'], type=str)
 
 	#: The CPUs the run is pinned to, such as `0-3`. Empty for all.
@@ -82,6 +83,11 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 	#: it, such as `8G`. Empty for no limit. It needs the feature
 	#: `cgroup-memory`.
 	memory_max = parameter([''], type=str)
+
+	#: The most the ARC of ZFS may hold while the run goes, such as `8G`,
+	#: for a dataset on ZFS: what `memory_max` is to the page cache, which
+	#: never bounds the ARC. Empty for no cap. It needs the feature `root`.
+	arc_max = parameter([''], type=str)
 
 	procedure = ''
 	#: Whether the procedure writes its dataset rather than reading one.
@@ -123,6 +129,10 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 			and 'cgroup-memory' not in partition.features,
 			"A memory limit needs the feature 'cgroup-memory'."
 		)
+		self.skip_if(
+			bool(self.arc_max) and 'root' not in partition.features,
+			"Capping the ARC needs the feature 'root'."
+		)
 
 	@run_before('run')
 	def set_command(self):
@@ -143,6 +153,8 @@ class VitrioBenchmark(rfm.RunOnlyRegressionTest):
 			environment.append(f'--environment.cpus={self.cpus}')
 		if self.memory_max:
 			environment.append(f'--environment.memory_max={self.memory_max}')
+		if self.arc_max:
+			environment.append(f'--environment.arc_max={self.arc_max}')
 		if self.scratchdir:
 			environment.append(f'--environment.scratchdir={self.scratchdir}')
 		# ReFrame writes the options into a shell script as they are.
@@ -615,7 +627,7 @@ class Zarr(VitrioBenchmark):
 	@run_after('setup')
 	def check_store_cold(self):
 		self.skip_if(
-			self.store_cold == 'drop'
+			self.store_cold in ('drop', 'zfs')
 			and 'root' not in self.current_partition.features,
 			"Dropping every cached page needs the feature 'root'."
 		)

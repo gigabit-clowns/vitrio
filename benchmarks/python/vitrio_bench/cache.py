@@ -13,29 +13,39 @@ no client can drop.
 ZFS keeps what it reads in its ARC, apart from the page cache, and leaves it
 there whatever `POSIX_FADV_DONTNEED` or `drop_caches` ask. The mode `zfs`
 empties the ARC too, by shrinking it to its floor and giving it back its
-limits.
+limits, and `arc_capped` holds it under a limit while a run goes, which a
+memory limit of the run does not.
+
+What needs root, dropping every page and limiting the ARC, is done by
+`evict.py`, in this process when it is root and otherwise through `sudo -n`
+and a copy of that program an administrator owns, as benchmarks/README.md
+says. What each platform can do is kept apart there, and here for what
+needs no privilege: Linux drops the pages of a file with `posix_fadvise`,
+Windows by opening it unbuffered, and macOS has no call for one file.
 """
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
+import json
 import os
-import time
-from collections.abc import Sequence
+import shutil
+import subprocess
+import sys
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import numpy as np
 
-from .environment import Unavailable
+from . import evict as privileged_program
+from .environment import Unavailable, parse_bytes, target
 
 MODES = ('none', 'fadvise', 'drop', 'zfs')
 
-DROP_CACHES = Path('/proc/sys/vm/drop_caches')
-ARCSTATS = Path('/proc/spl/kstat/zfs/arcstats')
-ZFS_PARAMETERS = Path('/sys/module/zfs/parameters')
-# The least limits ZFS takes for its ARC.
-ARC_MIN_FLOOR = 32 << 20
-ARC_MAX_FLOOR = 64 << 20
+#: The copy of `evict.py` an administrator installs for `sudo -n`.
+HELPER = 'vitrio-bench-evict'
+HELPER_DIRECTORIES = ('/usr/local/sbin', '/usr/sbin', '/sbin')
 
 def evict(paths: Sequence[str | Path], mode: str) -> dict | None:
 	"""
@@ -71,93 +81,172 @@ def evict(paths: Sequence[str | Path], mode: str) -> dict | None:
 		os.sync()
 
 	if mode == 'fadvise':
-		if not hasattr(os, 'posix_fadvise'):
-			raise Unavailable("This system has no posix_fadvise.")
+		_forget_files(paths)
+	elif mode == 'drop':
+		privileged('drop')
+	else:
+		return privileged('zfs')
+	return None
+
+def _forget_files(paths: Sequence[str | Path]) -> None:
+	"""Drop the pages of some files, as this platform does it."""
+	if sys.platform in ('win32', 'cygwin'):
+		_forget_files_unbuffered(paths)
+	elif sys.platform == 'darwin':
+		raise Unavailable(
+			"macOS has no call that drops the pages of one file. Use 'drop', "
+			"which runs purge, as root."
+		)
+	elif not hasattr(os, 'posix_fadvise'):
+		raise Unavailable("This system has no posix_fadvise.")
+	else:
 		for path in paths:
 			descriptor = os.open(path, os.O_RDONLY)
 			try:
 				os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
 			finally:
 				os.close(descriptor)
-	elif mode == 'drop':
-		_drop_caches(3)
-	else:
-		return _empty_arc()
-	return None
 
-def _drop_caches(what: int) -> None:
-	try:
-		DROP_CACHES.write_text(f'{what}\n', encoding='ascii')
-	except OSError as error:
-		raise Unavailable(
-			"Dropping every cached page needs root. Use 'fadvise' instead."
-		) from error
-
-def _read_arcstats() -> dict[str, int] | None:
-	try:
-		lines = ARCSTATS.read_text(encoding='ascii').splitlines()[2:]
-	except OSError:
-		return None
-	stats = {}
-	for line in lines:
-		fields = line.split()
-		if len(fields) == 3 and fields[2].lstrip('-').isdigit():
-			stats[fields[0]] = int(fields[2])
-	return stats
-
-def _write_parameter(name: str, value: int) -> None:
-	(ZFS_PARAMETERS / name).write_text(f'{value}\n', encoding='ascii')
-
-def _empty_arc(timeout: float = 30.0) -> dict:
+def _forget_files_unbuffered(paths: Sequence[str | Path]) -> None:
 	"""
-	Drop the page cache and empty the ARC: lower its limits to their floor,
-	drop the caches, which calls the ARC's shrinker, until it reaches the
-	floor or stops shrinking, then give it back the limits it had.
+	Open each file unbuffered and close it, on Windows, where that purges
+	what the cache held of a file nothing else has open.
 	"""
-	stats = _read_arcstats()
-	if stats is None:
-		raise Unavailable("There is no ARC to empty: ZFS is not loaded.")
-	parameters = {
-		name: int((ZFS_PARAMETERS / name).read_text(encoding='ascii'))
-		for name in ('zfs_arc_min', 'zfs_arc_max')
-	}
-	if parameters['zfs_arc_max'] == ARC_MAX_FLOOR:
-		raise Unavailable(
-			"zfs_arc_max is at the floor an emptying of the ARC sets, so an "
-			"earlier one was interrupted. Give it back its limit first."
+	kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+	kernel32.CreateFileW.restype = ctypes.c_void_p
+	kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+	generic_read = 0x80000000
+	share_read_write = 0x3
+	open_existing = 3
+	no_buffering = 0x20000000
+	invalid = ctypes.c_void_p(-1).value
+	for path in paths:
+		handle = kernel32.CreateFileW(
+			str(path), generic_read, share_read_write, None, open_existing,
+			no_buffering, None
 		)
-	if not os.access(ZFS_PARAMETERS / 'zfs_arc_max', os.W_OK):
-		raise Unavailable("Emptying the ARC needs root.")
+		if handle == invalid:
+			raise OSError(
+				ctypes.get_last_error(), f"Cannot open {path} unbuffered."
+			)
+		kernel32.CloseHandle(handle)
 
-	started = time.monotonic()
+def _has_privilege() -> bool:
+	if hasattr(os, 'geteuid'):
+		return os.geteuid() == 0
 	try:
-		_write_parameter('zfs_arc_min', ARC_MIN_FLOOR)
-		_write_parameter('zfs_arc_max', ARC_MAX_FLOOR)
-		_drop_caches(3)
-		least = _read_arcstats()['size']
-		steady_since = time.monotonic()
-		deadline = steady_since + timeout
-		while least > 2 * ARC_MAX_FLOOR and time.monotonic() < deadline:
-			time.sleep(0.5)
-			size = _read_arcstats()['size']
-			if size < least * 0.99:
-				steady_since = time.monotonic()
-			elif time.monotonic() - steady_since > 3.0:
-				break
-			least = min(least, size)
-			_drop_caches(2)
+		return bool(ctypes.windll.shell32.IsUserAnAdmin())
+	except (AttributeError, OSError):
+		return False
+
+def _find_helper() -> str | None:
+	path = os.pathsep.join([os.environ.get('PATH', ''), *HELPER_DIRECTORIES])
+	return shutil.which(HELPER, path=path)
+
+def privileged(*command: str) -> dict | None:
+	"""
+	Carry out a command of `evict.py`, which needs root: in this process
+	when it is root, and otherwise through `sudo -n` and the copy of it an
+	administrator installed as `vitrio-bench-evict`.
+
+	Returns:
+		What the command reports.
+
+	Raises:
+		Unavailable: If neither is possible, or the command cannot be
+			carried out here.
+	"""
+	if _has_privilege():
+		try:
+			return privileged_program.run(list(command))
+		except privileged_program.Error as error:
+			raise Unavailable(str(error)) from error
+	if sys.platform in ('win32', 'cygwin'):
+		raise Unavailable(
+			f"{' '.join(command)} needs an administrator: run as one."
+		)
+	helper = _find_helper()
+	sudo = shutil.which('sudo')
+	if helper is None or sudo is None:
+		raise Unavailable(
+			f"{' '.join(command)} needs root, or {HELPER} installed for "
+			"sudo -n, as benchmarks/README.md says. Use 'fadvise' instead."
+		)
+	completed = subprocess.run(
+		[sudo, '-n', helper, *command],
+		capture_output=True, text=True, timeout=180, check=False
+	)
+	if completed.returncode != 0:
+		raise Unavailable(
+			f"{helper} {' '.join(command)} failed: "
+			f"{completed.stderr.strip() or completed.stdout.strip()}"
+		)
+	return json.loads(completed.stdout) if completed.stdout.strip() else None
+
+def arc_size() -> int | None:
+	"""The bytes the ARC of ZFS holds, or None where there is none."""
+	stats = privileged_program.read_arcstats()
+	return stats['size'] if stats else None
+
+def arc_c_max() -> int | None:
+	"""The most the ARC of ZFS may hold now, or None where there is none."""
+	stats = privileged_program.read_arcstats()
+	return stats['c_max'] if stats else None
+
+def warnings(mode: str, storage: dict) -> list[str]:
+	"""
+	What a cold mode does not do on the storage of a dataset, as
+	`environment.target` describes it.
+	"""
+	if storage.get('filesystem') == 'zfs' and mode in ('fadvise', 'drop'):
+		return [
+			f"cold={mode} drops nothing of a dataset on ZFS, whose ARC keeps "
+			"what it read apart from the page cache; residency is measured "
+			"in the page cache alone. Use cold=zfs."
+		]
+	return []
+
+@contextlib.contextmanager
+def arc_capped(
+	limit: str | int | None,
+	datadir: str | Path
+) -> Iterator[dict | None]:
+	"""
+	Hold the ARC of ZFS under a limit while the body runs, and give it back
+	its limits after, whatever the body did.
+
+	Args:
+		limit: The most the ARC may hold, in bytes, or as systemd states
+			them, such as `8G`. None caps nothing.
+		datadir: Where the dataset is, which must be on ZFS.
+
+	Yields:
+		What the cap reports: the limits given back later, and `c_max`.
+
+	Raises:
+		Unavailable: If the data directory is not on ZFS, or the ARC cannot
+			be capped here.
+	"""
+	if limit is None:
+		yield None
+		return
+	storage = target(datadir)
+	if storage.get('filesystem') != 'zfs':
+		raise Unavailable(
+			"A cap of the ARC applies to a dataset on ZFS, and "
+			f"{storage.get('path', datadir)} is on "
+			f"{storage.get('filesystem', 'an unknown file system')}."
+		)
+	capped = privileged('arc-max', str(parse_bytes(limit)))
+	try:
+		yield capped
 	finally:
-		# The limits it worked with first, in bytes: a parameter of zero,
-		# which leaves ZFS its own, may not take effect again by itself.
-		_write_parameter('zfs_arc_max', stats['c_max'])
-		_write_parameter('zfs_arc_min', stats['c_min'])
-		_write_parameter('zfs_arc_max', parameters['zfs_arc_max'])
-		_write_parameter('zfs_arc_min', parameters['zfs_arc_min'])
-	return {
-		'arc_bytes_before': stats['size'],
-		'arc_bytes_at_floor': least,
-		'seconds': time.monotonic() - started,
-	}
+		before = capped['before']
+		privileged(
+			'arc-restore', *(str(before[name]) for name in (
+				'c_min', 'c_max', 'zfs_arc_min', 'zfs_arc_max'
+			))
+		)
 
 def _load_libc():
 	try:

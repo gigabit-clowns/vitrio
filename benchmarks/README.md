@@ -18,7 +18,7 @@ and campaigns of runs are left to ReFrame.
 | `python/vitrio_bench/zarr_libraries/` | The libraries the procedure `zarr` writes and reads stores with: vitrio's, zarr-python and tensorstore |
 | `cpp/` | The C++ benchmark of the engine that moves images between a file and an array, with Google Benchmark |
 | `reframe/` | The ReFrame tests: a base test per procedure, and its named sweeps |
-| `reframe/config/` | Example configurations of machines |
+| `reframe/config/` | Example configurations of machines: one partition, or one per storage |
 | `datasets/` | Manifests of real datasets: where to download them, and how to check them |
 
 The harness is not part of the package and is not built. CI runs none of
@@ -81,6 +81,20 @@ reframe -C benchmarks/reframe/config/workstation.py -c benchmarks/reframe \
   `VITRIO_BENCH_DATADIR` and `VITRIO_BENCH_SCRATCHDIR` where datasets and
   the copies readers make of them go, and `VITRIO_BENCH_BUILDSDIR` where
   the builds of vitrio that sweeps of its tuning macros compare are kept.
+- **Several storages.** `reframe/config/storages.py` makes a partition of
+  each storage to measure, named in `VITRIO_BENCH_STORAGES` as
+  `<name>=<datadir>`, separated by commas, and reads the rest as
+  `workstation.py` does, with `VITRIO_BENCH_<NAME>_FEATURES`,
+  `_SCRATCHDIR` and `_BUILDSDIR` for what one storage has instead. A
+  campaign then runs on one of them with `--system workstation:<name>`:
+
+  ```sh
+  export VITRIO_BENCH_STORAGES=nvme=/nvme/vitrio-bench,hdd=/data/vitrio-bench
+  export VITRIO_BENCH_SCRATCHDIR=/nvme/vitrio-scratch
+  export VITRIO_BENCH_HDD_FEATURES=root,cgroup-memory,fio
+  reframe -C benchmarks/reframe/config/storages.py -c benchmarks/reframe \
+  	--system workstation:hdd -n '^readers\b' -P cold=zfs ...
+  ```
 - **Tuning macros.** The sweeps `gap_cap` and `prefetch_budget` build vitrio
   once per value of a macro of `src/config.hpp`, with the fixture
   `VitrioBuild`, and run each point on its build. A build is kept between
@@ -101,7 +115,7 @@ left for the next. The point is given part by part, as
 | `dataset` | What is read, or written | `count`, `box`, `dtype`, `layout`, `seed`, `like` |
 | `reader` | Who reads it, or writes it, with which settings | `name`, and the reader's own (below), or the writer's |
 | `workload` | How it is read, or written | `order`, `batch`, `images`, `epochs`, `step_s`, `patch`, `patches`, `crowding`, `axis`, `sync`, `verify` |
-| `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `scratchdir` |
+| `environment` | Where, and in what state | `cold`, `cpus`, `memory_max`, `arc_max`, `scratchdir` |
 
 A value is read as JSON when it is valid JSON (`64`, `true`, `null`), and as
 text otherwise. Whatever is not given takes its default, and the record
@@ -126,8 +140,9 @@ can; a variant that asks for one its machine lacks is skipped.
 | Capability | Asked with | ReFrame feature |
 |---|---|---|
 | Drop the dataset's pages, and those of a reader's copies, from the cache, with `POSIX_FADV_DONTNEED` (Linux) | `--environment.cold=fadvise` | |
-| Drop every clean page of the machine (root) | `--environment.cold=drop` | `root` |
-| Drop every clean page of the machine and empty the ARC of ZFS, which keeps what ZFS reads apart from the page cache and ignores the other two (root) | `--environment.cold=zfs` | `root` |
+| Drop every clean page of the machine (root, or the helper) | `--environment.cold=drop` | `root` |
+| Drop every clean page of the machine and empty the ARC of ZFS, which keeps what ZFS reads apart from the page cache and ignores the other two (root, or the helper) | `--environment.cold=zfs` | `root` |
+| Cap the ARC of ZFS for the run, which a memory limit never bounds, so that a dataset on ZFS is larger than the memory (root, or the helper) | `--environment.arc_max=8G` | `root` |
 | Run on some CPUs only (Linux) | `--environment.cpus=0-3` | |
 | Limit the memory of the run, page cache included, with a scope of systemd | `--environment.memory_max=8G` | `cgroup-memory` |
 | Measure the storage's ceiling with fio | the procedure `ceiling` | `fio` |
@@ -135,7 +150,38 @@ can; a variant that asks for one its machine lacks is skipped.
 - **Cold runs.** After the cache is dropped, how much of the files is still
   cached is measured with `mincore` and recorded as `residency`. On NFS or
   a parallel file system that empties the client's cache only. The server
-  keeps its own, which only someone with access to it can empty.
+  keeps its own, which only someone with access to it can empty. On ZFS
+  `mincore` sees the page cache alone, and not the ARC, where ZFS keeps
+  what it read: `fadvise` and `drop` leave a dataset there, so such a run
+  warns, and the record keeps the warning under `warnings`. The record's
+  `arc_bytes` is what the ARC held when the run started reading; after
+  `cold=zfs` it is near the floor.
+- **Root without running as root.** What needs root, dropping every page
+  and limiting the ARC, is `python/vitrio_bench/evict.py`, a program of
+  its own that imports nothing of the package, so that a copy owned by
+  root can do it on the harness's behalf. An administrator installs it
+  once, and lets the user run that copy alone, without a password:
+
+  ```sh
+  sudo install -o root -g root -m 755 \
+  	benchmarks/python/vitrio_bench/evict.py /usr/local/sbin/vitrio-bench-evict
+  echo '<user> ALL=(root) NOPASSWD: /usr/local/sbin/vitrio-bench-evict' \
+  	| sudo tee /etc/sudoers.d/vitrio-bench
+  ```
+
+  The harness runs it through `sudo -n` when it is not root, and a run
+  that asks for `drop`, `zfs` or `arc_max` fails, saying so, when neither
+  is possible. With it installed the machine has the feature `root`.
+  Whoever may run it can drop the caches and shrink the ARC of the
+  machine, and nothing more. Reinstall it when `evict.py` changes.
+- **Platforms.** Linux does all of it. macOS drops its caches with
+  `purge` (`drop`, as root), has no call that drops the pages of one file
+  (`fadvise` fails, saying so), and the ARC of OpenZFS on it goes through
+  `sysctl`, which is not done yet. Windows drops the pages of the files
+  alone (`fadvise`, by opening each unbuffered), has no call that drops
+  every page, and runs what needs privilege as an administrator only. A
+  platform that cannot do what a run asks fails the run and names what
+  would, rather than measuring in silence.
 - **Memory limits.** A limited run is the same command run again in the
   scope, which records the limit it found and the most memory the scope
   held (`cgroup_memory_peak_bytes`). A run the limit kills cannot record
@@ -144,9 +190,15 @@ can; a variant that asks for one its machine lacks is skipped.
   it, so a limited run should be a cold one.
 - **The ARC.** Emptying it lowers its limits to their floor, drops the
   caches until it gets there or stops shrinking, and gives it back the
-  limits it had; the record keeps what it held before and after, as
-  `emptied`. A run killed half way leaves the limits low, which the next
-  one refuses to start from.
+  limits it had; the record keeps what it held before, at the floor and
+  after, as `emptied`. A run killed half way leaves the limits low, which
+  the next one refuses to start from: give them back with
+  `vitrio-bench-evict arc-restore`, or by writing the parameters. A cap,
+  `arc_max`, is set before the caches are dropped and given back after
+  the run, by the process that outlives a run a memory limit kills; the
+  record keeps it as `arc_max_bytes` and what the ARC may hold as
+  `arc_c_max_bytes`. On ZFS, larger than the memory means both: a memory
+  limit for the process and the page cache, and a cap for the ARC.
 - **Scratches in files.** The record describes the storage of the scratch
   directory, as `scratch_target`, and whether it is that of the dataset:
   the same disk, whatever the partition, or the same ZFS pool. A scratch
@@ -356,6 +408,7 @@ the defaults do not account for.
 | `workers` | `read_batches` | **H1**: a batch is read with one task per file, so a batch from one stack runs on one thread whatever the pool's size, unless batches are read ahead. **H4**: the pool's size that suits the storage need not be the number of cores the loader takes by default, which is the machine's and not the process's |
 | `cache` | `read_batches` | **H3**: `vio.loader` keeps no open readers by default and opens a file for every batch that reads from it, while the loader `vio.data` shares keeps 64. What is each worth for each layout? |
 | `dtype` | `read_batches` | Reading fewer bytes: float16 or int16 on disk, delivered as float32 |
+| `micrographs` | `read_batches` | Whole micrographs read one after another, as pickers read them, by every reader that reads a file whole, a micrograph a batch and four at once |
 | `scratch` | `epochs` | **H2**: a scratch is opened through the file it copies, so without a cache every batch still opens its files. **H5**: a scratch takes in the runs of a file one after another, so filling it from one stack is serial |
 | `run_length` | `epochs` | How many particles of a file a scratch should take in together |
 | `larger_than_ram` | `epochs` | **H6**: past the memory, a file scratch is read as vitrio reads a stack. Does it read no more than reading the stack does? |

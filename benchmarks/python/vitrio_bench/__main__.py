@@ -48,6 +48,7 @@ ENVIRONMENT = {
 	'cold': 'none',
 	'cpus': None,
 	'memory_max': None,
+	'arc_max': None,
 	'scratchdir': None,
 }
 
@@ -174,6 +175,26 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		record['status'] = 'failed'
 		record['reason'] = str(error)
 		return _finish(args.results, record)
+	if settings['arc_max'] is None or os.environ.get(SCOPED):
+		return _run_point(args, parts, settings, record)
+
+	# The ARC is capped by the outermost process, which outlives a run a
+	# memory limit kills, so that the cap is given back whatever happens.
+	try:
+		with cache.arc_capped(settings['arc_max'], args.datadir):
+			return _run_point(args, parts, settings, record)
+	except environment.Unavailable as error:
+		record['environment'] = dict(settings)
+		record['status'] = 'failed'
+		record['reason'] = f"{type(error).__name__}: {error}"
+		return _finish(args.results, record)
+
+def _run_point(
+	args: argparse.Namespace,
+	parts: dict[str, dict[str, Any]],
+	settings: dict[str, Any],
+	record: dict[str, Any]
+) -> int:
 	if settings['memory_max'] is not None and not os.environ.get(SCOPED):
 		return _within_memory_limit(args, parts, str(settings['memory_max']))
 
@@ -198,6 +219,11 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 				raise environment.Unavailable(
 					"A memory limit was asked for, and none applies."
 				)
+		if settings['arc_max'] is not None:
+			record['environment']['arc_max_bytes'] = environment.parse_bytes(
+				settings['arc_max']
+			)
+			record['environment']['arc_c_max_bytes'] = cache.arc_c_max()
 		environment.raise_open_file_limit()
 
 		spec = datasets.make_spec(parts['dataset'])
@@ -226,9 +252,11 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		})
 		record['build'] = environment.build()
 
-		# A scratch on the storage of the data it copies only adds work, so
-		# no one would keep one there: its numbers say nothing of what a
-		# scratch is worth, and the run says so.
+		# What the run was told it does not measure well: a scratch on the
+		# storage of the data it copies only adds work, so no one would keep
+		# one there, and a cold mode that leaves the data cached. The record
+		# keeps the warnings, so that it says what its run was told.
+		warnings = cache.warnings(settings['cold'], target)
 		if scratchdir is not None:
 			Path(scratchdir).mkdir(parents=True, exist_ok=True)
 			shared = environment.shares_storage(scratchdir, dataset.path)
@@ -237,13 +265,16 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 				'shares_storage': shared,
 			}
 			if shared:
-				print(
-					"warning: the scratch directory is on the storage of the "
-					"dataset, where a scratch only copies what is there. Put "
-					"it on storage faster than the dataset's for numbers that "
-					"say what a scratch is worth.",
-					file=sys.stderr
+				warnings.append(
+					"the scratch directory is on the storage of the dataset, "
+					"where a scratch only copies what is there. Put it on "
+					"storage faster than the dataset's for numbers that say "
+					"what a scratch is worth."
 				)
+		for warning in warnings:
+			print(f"warning: {warning}", file=sys.stderr)
+		if warnings:
+			record['environment']['warnings'] = warnings
 
 		reason = reader.unavailable()
 		if reason:
@@ -255,6 +286,7 @@ def run(args: argparse.Namespace, parts: dict[str, dict[str, Any]]) -> int:
 		if emptied is not None:
 			record['environment']['emptied'] = emptied
 		record['environment']['residency'] = cache.residency(cached)
+		record['environment']['arc_bytes'] = cache.arc_size()
 
 		nfs = target.get('filesystem', '').startswith('nfs')
 		nfs_before = nfs_read_bytes(target['mountpoint']) if nfs else None
@@ -331,8 +363,11 @@ def main(argv: list[str] | None = None) -> int:
 		print(dataset.path)
 		return 0
 	if args.command == 'cold':
-		cache.evict(args.paths, args.mode)
+		emptied = cache.evict(args.paths, args.mode)
+		if emptied is not None:
+			print(f"{PREFIX} emptied {json.dumps(emptied)}")
 		print(f"{PREFIX} residency {cache.residency(args.paths)}")
+		print(f"{PREFIX} arc_bytes {cache.arc_size()}")
 		return 0
 	if args.command == 'dataset':
 		if args.action == 'list':

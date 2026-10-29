@@ -219,6 +219,31 @@ def build() -> dict[str, Any]:
 	})
 	return record
 
+def parse_bytes(text: str | int) -> int:
+	"""
+	A number of bytes as systemd states them: plain, or with a suffix of
+	`K`, `M`, `G` or `T`, each a power of 1024, as in `8G` or `512M`.
+
+	Raises:
+		ValueError: If the text is none of that.
+	"""
+	if isinstance(text, int) and not isinstance(text, bool):
+		if text < 0:
+			raise ValueError(f"{text} is not a number of bytes.")
+		return text
+	stripped = str(text).strip()
+	scale = 1
+	for suffix, power in (('K', 1), ('M', 2), ('G', 3), ('T', 4)):
+		if stripped.upper().endswith(suffix):
+			stripped = stripped[:-1]
+			scale = 1024 ** power
+			break
+	if not stripped.isdigit():
+		raise ValueError(
+			f"{text!r} is not a number of bytes, such as 8G, 512M or 4096."
+		)
+	return int(stripped) * scale
+
 def set_cpus(cpus: str) -> list[int]:
 	"""
 	Run this process, and whatever it starts, on the CPUs a list such as

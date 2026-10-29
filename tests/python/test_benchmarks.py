@@ -7,6 +7,7 @@
 # examples. The harness needs psutil, and the baselines mrcfile; without
 # them the cases that need them are skipped.
 
+import ast
 import os
 import shutil
 import subprocess
@@ -25,7 +26,8 @@ HARNESS = BENCHMARKS / 'python'
 sys.path.insert(0, str(HARNESS))
 
 from vitrio_bench import (    # noqa: E402
-	datasets, manifests, readers, results, writers, zarr_libraries,
+	cache, datasets, environment, evict, manifests, readers, results, writers,
+	zarr_libraries,
 )
 
 DATASET = ['--dataset.count=120', '--dataset.box=16']
@@ -148,6 +150,86 @@ def test_a_cold_run_records_what_was_left_cached(tmp_path):
 	assert record['status'] == 'ok'
 	residency = record['environment']['residency']
 	assert residency is None or 0 <= residency <= 1
+	arc_bytes = record['environment']['arc_bytes']
+	assert arc_bytes is None or arc_bytes >= 0
+
+def test_the_evict_helper_stands_alone():
+	# A copy owned by root runs it, so it imports nothing of the package.
+	source = Path(evict.__file__)
+	tree = ast.parse(source.read_text(encoding='utf-8'))
+	imported = {
+		name.name.split('.')[0]
+		for node in ast.walk(tree) if isinstance(node, ast.Import)
+		for name in node.names
+	} | {
+		(node.module or '').split('.')[0]
+		for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+	}
+	assert all(node.level == 0 for node in ast.walk(tree)
+		if isinstance(node, ast.ImportFrom))
+	assert 'vitrio_bench' not in imported and 'vitrio' not in imported
+	assert imported <= set(sys.stdlib_module_names)
+	completed = subprocess.run(
+		[sys.executable, '-I', str(source), '--help'],
+		env={}, check=True, capture_output=True, text=True, timeout=60
+	)
+	assert 'arc-max' in completed.stdout
+	with pytest.raises(evict.Error, match='no command'):
+		evict.run(['arc-max'])
+	with pytest.raises(evict.Error, match='numbers of bytes'):
+		evict.run(['arc-max', 'much'])
+
+@pytest.mark.skipif(
+	hasattr(os, 'geteuid') and os.geteuid() == 0, reason="root needs no helper"
+)
+def test_a_privileged_mode_without_the_helper_says_so(monkeypatch):
+	monkeypatch.setattr(cache, '_find_helper', lambda: None)
+	with pytest.raises(environment.Unavailable, match=cache.HELPER):
+		cache.evict([], 'drop')
+	with pytest.raises(environment.Unavailable, match=cache.HELPER):
+		cache.evict([], 'zfs')
+
+@pytest.mark.parametrize('platform', ['darwin', 'win32', 'sunos5'])
+def test_what_a_platform_lacks_is_said_not_skipped(monkeypatch, platform):
+	# A platform that cannot do something says what would, and never does
+	# nothing in silence.
+	monkeypatch.setattr(sys, 'platform', platform)
+	with pytest.raises(evict.Error):
+		evict.system().arc_limits()
+	if platform != 'darwin':
+		with pytest.raises(evict.Error):
+			evict.system().drop_caches(3)
+	else:
+		with pytest.raises(environment.Unavailable, match='purge'):
+			cache.evict(['anything'], 'fadvise')
+	if platform == 'win32':
+		monkeypatch.setattr(cache, '_has_privilege', lambda: False)
+		with pytest.raises(environment.Unavailable, match='administrator'):
+			cache.privileged('drop')
+
+def test_an_arc_cap_needs_a_zfs_target(tmp_path):
+	if environment.target(tmp_path).get('filesystem') == 'zfs':
+		pytest.skip("the temporary directory is on ZFS")
+	harness('generate', '--datadir', str(tmp_path), *DATASET)
+	records_file = tmp_path / 'results.jsonl'
+	completed = run(
+		tmp_path, records_file, '--environment.arc_max=1G', check=False
+	)
+	assert completed.returncode == 1
+	(record,) = results.load(records_file)
+	results.check(record)
+	assert record['status'] == 'failed'
+	assert 'ZFS' in record['reason']
+	assert record['environment']['arc_max'] == '1G'
+
+def test_bytes_are_read_as_systemd_states_them():
+	assert environment.parse_bytes('8G') == 8 << 30
+	assert environment.parse_bytes('512M') == 512 << 20
+	assert environment.parse_bytes(' 4096 ') == 4096
+	assert environment.parse_bytes(4096) == 4096
+	for bad in ('8 GB', '-1', 'much', '1.5G'):
+		with pytest.raises(ValueError):
+			environment.parse_bytes(bad)
 
 def test_a_parameter_a_reader_lacks_fails_the_run(tmp_path):
 	harness('generate', '--datadir', str(tmp_path), *DATASET)
@@ -171,18 +253,22 @@ def find_reframe():
 	beside = Path(sys.executable).parent / 'reframe'
 	return str(beside) if beside.exists() else shutil.which('reframe')
 
-def list_reframe_tests(tmp_path, *options):
+def reframe_lists(tmp_path, *options, config='workstation.py', env=None):
 	reframe = find_reframe()
 	if reframe is None:
 		pytest.skip("ReFrame is not installed")
-	completed = subprocess.run(
+	return subprocess.run(
 		[
-			reframe, '-C', str(BENCHMARKS / 'reframe/config/workstation.py'),
+			reframe, '-C', str(BENCHMARKS / 'reframe/config' / config),
 			'-c', str(BENCHMARKS / 'reframe'), '-l', *options,
 		],
-		cwd=tmp_path, check=True, capture_output=True, text=True,
-		timeout=300
+		cwd=tmp_path, check=False, capture_output=True, text=True,
+		timeout=300, env=env
 	)
+
+def list_reframe_tests(tmp_path, *options, **how):
+	completed = reframe_lists(tmp_path, *options, **how)
+	assert completed.returncode == 0, completed.stdout + completed.stderr
 	# ReFrame skips a test file it cannot load with a warning, not an error.
 	assert 'skipping test file' not in completed.stdout
 	assert 'Found 0 check(s)' not in completed.stdout
@@ -208,6 +294,21 @@ def test_every_reframe_parameter_takes_values_from_the_command_line(tmp_path):
 		for option in ('-P', parameter)
 	]
 	list_reframe_tests(tmp_path, *options)
+
+@pytest.mark.skipif(sys.platform == 'win32', reason="ReFrame needs POSIX")
+def test_a_storage_is_a_partition(tmp_path):
+	storages = f"a={tmp_path / 'a'},b-side={tmp_path / 'b'}"
+	env = {**os.environ, 'VITRIO_BENCH_STORAGES': storages}
+	listed = list_reframe_tests(
+		tmp_path, '--system', 'workstation:b-side', config='storages.py',
+		env=env
+	)
+	assert 'readers' in listed
+	unset = {key: value for key, value in os.environ.items()
+		if key != 'VITRIO_BENCH_STORAGES'}
+	completed = reframe_lists(tmp_path, config='storages.py', env=unset)
+	assert completed.returncode != 0
+	assert 'VITRIO_BENCH_STORAGES' in completed.stdout + completed.stderr
 
 VOLUME = ['--dataset.count=20', '--dataset.box=24']
 
