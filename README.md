@@ -75,7 +75,7 @@ lot from one machine to another, so it is best run on your own.
 | MRC | `.mrc`, `.mrcs`, `.map`, `.st`, `.rec`, `.ali`, and any of these compressed with gzip, such as `.map.gz` | Images, volumes, stacks of either | All of them, in either byte order. 8- and 16-bit integers, 16- and 32-bit floats, 64-bit complex | `.mrc`, `.mrcs` and `.map`, never compressed. The same data types |
 | TIFF | `.tif`, `.tiff` | Images, stacks | Classic and BigTIFF, with one page or many. 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Classic, or BigTIFF when the images would not fit one. Both extensions, and the same data types |
 | EER | `.eer` | Movies | Compression 65000, 65001 and 65002. Electron events, read as a timeline or counted into images | Not written |
-| DM (DigitalMicrograph) | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
+| DigitalMicrograph | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
 | ZARR | a directory of any name, `.zarr` when writing | Images, volumes, stacks | Versions 2 and 3, and OME-Zarr 0.4 and 0.5, in either byte order. Booleans, 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Version 3, and OME-Zarr 0.5. The same data types |
 
 A word more on some of them:
@@ -89,9 +89,9 @@ A word more on some of them:
   counts the events into those images as it reads. Read that way, an EER
   file goes through the same `read` as an MRC or a TIFF, with the same
   regions, batches and conversions.
-- **DM.** Versions 3 and 4 are what Gatan Microscopy Suite writes gain and
-  dark references in. Only the first image of a file is read, and its
-  thumbnail is skipped.
+- **DigitalMicrograph.** Versions 3 and 4 are what Gatan Microscopy Suite
+  writes gain and dark references in. Only the first image of a file is
+  read, and its thumbnail is skipped.
 - **ZARR, reading.** An array, or an image of OME-Zarr, whose finest level is
   read. C or F order, and transposes. Chunks compressed with blosc, zstd,
   zlib or gzip, and checked with crc32c, alone or in shards. A chunk that is
