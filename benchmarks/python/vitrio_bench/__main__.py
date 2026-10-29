@@ -252,11 +252,13 @@ def _run_point(
 		})
 		record['build'] = environment.build()
 
-		# What the run was told it does not measure well: a scratch on the
-		# storage of the data it copies only adds work, so no one would keep
-		# one there, and a cold mode that leaves the data cached. The record
-		# keeps the warnings, so that it says what its run was told.
+		# What the run was told it does not measure well: a cold mode that
+		# leaves the data cached, and a scratch on the storage of the data
+		# it copies, which only adds work, so no one would keep one there.
+		# The record keeps the warnings, so that it says what its run was
+		# told. Whether the reader kept copies is known once it has run.
 		warnings = cache.warnings(settings['cold'], target)
+		shared = False
 		if scratchdir is not None:
 			Path(scratchdir).mkdir(parents=True, exist_ok=True)
 			shared = environment.shares_storage(scratchdir, dataset.path)
@@ -264,17 +266,6 @@ def _run_point(
 				**environment.target(scratchdir),
 				'shares_storage': shared,
 			}
-			if shared:
-				warnings.append(
-					"the scratch directory is on the storage of the dataset, "
-					"where a scratch only copies what is there. Put it on "
-					"storage faster than the dataset's for numbers that say "
-					"what a scratch is worth."
-				)
-		for warning in warnings:
-			print(f"warning: {warning}", file=sys.stderr)
-		if warnings:
-			record['environment']['warnings'] = warnings
 
 		reason = reader.unavailable()
 		if reason:
@@ -297,6 +288,17 @@ def _run_point(
 			)
 		if settings['memory_max'] is not None:
 			metrics['cgroup_memory_peak_bytes'] = environment.memory_peak()
+		if shared and reader.uses_scratchdir:
+			warnings.append(
+				"the scratch directory is on the storage of the dataset, "
+				"where a scratch only copies what is there. Put it on "
+				"storage faster than the dataset's for numbers that say "
+				"what a scratch is worth."
+			)
+		for warning in warnings:
+			print(f"warning: {warning}", file=sys.stderr)
+		if warnings:
+			record['environment']['warnings'] = warnings
 
 		record['reader'] = reader.describe()
 		record['metrics'] = metrics
