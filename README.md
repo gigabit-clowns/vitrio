@@ -75,60 +75,19 @@ lot from one machine to another, so it is best run on your own.
 | MRC | `.mrc`, `.mrcs`, `.map`, `.st`, `.rec`, `.ali`, and any of these compressed with gzip, such as `.map.gz` | Images, volumes, stacks of either | All of them, in either byte order. 8- and 16-bit integers, 16- and 32-bit floats, 64-bit complex | `.mrc`, `.mrcs` and `.map`, never compressed. The same data types |
 | TIFF | `.tif`, `.tiff` | Images, stacks | Classic and BigTIFF, with one page or many. 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Classic, or BigTIFF when the images would not fit one. Both extensions, and the same data types |
 | EER | `.eer` | Movies | Compression 65000, 65001 and 65002. Electron events, read as a timeline or counted into images | Not written |
-| DigitalMicrograph | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
-| ZARR | a directory of any name, `.zarr` when writing | Images, volumes, stacks | Versions 2 and 3, and OME-Zarr 0.4 and 0.5, in either byte order. Booleans, 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Version 3, and OME-Zarr 0.5. The same data types |
-
-A word more on some of them:
-
-- **EER.** An EER file holds the events the detector counted, not images,
-  and vitrio reads it in either of two ways. One hands over the timeline as
-  it is, a stretch of time at a time: the timestamp and the subpixel
-  position of every event. The other,
-  `detector_event_image_reader_provider`, is told how many fractions to cut
-  the movie into and how many pixels of the detector a pixel gathers, and
-  counts the events into those images as it reads. Read that way, an EER
-  file goes through the same `read` as an MRC or a TIFF, with the same
-  regions, batches and conversions.
-- **DigitalMicrograph.** Versions 3 and 4 are what Gatan Microscopy Suite
-  writes gain and dark references in. Only the first image of a file is
-  read, and its thumbnail is skipped.
-- **ZARR, reading.** An array, or an image of OME-Zarr, whose finest level is
-  read. C or F order, and transposes. Chunks compressed with blosc, zstd,
-  zlib or gzip, and checked with crc32c, alone or in shards. A chunk that is
-  not stored reads as the fill value. Filters, other codecs and shards
-  compressed whole are not read yet.
-- **ZARR, writing.** An array, and an image of OME-Zarr 0.5 of one level when
-  two or three axes are of space. Chunks of 1024 by 1024 of each image, or of
-  128 cubed of each volume, compressed with blosc and zstd. A chunk that
-  holds only zeros is not written. Shards are not written yet.
+| DigitalMicrograph | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order, and only the first image of a file. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
+| ZARR | a directory of any name, `.zarr` when writing | Images, volumes, stacks | Versions 2 and 3, and OME-Zarr 0.4 and 0.5, in either byte order. Booleans, 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex. Chunks compressed with blosc, zstd, zlib or gzip, alone or in shards | Version 3, and OME-Zarr 0.5. The same data types. Chunks compressed with blosc and zstd, never in shards |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. A ZARR array is recognized by the metadata in its
 directory.
 
-TIFF and EER go through libtiff, ZARR through nlohmann/json, c-blosc, zstd
-and zlib, and MRC compressed with gzip through zlib. Each of them can be left
-out of a build.
+An EER file holds the events a detector counted rather than images. They are
+read as they are, a stretch of time at a time, or counted into a movie of as
+many fractions as you ask for, after which the file is read like any other.
 
-gzip can only be inflated from its start, so a read of an MRC file
-compressed with gzip inflates the file again from its start up to the last
-value it needs, and keeps nothing between reads: such a file is usually read
-once, whole. Reading the images of a large compressed stack one at a time
-inflates everything before each of them, and is best done from the file
-decompressed instead.
-
-ZARR does not say whether three axes are a volume or a stack of images. The
-axes of OME-Zarr say which are of space, and a stack is told apart from a
-volume by levels of resolution that never scale its first axis, as the tilt
-series of the CryoET Data Portal are stored. Without OME-Zarr, the names of
-the dimensions of version 3 decide, and otherwise up to three trailing axes
-are one image or volume. A scratch that holds the images of a ZARR array does
-not notice a chunk rewritten in place: it goes by when the directory was last
-written, which a file inside it changing does not change.
-
-A ZARR store written over a path replaces what is there only when it is a
-file or another ZARR store: a directory that holds anything else is refused
-and left as it is.
+A read of an MRC file compressed with gzip inflates it from its start, so
+such a file is best read once, whole.
 
 More formats will follow.
 
