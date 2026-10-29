@@ -279,8 +279,9 @@ depend on, so that a campaign measures both:
   as extraction and the steps that follow it read them. It sets the order
   and the batches itself, and takes neither;
 - `sparse` (the default): batches drawn across the images in the order of
-  the workload, a few patches of each image a batch, as a loop that crops
-  its patches as it goes would draw them.
+  the workload, a few patches of each image a batch, as the particles of a
+  tilt series are read, each a patch in every tilt image, and as a loop
+  that crops its patches as it goes would draw them.
 
 Its workload is that of `read_batches`, and `patch`, the side of a patch
 (128), `crowding`, and `patches`: 100 an image unless given, or as many as

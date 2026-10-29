@@ -11,8 +11,9 @@ In which order the patches are asked for is the crowding:
   extraction and the steps that follow it read them, the patches covering
   40% of an image unless told how many there are;
 - sparse: batches of patches drawn across the images in the order of the
-  workload, a few of each image a batch, as a loop that crops its patches
-  as it goes would draw them.
+  workload, a few of each image a batch, as the particles of a tilt series
+  are read, each a patch in every tilt image, and as a loop that crops its
+  patches as it goes would draw them.
 
 A batch of patches is read image by image: its rows are put in the order of
 their images, so that a reader that crops the patches of an image in one
