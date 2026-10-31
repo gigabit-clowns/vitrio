@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import os
 from collections import deque
-from collections.abc import Sequence
-from typing import Any, Protocol
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Protocol, TypeVar
 
 import numpy as np
 
@@ -131,6 +132,29 @@ def _as_location_array(locations: Any) -> np.ndarray:
 		flat[position] = _to_location(value)
 	return flat.reshape(array.shape)
 
+_T = TypeVar('_T')
+
+# How many files are asked at once. Asking one is mostly waiting for its
+# header, so many wait together; past this the file system queues them.
+_DESCRIBING_THREADS = 32
+
+def _describe_each(
+	describe: Callable[[ImageLocation], _T],
+	locations: Iterable[ImageLocation]
+) -> list[_T]:
+	"""
+	Describe locations, as `describe` does one, asking their files at once:
+	each is a header read, and a cold file system takes milliseconds for
+	one. What is raised for a location is raised again, for the first one
+	in order.
+	"""
+	locations = list(locations)
+	if len(locations) <= 1:
+		return [describe(location) for location in locations]
+	threads = min(_DESCRIBING_THREADS, len(locations))
+	with ThreadPoolExecutor(threads) as pool:
+		return list(pool.map(describe, locations))
+
 def _image_shape(
 	location: ImageLocation,
 	readers: ImageReaderProvider | None
@@ -163,8 +187,8 @@ class ImageSource:
 	locations of a row in front of the shape of one image.
 
 	Every location has to name an image of the same shape. The files are
-	asked for their shape when the source is made, each file once, and a
-	location that does not fit is reported then.
+	asked for their shape when the source is made, each file once and many
+	at a time, and a location that does not fit is reported then.
 	"""
 
 	def __init__(
@@ -227,8 +251,10 @@ class ImageSource:
 			):
 				last[group] = location
 
-		for location in last.values():
-			shape, _, stacked = _image_shape(location, readers)
+		described = _describe_each(
+			lambda location: _image_shape(location, readers), last.values()
+		)
+		for location, (shape, _, stacked) in zip(last.values(), described):
 			if shape != core:
 				raise ValueError(
 					f"{location} is of shape {shape}, and {first} of shape "
@@ -380,8 +406,11 @@ class PatchSource:
 		if readers is None:
 			readers = reader_provider()
 		file_type = None
-		for image in self._images if check else self._images[:1]:
-			extents, image_type, _ = _image_shape(image, readers)
+		images = self._images if check else self._images[:1]
+		described = _describe_each(
+			lambda image: _image_shape(image, readers), images
+		)
+		for image, (extents, image_type, _) in zip(images, described):
 			file_type = file_type or image_type
 			if len(extents) != rank:
 				raise ValueError(
