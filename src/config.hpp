@@ -17,6 +17,15 @@
 // scales with what one of its regions spans and is only capped here, so that
 // a gap wider than the data on either side of it is never bridged: a flat cap
 // would have two small regions far apart ask for many times what they hold.
+//
+// Where the cap should lie depends on the storage: a gap is worth bridging
+// while its bytes cost less than the request it saves, so the balance is
+// the bandwidth of the storage times the latency of one request. On a RAID
+// of hard disks under ZFS that is megabytes, and bridging the rows of a
+// patch of a micrograph read patches 1.4 to 2 times faster than reading
+// each row; on an NVMe drive it is tens of kibibytes, and patches of many
+// micrographs at once read twice as fast with no gap bridged. This cap
+// sits between, and is what the variable of the environment moves.
 #ifndef VITRIO_DEFAULT_PREFETCH_GAP_CAP
 	#define VITRIO_DEFAULT_PREFETCH_GAP_CAP (2UL<<16)
 #endif
