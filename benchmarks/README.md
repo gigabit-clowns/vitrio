@@ -352,7 +352,7 @@ the dataset, on the storage being measured, and removed after.
 | `patches` | 100 | |
 | `seed` | 0 | What decides the corners |
 | `cold` | `none` | How the store's pages are dropped before each read, as `--environment.cold` drops the dataset's |
-| `sync` | `true` | Whether a write lasts until what it wrote is on the storage, through `os.sync`. vitrio syncs every file it writes as it flushes; the others leave it to the system |
+| `sync` | `true` | Whether a write lasts until what it wrote is on the storage, through `os.sync`. vitrio syncs the files it writes, in batches as it goes and the rest as it flushes; the others leave it to the system |
 | `verify` | `false` | Check what is read against what was written, and hash it, outside what is timed |
 
 It reports `write_bytes_per_s`, `read_bytes_per_s`, `patches_per_s` and
