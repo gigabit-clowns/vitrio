@@ -133,6 +133,21 @@
 	#define VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET (1UL<<30)
 #endif
 
+// Bytes of chunks a writer of a ZARR array has stored since it last synced
+// them, past which it syncs them, all at once.
+//
+// What a sync costs is a commit of the storage's log, on ZFS of a whole
+// transaction group, and then the wait for the writeback of what is
+// pending, on ext4 of everything written so far. Chunks synced one by one
+// pay the commit for each, and chunks synced at the flush alone leave the
+// storage idle until then and wait for all of it at once. Synced together
+// in batches of this many bytes, with the next ones encoded meanwhile, the
+// commits are shared by the batch, the storage is busy from the first
+// batch on, and the flush waits for one batch at most.
+#ifndef VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET
+	#define VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET (1UL<<26)
+#endif
+
 // Compressed bytes a read of a gzip file reads at a time, which zlib then
 // inflates.
 //

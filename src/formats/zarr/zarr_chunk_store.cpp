@@ -90,12 +90,15 @@ std::vector<byte> read_file(const std::string &path)
 zarr_chunk_store::zarr_chunk_store(
 	std::string directory,
 	std::shared_ptr<const zarr_array_layout> layout,
-	std::size_t byte_budget
+	std::size_t byte_budget,
+	std::size_t sync_byte_budget
 )
 	: m_directory(std::move(directory))
 	, m_layout(std::move(layout))
 	, m_byte_budget(byte_budget)
+	, m_sync_byte_budget(sync_byte_budget)
 	, m_chunk_bytes(m_layout->get_chunk_layout().get_byte_size())
+	, m_unsynced_bytes(0)
 	, m_held_bytes(0)
 	, m_clock(0)
 	, m_partials(0)
@@ -226,15 +229,38 @@ void zarr_chunk_store::store(span<const std::size_t> chunk)
 std::vector<std::string> zarr_chunk_store::take_unsynced()
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	std::vector<std::string> paths(m_unsynced.begin(), m_unsynced.end());
+	return take_unsynced_locked();
+}
+
+std::vector<std::string> zarr_chunk_store::take_unsynced_past_budget()
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	if (m_unsynced_bytes < m_sync_byte_budget)
+	{
+		return {};
+	}
+
+	return take_unsynced_locked();
+}
+
+std::vector<std::string> zarr_chunk_store::take_unsynced_locked()
+{
+	std::vector<std::string> paths;
+	paths.reserve(m_unsynced.size());
+	for (const auto &file : m_unsynced)
+	{
+		paths.push_back(file.first);
+	}
 	m_unsynced.clear();
+	m_unsynced_bytes = 0;
+
 	return paths;
 }
 
 void zarr_chunk_store::add_unsynced(const std::string &path)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	m_unsynced.insert(path);
+	m_unsynced.emplace(path, 0);
 }
 
 void zarr_chunk_store::sync(const std::string &path)
@@ -331,7 +357,12 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_stored.erase(chunk);
-		m_unsynced.erase(path);
+		const auto unsynced = m_unsynced.find(path);
+		if (unsynced != m_unsynced.end())
+		{
+			m_unsynced_bytes -= unsynced->second;
+			m_unsynced.erase(unsynced);
+		}
 	}
 	else
 	{
@@ -367,10 +398,6 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 			);
 		}
 
-		// Synced before it is put in place, so that the file in place holds
-		// what was written whatever happens next, and so that the storage
-		// works on this chunk while the next ones are encoded: a flush that
-		// synced every chunk at the end left the storage idle until then.
 		create_image_file(written, encoded.size());
 		{
 			const writable_image_file file(written);
@@ -378,10 +405,6 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 			std::error_code failure;
 			const auto size = write_scattered(
 				file.get_file(), 0, make_span(&range, 1), failure);
-			if (!failure && size == encoded.size())
-			{
-				sync_file(file.get_file(), failure);
-			}
 			if (failure || size != encoded.size())
 			{
 				boost::filesystem::remove(written, error);
@@ -403,8 +426,14 @@ void zarr_chunk_store::store_locked(const chunk_key &chunk, held_chunk &held)
 			);
 		}
 
+		// Put in place before it is synced, so that the storage works on a
+		// batch of chunks at once, and the next batch is encoded meanwhile.
+		// A chunk stored again before then is synced as what it holds now.
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_stored.insert(chunk);
+		auto &unsynced = m_unsynced[path];
+		m_unsynced_bytes = m_unsynced_bytes - unsynced + encoded.size();
+		unsynced = encoded.size();
 	}
 
 	// Stored: whoever finds it from now on reads it back.

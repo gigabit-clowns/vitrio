@@ -404,9 +404,13 @@ since the archive of a commit lacks its libraries, which are submodules.
   in memory, in the order of the system, in `zarr_chunk_store`, and stores
   each once all of it in the array is written, or when what is held passes
   `VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET`, or on a flush. A chunk is
-  written beside its file, synced, and renamed over it, so that the storage
-  works on it while the next chunks are encoded and a flush syncs the
-  metadata alone; a chunk of the fill value
+  written beside its file and renamed over it, and the chunks stored are
+  synced in batches of `VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET`, each file
+  in a task of its own, as the write that passes the budget finds them,
+  and the rest by the flush: synced one by one, each paid the commit of
+  the storage's log, which on ZFS is a transaction group, and synced at
+  the flush alone, the storage sat idle until then and the flush waited
+  for all of it at once. A chunk of the fill value
   alone is not stored, and one written again after it was stored is read
   back first. The store records the core rank under `vitrio` in its
   attributes, so that it reads back as it was written.

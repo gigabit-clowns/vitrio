@@ -19,7 +19,7 @@ namespace zarr
 
 /**
  * @brief A flush of a ZARR array being written: the chunks held in memory
- * stored, then every file written since the last flush synced.
+ * stored, then every file written and not synced yet synced.
  *
  * Each chunk is stored by a task of its own, and each file synced by
  * another, so that they are under way at once.

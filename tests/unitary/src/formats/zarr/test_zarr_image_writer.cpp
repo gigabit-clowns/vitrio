@@ -53,7 +53,8 @@ std::shared_ptr<zarr_chunk_store> make_store(const std::string &directory)
 	write_byte_array_metadata(directory);
 	const auto layout = std::make_shared<const zarr_array_layout>(
 		read_zarr_node(directory));
-	return std::make_shared<zarr_chunk_store>(directory, layout, 1UL << 20);
+	return std::make_shared<zarr_chunk_store>(
+		directory, layout, 1UL << 20, 1UL << 20);
 }
 
 std::unique_ptr<zarr_image_writer> open_writer(

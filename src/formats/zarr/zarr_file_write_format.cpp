@@ -155,7 +155,11 @@ std::shared_ptr<image_writer> zarr_file_write_format::open(
 	const auto layout = std::make_shared<const zarr_array_layout>(
 		read_zarr_node(directory));
 	const auto store = std::make_shared<zarr_chunk_store>(
-		directory, layout, get_chunk_write_byte_budget());
+		directory,
+		layout,
+		get_chunk_write_byte_budget(),
+		get_chunk_sync_byte_budget()
+	);
 	for (const auto &path : written)
 	{
 		store->add_unsynced(path);

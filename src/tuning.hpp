@@ -142,6 +142,16 @@ std::size_t get_zarr_volume_chunk_edge() noexcept;
 std::size_t get_chunk_write_byte_budget() noexcept;
 
 /**
+ * @brief Get how many bytes of chunks a writer of a ZARR array stores
+ * before it syncs them together: the variable
+ * @c VITRIO_CHUNK_SYNC_BYTE_BUDGET of the environment, or
+ * @c VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_chunk_sync_byte_budget() noexcept;
+
+/**
  * @brief Get how many compressed bytes a read of a gzip file reads at a
  * time: the variable @c VITRIO_GZIP_READ_BYTES of the environment, or
  * @c VITRIO_DEFAULT_GZIP_READ_BYTES.

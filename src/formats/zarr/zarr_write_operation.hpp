@@ -25,7 +25,9 @@ namespace zarr
  * Each chunk the regions reach is written by a task of its own on the
  * executor of computations, which converts the pieces of the regions on it
  * into it, and encodes and writes it once it is whole. The tasks of chunks
- * apart are carried out at once.
+ * apart are carried out at once. As the chunks stored pass the budget of
+ * bytes the store syncs them at, the write syncs them, each file in a task
+ * of its own.
  */
 class zarr_write_operation final
 	: public file_transfer_operation
@@ -68,6 +70,7 @@ private:
 	std::shared_ptr<zarr_chunk_store> m_store;
 	const_array m_source;
 	image_chunk_regions m_chunks;
+	std::size_t m_syncs;
 };
 
 } // namespace zarr

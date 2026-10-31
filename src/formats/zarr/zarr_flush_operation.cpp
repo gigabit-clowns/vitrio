@@ -2,6 +2,8 @@
 
 #include "zarr_flush_operation.hpp"
 
+#include "zarr_sync_task.hpp"
+
 #include <vitrio/concurrency/task.hpp>
 
 #include <assert.hpp>
@@ -39,28 +41,14 @@ public:
 	{
 	}
 
-	step(zarr_chunk_store &store, std::string file) noexcept
-		: m_store(store)
-		, m_file(std::move(file))
-	{
-	}
-
 	void run() override
 	{
-		if (m_file.empty())
-		{
-			m_store.store(make_span(m_chunk));
-		}
-		else
-		{
-			zarr_chunk_store::sync(m_file);
-		}
+		m_store.store(make_span(m_chunk));
 	}
 
 private:
 	zarr_chunk_store &m_store;
 	std::vector<std::size_t> m_chunk;
-	std::string m_file;
 };
 
 zarr_flush_operation::zarr_flush_operation(
@@ -123,7 +111,7 @@ void zarr_flush_operation::sync_all(file_transfer_scope &scope)
 	for (std::size_t file = 0; file < m_files.size(); ++file)
 	{
 		scope.run(
-			std::make_unique<step>(*m_store, m_files[file]), sync_tag(file));
+			std::make_unique<zarr_sync_task>(m_files[file]), sync_tag(file));
 	}
 }
 
