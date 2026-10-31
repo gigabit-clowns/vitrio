@@ -88,11 +88,12 @@
 // Threads that carry out the transfers of files of one file_transfer_pool, each
 // with a port of its own.
 //
-// A thread drives many transfers at once, and only queues their reads and
-// hands their conversions to the executor of computations. Where the kernel
-// copies what a read brings from its cache on the thread that drives the
-// ring, as ext4 does, that copying is the thread's work too, and a solid-state
-// drive delivers more than one thread copies.
+// A thread drives many transfers at once, and only queues them, hands their
+// conversions to the executor of computations and calls their operations
+// back: the kernel carries them out on workers of its own, the copies of
+// what its cache holds included, which it is asked to do rather than copy
+// on the thread that queues them. A few threads keep the operations of many
+// readers called back as their transfers complete.
 #ifndef VITRIO_DEFAULT_FILE_TRANSFER_WORKERS
 	#define VITRIO_DEFAULT_FILE_TRANSFER_WORKERS 4
 #endif

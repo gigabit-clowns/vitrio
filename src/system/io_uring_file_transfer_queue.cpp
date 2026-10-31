@@ -228,6 +228,14 @@ bool io_uring_file_transfer_queue::send(request &transfer) noexcept
 		io_uring_prep_fsync(entry, transfer.file, 0);
 		break;
 	}
+	// Carried out by the workers of the kernel rather than tried first on
+	// the thread that submits it. A read or a write of what the cache of
+	// the system holds is a copy, which that thread would otherwise make
+	// itself, one transfer after another, with every ring of the pool
+	// capped at what one thread copies: a shuffled pass over cached
+	// particles ran at 11 GB/s on four rings and at 35 with the workers
+	// copying. What is not cached costs the same either way.
+	entry->flags |= IOSQE_ASYNC;
 	io_uring_sqe_set_data(entry, &transfer);
 	return true;
 }
