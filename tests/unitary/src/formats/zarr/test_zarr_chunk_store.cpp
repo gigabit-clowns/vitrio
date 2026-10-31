@@ -142,8 +142,7 @@ public:
 			m_layout,
 			image_descriptor(make_span(m_shape), 2, numerical_type::uint16),
 			image_metadata(),
-			make_file_transfer_pool()->get_implementation().get_executor(),
-			false
+			make_file_transfer_pool()->get_implementation().get_executor()
 		);
 		auto destination = make_host_array<std::uint16_t>(
 			m_shape, numerical_type::uint16);

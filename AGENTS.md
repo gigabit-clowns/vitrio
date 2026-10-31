@@ -392,9 +392,14 @@ since the archive of a commit lacks its libraries, which are submodules.
 - **ZARR.** A ZARR array is a directory, and every chunk a file of its own,
   or every shard of chunks, with an index of where each lies. The format
   opens no file until it reads: a read resolves its regions into the chunks
-  they reach with `image_chunk_regions`, and its operation opens and reads
-  each file, its index first for a shard, and decodes its chunks, a few
-  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+  they reach with `image_chunk_regions`, and its operation reads each file
+  in a task of its own on the executor of computations, which opens it,
+  reads it whole, its index first for a shard, and decodes its chunks, a
+  few files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. The files
+  never go through a port of file transfers: a whole file is one read,
+  which a port gains nothing on, and what a port brings from the cache of
+  the system it copies on the one thread that drives it, which capped a
+  read of cached chunks at what one thread copies. Only the codecs that turn bytes into
   bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
   the order of the bytes are the strides and the byte order the strided
   transfer reads a chunk with. A chunk that is not stored is read as its fill

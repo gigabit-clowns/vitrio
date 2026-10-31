@@ -40,16 +40,13 @@ public:
 	 * @param descriptor What it holds, its extents those of @p layout.
 	 * @param metadata How its samples map onto physical space.
 	 * @param transfers What carries out the reads. Must not be null.
-	 * @param asynchronous Whether @p transfers goes through asynchronous
-	 * ports.
 	 */
 	zarr_image_reader(
 		std::string directory,
 		std::shared_ptr<const zarr_array_layout> layout,
 		image_descriptor descriptor,
 		image_metadata metadata,
-		std::shared_ptr<file_transfer_executor> transfers,
-		bool asynchronous
+		std::shared_ptr<file_transfer_executor> transfers
 	);
 
 	~zarr_image_reader() override;
@@ -70,7 +67,6 @@ private:
 	image_descriptor m_descriptor;
 	image_metadata m_metadata;
 	std::shared_ptr<file_transfer_executor> m_transfers;
-	bool m_asynchronous;
 };
 
 } // namespace zarr

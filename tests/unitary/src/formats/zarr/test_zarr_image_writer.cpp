@@ -80,8 +80,7 @@ std::vector<std::uint8_t> read_back(
 			read_zarr_node(store.get_directory())),
 		image_descriptor(make_span(shape), 2, numerical_type::uint8),
 		image_metadata(),
-		std::move(transfers),
-		false
+		std::move(transfers)
 	);
 	auto destination = make_host_array<std::uint8_t>(
 		shape, numerical_type::uint8);
