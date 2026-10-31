@@ -79,6 +79,15 @@ std::size_t get_staging_byte_budget() noexcept;
 std::size_t get_scratch_load_byte_budget() noexcept;
 
 /**
+ * @brief Get how many bytes a read through a scratch copies out of what it
+ * holds in one task at most: the variable @c VITRIO_SCRATCH_SERVE_BYTE_BUDGET
+ * of the environment, or @c VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET.
+ *
+ * @return std::size_t The bytes.
+ */
+std::size_t get_scratch_serve_byte_budget() noexcept;
+
+/**
  * @brief Get how many reads the kernel carries out at once for one
  * asynchronous port: the variable @c VITRIO_FILE_TRANSFER_QUEUE_CAPACITY of the
  * environment, or @c VITRIO_DEFAULT_FILE_TRANSFER_QUEUE_CAPACITY.

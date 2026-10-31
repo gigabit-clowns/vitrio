@@ -72,6 +72,20 @@
 	#define VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET (1UL<<26)
 #endif
 
+// Bytes a read through a scratch copies out of what the scratch holds in
+// one task at most.
+//
+// A batch of images held in memory is a copy, which runs at what one thread
+// copies, a few GB/s: one task copying a whole batch of a stack took a
+// later epoch over cached particles longer than the page cache served it.
+// A read of more than this is split into tasks of this many bytes, so that
+// the threads of the executor copy a batch at once. A task costs
+// microseconds and a mebibyte copies in hundreds of them, so the split
+// costs little and a batch of a few mebibytes still spreads.
+#ifndef VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET
+	#define VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET (1UL<<20)
+#endif
+
 // Transfers of files the kernel carries out at once for one asynchronous
 // queue or port: reads, writes and syncs.
 //
