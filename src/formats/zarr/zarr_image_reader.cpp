@@ -26,13 +26,15 @@ zarr_image_reader::zarr_image_reader(
 	std::shared_ptr<const zarr_array_layout> layout,
 	image_descriptor descriptor,
 	image_metadata metadata,
-	std::shared_ptr<file_transfer_executor> transfers
+	std::shared_ptr<file_transfer_executor> transfers,
+	bool asynchronous
 )
 	: m_directory(std::move(directory))
 	, m_layout(std::move(layout))
 	, m_descriptor(std::move(descriptor))
 	, m_metadata(std::move(metadata))
 	, m_transfers(std::move(transfers))
+	, m_asynchronous(asynchronous)
 {
 	VITRIO_ASSERT(m_layout != nullptr);
 	VITRIO_ASSERT(m_transfers != nullptr);
@@ -94,6 +96,7 @@ void zarr_image_reader::read_async(
 			m_layout,
 			std::move(destination),
 			std::move(chunks),
+			m_asynchronous,
 			get_chunk_byte_budget(),
 			get_chunks_in_flight()
 		);

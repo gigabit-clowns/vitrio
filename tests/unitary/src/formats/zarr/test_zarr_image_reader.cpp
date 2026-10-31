@@ -26,6 +26,7 @@
 #include <vitrio/tests/transfers.hpp>
 #include <vitrio/tests/whole_region_plan.hpp>
 
+#include <system/asynchronous_file_transfer_port_opener.hpp>
 
 #include <memory>
 #include <stdexcept>
@@ -43,7 +44,8 @@ using extents = std::vector<std::size_t>;
 // The tomogram of the assets, 5 by 6 by 7 floats of 0.25 p - 4, through a
 // given executor.
 std::unique_ptr<zarr_image_reader> open_tomogram(
-	std::shared_ptr<file_transfer_executor> transfers
+	std::shared_ptr<file_transfer_executor> transfers,
+	bool asynchronous
 )
 {
 	const auto directory = get_zarr_asset_path("v2_float32_blosc_lz4.zarr");
@@ -55,7 +57,8 @@ std::unique_ptr<zarr_image_reader> open_tomogram(
 		image_descriptor(
 			make_span(extents{5, 6, 7}), 3, numerical_type::float32),
 		image_metadata(),
-		std::move(transfers)
+		std::move(transfers),
+		asynchronous
 	);
 }
 
@@ -77,15 +80,24 @@ TEST_CASE( "a zarr_image_reader reads through every kind of executor",
 	const auto transfers =
 		GENERATE(from_range(make_every_file_transfer_executor()));
 
-	// Every executor reads through tasks of their own, never through its
-	// ports.
-	const auto reader = open_tomogram(transfers);
-	REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
+	// The blocking executor reads through tasks of their own; the
+	// asynchronous one through the ports, where the process has them.
+	for (const bool asynchronous : {false, true})
+	{
+		if (asynchronous &&
+			!asynchronous_file_transfer_port_opener::is_supported())
+		{
+			continue;
+		}
 
-	auto destination = make_host_array<float64_t>(
-		{5, 6, 7}, numerical_type::float64, -1.0);
-	read_now(*reader, destination, whole_of({5, 6, 7}));
-	REQUIRE( get_values<float64_t>(destination) == expected_tomogram() );
+		const auto reader = open_tomogram(transfers, asynchronous);
+		REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
+
+		auto destination = make_host_array<float64_t>(
+			{5, 6, 7}, numerical_type::float64, -1.0);
+		read_now(*reader, destination, whole_of({5, 6, 7}));
+		REQUIRE( get_values<float64_t>(destination) == expected_tomogram() );
+	}
 }
 
 TEST_CASE( "reads of a zarr_image_reader may be under way at once",
@@ -93,7 +105,7 @@ TEST_CASE( "reads of a zarr_image_reader may be under way at once",
 {
 	const auto transfers =
 		GENERATE(from_range(make_every_file_transfer_executor()));
-	const auto reader = open_tomogram(transfers);
+	const auto reader = open_tomogram(transfers, false);
 
 	std::vector<array> destinations;
 	const auto done = std::make_shared<counting_completion>(8);
@@ -122,7 +134,7 @@ TEST_CASE( "a read of a zarr_image_reader goes on after the reader is gone",
 		{5, 6, 7}, numerical_type::float64, -1.0);
 	const auto done = std::make_shared<counting_completion>(1);
 	{
-		const auto reader = open_tomogram(transfers);
+		const auto reader = open_tomogram(transfers, false);
 		reader->read_async(destination.share(), whole_of({5, 6, 7}), done);
 	}
 
@@ -134,7 +146,7 @@ TEST_CASE( "a zarr_image_reader reports what it can not read",
 	"[zarr_image_reader]" )
 {
 	const auto transfers = make_every_file_transfer_executor().front();
-	const auto reader = open_tomogram(transfers);
+	const auto reader = open_tomogram(transfers, false);
 	auto destination = make_host_array<float32_t>(
 		{5, 6, 7}, numerical_type::float32);
 

@@ -31,6 +31,8 @@ namespace zarr
 namespace
 {
 
+const std::uint64_t kind_bits = 3;
+
 // What the file of a chunk may hold beyond the chunk decoded, for a codec
 // that encodes some chunks into more bytes than they decode into, as every
 // compressor does a chunk it can not compress. A chunk larger than that is
@@ -42,25 +44,44 @@ std::size_t get_encoded_limit(std::size_t decoded)
 
 } // anonymous namespace
 
-// The read of one file, which the executor of computations runs.
+// A step of one file or one chunk, which the executor of computations runs.
 class zarr_read_operation::step final
 	: public task
 {
 public:
-	step(const zarr_read_operation &operation, std::size_t unit) noexcept
+	step(
+		const zarr_read_operation &operation,
+		std::size_t id,
+		step_kind kind
+	) noexcept
 		: m_operation(operation)
-		, m_unit(unit)
+		, m_id(id)
+		, m_kind(kind)
 	{
 	}
 
 	void run() override
 	{
-		m_operation.read_whole(m_unit);
+		switch (m_kind)
+		{
+		case step_kind::open:
+			m_operation.open(m_id);
+			break;
+		case step_kind::decode:
+			m_operation.decode(m_id);
+			break;
+		case step_kind::whole:
+			m_operation.read_whole(m_id);
+			break;
+		default:
+			VITRIO_ASSERT(false);
+		}
 	}
 
 private:
 	const zarr_read_operation &m_operation;
-	std::size_t m_unit;
+	std::size_t m_id;
+	step_kind m_kind;
 };
 
 zarr_read_operation::zarr_read_operation(
@@ -68,6 +89,7 @@ zarr_read_operation::zarr_read_operation(
 	std::shared_ptr<const zarr_array_layout> layout,
 	array destination,
 	image_chunk_regions chunks,
+	bool asynchronous,
 	std::size_t byte_budget,
 	std::size_t chunks_in_flight
 )
@@ -76,6 +98,7 @@ zarr_read_operation::zarr_read_operation(
 	, m_destination(std::move(destination))
 	, m_array_data(m_destination.get_data())
 	, m_chunks(std::move(chunks))
+	, m_asynchronous(asynchronous)
 	, m_byte_budget(byte_budget)
 	, m_files_in_flight(std::max<std::size_t>(1, chunks_in_flight))
 	, m_encoded_limit(get_encoded_limit(
@@ -117,6 +140,7 @@ zarr_read_operation::zarr_read_operation(
 
 		current.unit = found.first->second;
 		m_units[current.unit].parts.push_back(position);
+		++m_units[current.unit].undecoded;
 	}
 }
 
@@ -128,12 +152,31 @@ void zarr_read_operation::start(file_transfer_scope &scope)
 }
 
 void zarr_read_operation::on_transfer(
-	const file_transfer_completion &,
-	file_transfer_scope &
+	const file_transfer_completion &completion,
+	file_transfer_scope &scope
 )
 {
-	// It queues no transfer: the tasks read the files.
-	VITRIO_ASSERT(false);
+	const auto tag = completion.get_tag();
+	const auto id = static_cast<std::size_t>(tag >> kind_bits);
+	const auto kind = static_cast<step_kind>(
+		tag & ((std::uint64_t(1) << kind_bits) - 1));
+
+	if (kind == step_kind::read_index)
+	{
+		VITRIO_ASSERT(id < m_units.size());
+		auto &file = m_units[id];
+		check_read(completion, file, file.index.size());
+		--file.reads;
+		place_chunks(scope, id);
+		return;
+	}
+
+	VITRIO_ASSERT(kind == step_kind::read_chunk);
+	VITRIO_ASSERT(id < m_parts.size());
+	auto &file = m_units[m_parts[id].unit];
+	check_read(completion, file, m_parts[id].encoded.size());
+	close_after_read(file);
+	run(scope, id, step_kind::decode);
 }
 
 void zarr_read_operation::on_task(
@@ -147,19 +190,60 @@ void zarr_read_operation::on_task(
 		std::rethrow_exception(error);
 	}
 
-	// A file read and its chunks decoded: what they took is let go, and
-	// the next file admitted.
-	const auto id = static_cast<std::size_t>(tag);
+	const auto id = static_cast<std::size_t>(tag >> kind_bits);
+	const auto kind = static_cast<step_kind>(
+		tag & ((std::uint64_t(1) << kind_bits) - 1));
+
+	if (kind == step_kind::decode)
+	{
+		finish_part(scope, id);
+		return;
+	}
+
 	VITRIO_ASSERT(id < m_units.size());
 	auto &file = m_units[id];
-	for (const auto part : file.parts)
+	if (kind == step_kind::whole)
 	{
-		std::vector<byte>().swap(m_parts[part].encoded);
+		for (const auto part : file.parts)
+		{
+			std::vector<byte>().swap(m_parts[part].encoded);
+		}
+		file.undecoded = 0;
+		m_reserved -= get_unit_bytes(id);
+		--m_active;
+		admit(scope);
+		return;
 	}
-	std::vector<byte>().swap(file.index);
-	m_reserved -= get_unit_bytes(id);
-	--m_active;
-	admit(scope);
+
+	VITRIO_ASSERT(kind == step_kind::open);
+	if (file.missing)
+	{
+		for (const auto part : file.parts)
+		{
+			m_parts[part].missing = true;
+			run(scope, part, step_kind::decode);
+		}
+		return;
+	}
+
+	if (m_layout->get_shard_layout() != nullptr)
+	{
+		queue_read(
+			scope, file, get_index_offset(file), file.index, id,
+			step_kind::read_index);
+		return;
+	}
+
+	const auto part = file.parts.front();
+	if (m_parts[part].encoded.empty())
+	{
+		// Nothing to read, which its codecs refuse.
+		file.file.reset();
+		run(scope, part, step_kind::decode);
+		return;
+	}
+	queue_read(
+		scope, file, 0, m_parts[part].encoded, part, step_kind::read_chunk);
 }
 
 void zarr_read_operation::admit(file_transfer_scope &scope)
@@ -175,8 +259,121 @@ void zarr_read_operation::admit(file_transfer_scope &scope)
 
 		m_reserved += bytes;
 		++m_active;
-		scope.run(std::make_unique<step>(*this, m_next), m_next);
-		++m_next;
+		run(
+			scope,
+			m_next++,
+			m_asynchronous ? step_kind::open : step_kind::whole
+		);
+	}
+}
+
+void zarr_read_operation::run(
+	file_transfer_scope &scope,
+	std::size_t id,
+	step_kind kind
+)
+{
+	const auto tag = static_cast<std::uint64_t>(id) << kind_bits |
+		static_cast<std::uint64_t>(kind);
+	scope.run(std::make_unique<step>(*this, id, kind), tag);
+}
+
+void zarr_read_operation::queue_read(
+	file_transfer_scope &scope,
+	unit &file,
+	std::uint64_t offset,
+	std::vector<byte> &buffer,
+	std::size_t id,
+	step_kind kind
+)
+{
+	const memory_range range(buffer.data(), buffer.size());
+	scope.queue_read(
+		file.file->get_mapping_handle().handle,
+		offset,
+		make_span(&range, 1),
+		static_cast<std::uint64_t>(id) << kind_bits |
+			static_cast<std::uint64_t>(kind)
+	);
+	++file.reads;
+}
+
+void zarr_read_operation::check_read(
+	const file_transfer_completion &completion,
+	const unit &file,
+	std::size_t expected
+) const
+{
+	if (completion.get_error())
+	{
+		throw image_file_error(
+			file.path + ": zarr_read_operation: The file could not be "
+			"read: " + completion.get_error().message()
+		);
+	}
+	if (completion.get_size() < expected)
+	{
+		throw image_file_format_error(
+			file.path + ": zarr_read_operation: The file ends before the "
+			"bytes it was to be read for."
+		);
+	}
+}
+
+void zarr_read_operation::close_after_read(unit &file)
+{
+	VITRIO_ASSERT(file.reads > 0);
+	if (--file.reads == 0)
+	{
+		file.file.reset();
+	}
+}
+
+void zarr_read_operation::finish_part(
+	file_transfer_scope &scope,
+	std::size_t id
+)
+{
+	VITRIO_ASSERT(id < m_parts.size());
+	std::vector<byte>().swap(m_parts[id].encoded);
+
+	const auto index = m_parts[id].unit;
+	auto &file = m_units[index];
+	if (--file.undecoded == 0)
+	{
+		file.file.reset();
+		m_reserved -= get_unit_bytes(index);
+		--m_active;
+		admit(scope);
+	}
+}
+
+void zarr_read_operation::place_chunks(
+	file_transfer_scope &scope,
+	std::size_t index
+)
+{
+	locate_chunks(index);
+
+	auto &file = m_units[index];
+	for (const auto id : file.parts)
+	{
+		auto &current = m_parts[id];
+		if (current.missing || current.encoded.empty())
+		{
+			run(scope, id, step_kind::decode);
+		}
+		else
+		{
+			queue_read(
+				scope, file, current.offset, current.encoded, id,
+				step_kind::read_chunk);
+		}
+	}
+
+	if (file.reads == 0)
+	{
+		file.file.reset();
 	}
 }
 

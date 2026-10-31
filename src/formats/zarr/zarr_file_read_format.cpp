@@ -10,6 +10,7 @@
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <file_transfer_pool_implementation.hpp>
+#include <system/asynchronous_file_transfer_port_opener.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
@@ -187,7 +188,8 @@ std::shared_ptr<image_reader> zarr_file_read_format::open(
 		image_descriptor(
 			shape, core_rank, layout->get_chunk_layout().get_data_type()),
 		image_metadata(),
-		transfers.get_implementation().get_executor()
+		transfers.get_implementation().get_executor(),
+		asynchronous_file_transfer_port_opener::is_supported()
 	);
 }
 
