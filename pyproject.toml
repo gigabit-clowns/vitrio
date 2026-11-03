@@ -119,14 +119,6 @@ wheel.py-api = "cp312"
 wheel.packages = []
 install.components = ["vitrio_python"]
 
-# The library is installed under its full version with a link beside it,
-# named as the extension asks for it. A wheel cannot hold a link, so it
-# would store the library twice.
-wheel.exclude = [
-    "vitrio/libvitrio.so.*.*.*",
-    "vitrio/libvitrio.*.*.*.dylib",
-]
-
 sdist.exclude = [
     ".github/**",
     ".vscode/**",

@@ -31,9 +31,6 @@ target_compile_definitions(
 	vitrio-obj
 	PRIVATE
 		vitrio_EXPORTS
-		VITRIO_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-		VITRIO_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-		VITRIO_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
 if(MSVC)
@@ -130,6 +127,14 @@ target_sources(
 		tuning.cpp
 		waiting_transfers.cpp
 )
+# The version reaches only the file that reports it.
+set_property(
+	SOURCE library_version.cpp
+	APPEND PROPERTY COMPILE_DEFINITIONS
+		VITRIO_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+		VITRIO_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+		VITRIO_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+)
 
 if(VITRIO_ENABLE_TIFF)
 	target_link_libraries(vitrio-obj PUBLIC TIFF::TIFF)
@@ -181,7 +186,8 @@ target_link_libraries(
 )
 
 # Until 1.0 a minor release may break the ABI, so it is part of the name the
-# dynamic linker looks for.
+# dynamic linker looks for. The file is named by the SONAME, beside the
+# namelink, so that an install holds one copy of it.
 if(PROJECT_VERSION_MAJOR EQUAL 0)
 	set(VITRIO_SOVERSION 0.${PROJECT_VERSION_MINOR})
 else()
@@ -192,8 +198,10 @@ set_target_properties(
 	vitrio
 	PROPERTIES
 		LINKER_LANGUAGE CXX
-		VERSION ${PROJECT_VERSION}
+		VERSION ${VITRIO_SOVERSION}
 		SOVERSION ${VITRIO_SOVERSION}
+		MACHO_COMPATIBILITY_VERSION ${VITRIO_SOVERSION}
+		MACHO_CURRENT_VERSION ${PROJECT_VERSION}
 )
 
 target_include_directories(

@@ -83,6 +83,8 @@ The rules every C++ source of the library follows.
   of the environment overrides it once the library runs. `VITRIO_DISABLE_ASYNCHRONOUS_IO`, set
   to anything but 0, has the process read its files as one without
   asynchronous ports does. None of them is an argument of the API.
-- **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
-  release may break the ABI, so the name of the shared library carries the
-  minor version (`libvitrio.so.0.1`).
+- **Versions.** `VERSION` holds the version of the project, which only
+  `src/library_version.cpp` is compiled with. Before 1.0 a minor release may
+  break the ABI, so the name of the shared library carries the minor version
+  (`libvitrio.so.0.1`), and so does the name of its file, beside which an
+  install puts only the namelink; from 1.0 both carry the major version.
