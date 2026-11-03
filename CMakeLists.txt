@@ -100,44 +100,69 @@ compiler supports"
 
 # Every dependency is private and none appears in a public header, so building
 # one here or finding an installed one changes nothing for a consumer of the
-# installed library. Turning the global switch off turns every one of the
-# others off, on every configure.
+# installed library. Turning the global switch on turns every one of the
+# others on, on every configure.
 option(
-	VITRIO_BUILD_DEPENDENCIES
-	"Build the dependencies with vitrio, rather than finding installed ones"
+	VITRIO_USE_SYSTEM_DEPENDENCIES
+	"Find every dependency installed, rather than fetching it and building it \
+with vitrio"
+	OFF
+)
+cmake_dependent_option(
+	VITRIO_USE_SYSTEM_BOOST
+	"Find an installed Boost rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
 	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_BOOST "Fetch Boost and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_SPDLOG
+	"Find an installed spdlog rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_SPDLOG "Fetch spdlog and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_ZLIB
+	"Find an installed zlib rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_ZLIB "Fetch zlib and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_TIFF
+	"Find an installed libtiff rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_TIFF "Fetch libtiff and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_LIBURING
+	"Find an installed liburing rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_LIBURING "Fetch liburing and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_NLOHMANN_JSON
+	"Find an installed nlohmann/json rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_NLOHMANN_JSON "Fetch nlohmann/json and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_ZSTD
+	"Find an installed zstd rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 cmake_dependent_option(
-	VITRIO_BUILD_ZSTD "Fetch zstd and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
-)
-cmake_dependent_option(
-	VITRIO_BUILD_BLOSC "Fetch c-blosc and build it with vitrio" ON
-	"VITRIO_BUILD_DEPENDENCIES" OFF
+	VITRIO_USE_SYSTEM_BLOSC
+	"Find an installed c-blosc rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
 )
 
 # The library and its public headers are C++14. The standard is required
@@ -155,23 +180,23 @@ endif()
 
 find_package(Threads REQUIRED)
 
-if(VITRIO_BUILD_BOOST)
+if(VITRIO_USE_SYSTEM_BOOST)
+	find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
+else()
 	include(vitrio_fetch_boost)
 	vitrio_fetch_boost(
 		TAG boost-1.92.0
 		SHA256 9bed76128d4e46755dbe818487788c6fceb6f72b378f4daa49b7e1e600d9088d
 	)
-else()
-	find_package(Boost 1.70 REQUIRED CONFIG COMPONENTS filesystem)
 endif()
 
-if(VITRIO_BUILD_SPDLOG)
+if(VITRIO_USE_SYSTEM_SPDLOG)
+	find_package(spdlog 1.4 REQUIRED CONFIG)
+else()
 	include(vitrio_fetch_spdlog)
 	vitrio_fetch_spdlog(
 		COMMIT 79524ddd08a4ec981b7fea76afd08ee05f83755d
 	) # v1.17.0
-else()
-	find_package(spdlog 1.4 REQUIRED CONFIG)
 endif()
 
 # zlib is libtiff's, decodes the gzip and zlib chunks of ZARR arrays and
@@ -183,76 +208,76 @@ else()
 	set(VITRIO_NEEDS_ZLIB OFF)
 endif()
 
-if(VITRIO_NEEDS_ZLIB AND VITRIO_BUILD_ZLIB)
+if(VITRIO_NEEDS_ZLIB AND VITRIO_USE_SYSTEM_ZLIB)
+	find_package(ZLIB REQUIRED)
+elseif(VITRIO_NEEDS_ZLIB)
 	include(vitrio_fetch_zlib)
 	vitrio_fetch_zlib(
 		COMMIT da607da739fa6047df13e66a2af6b8bec7c2a498
 	) # v1.3.2
-elseif(VITRIO_NEEDS_ZLIB)
-	find_package(ZLIB REQUIRED)
 endif()
 
 # The handlers a file is opened with, which keep its errors apart from those
 # of every other file, arrived in libtiff 4.5.
-if(VITRIO_ENABLE_TIFF AND VITRIO_BUILD_TIFF)
+if(VITRIO_ENABLE_TIFF AND VITRIO_USE_SYSTEM_TIFF)
+	find_package(TIFF 4.5 REQUIRED)
+elseif(VITRIO_ENABLE_TIFF)
 	include(vitrio_fetch_tiff)
 	vitrio_fetch_tiff(
 		COMMIT d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d
 	) # v4.7.2
-elseif(VITRIO_ENABLE_TIFF)
-	find_package(TIFF 4.5 REQUIRED)
 endif()
 
 # Only the ZARR format needs nlohmann/json, zstd and c-blosc. contains(),
 # which tells a key that is absent, arrived in nlohmann/json 3.6.
-if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_NLOHMANN_JSON)
+if(VITRIO_ENABLE_ZARR AND VITRIO_USE_SYSTEM_NLOHMANN_JSON)
+	find_package(nlohmann_json 3.6 REQUIRED CONFIG)
+elseif(VITRIO_ENABLE_ZARR)
 	include(vitrio_fetch_nlohmann_json)
 	vitrio_fetch_nlohmann_json(
 		COMMIT 55f93686c01528224f448c19128836e7df245f72
 	) # v3.12.0
-elseif(VITRIO_ENABLE_ZARR)
-	find_package(nlohmann_json 3.6 REQUIRED CONFIG)
 endif()
 
 # zstd is found through pkg-config, since the targets its CMake package names
 # changed between releases. Built here, it is the one c-blosc links, so that
 # its functions are defined once.
-if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_ZSTD)
+if(VITRIO_ENABLE_ZARR AND VITRIO_USE_SYSTEM_ZSTD)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(zstd REQUIRED IMPORTED_TARGET libzstd>=1.4)
+	add_library(zstd::zstd ALIAS PkgConfig::zstd)
+elseif(VITRIO_ENABLE_ZARR)
 	include(vitrio_fetch_zstd)
 	vitrio_fetch_zstd(
 		COMMIT f8745da6ff1ad1e7bab384bd1f9d742439278e99
 	) # v1.5.7
-elseif(VITRIO_ENABLE_ZARR)
-	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(zstd REQUIRED IMPORTED_TARGET libzstd>=1.4)
-	add_library(zstd::zstd ALIAS PkgConfig::zstd)
 endif()
 
 # c-blosc installs a file for pkg-config rather than a CMake package. Built
 # here, it takes the zstd and zlib above rather than copies of its own.
-if(VITRIO_ENABLE_ZARR AND VITRIO_BUILD_BLOSC)
+if(VITRIO_ENABLE_ZARR AND VITRIO_USE_SYSTEM_BLOSC)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(blosc REQUIRED IMPORTED_TARGET blosc>=1.14)
+	add_library(blosc::blosc ALIAS PkgConfig::blosc)
+elseif(VITRIO_ENABLE_ZARR)
 	include(vitrio_fetch_blosc)
 	vitrio_fetch_blosc(
 		ZSTD zstd::zstd
 		ZLIB ZLIB::ZLIB
 		COMMIT 616f4b7343a8479f7e71dd3d7025bd92c9a6bbd0
 	) # v1.21.6
-elseif(VITRIO_ENABLE_ZARR)
-	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(blosc REQUIRED IMPORTED_TARGET blosc>=1.14)
-	add_library(blosc::blosc ALIAS PkgConfig::blosc)
 endif()
 
 # liburing installs a file for pkg-config rather than a CMake package.
-if(VITRIO_ENABLE_IO_URING AND VITRIO_BUILD_LIBURING)
+if(VITRIO_ENABLE_IO_URING AND VITRIO_USE_SYSTEM_LIBURING)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing>=2.0)
+	add_library(liburing::liburing ALIAS PkgConfig::liburing)
+elseif(VITRIO_ENABLE_IO_URING)
 	include(vitrio_fetch_liburing)
 	vitrio_fetch_liburing(
 		COMMIT d41bf9220ec39277ff235379e9089d9e0fd6c2a5
 	) # liburing-2.15
-elseif(VITRIO_ENABLE_IO_URING)
-	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing>=2.0)
-	add_library(liburing::liburing ALIAS PkgConfig::liburing)
 endif()
 
 # nanobind ships its CMake package inside its Python package, so the

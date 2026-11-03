@@ -3,11 +3,13 @@
 How dependencies are fetched, found and pinned, and what each one is needed by.
 
 Every dependency is fetched and built with vitrio by default, static, and
-ends up inside its library. Turning `VITRIO_BUILD_DEPENDENCIES` off finds
-them all installed instead, with `find_package`, as a distribution or conda
-builds vitrio. Turning off `VITRIO_BUILD_<DEP>` does that for one of them.
-`cmake_dependent_option` declares those toggles, so that the global one
-forces the others off.
+ends up inside its library. Turning `VITRIO_USE_SYSTEM_DEPENDENCIES` on
+finds them all installed instead, with `find_package`, as a distribution or
+conda builds vitrio. Turning on `VITRIO_USE_SYSTEM_<DEP>` does that for one
+of them. `cmake_dependent_option` declares those toggles, so that the global
+one forces the others on. The names follow CMake's own
+`CMAKE_USE_SYSTEM_LIBRARY_<NAME>`, and leave `VITRIO_BUILD_*` to the parts
+of vitrio itself.
 
 A dependency is a branch where it is used, in `CMakeLists.txt` for the
 library and in `tests/CMakeLists.txt` for the tests. Built, it is a call to

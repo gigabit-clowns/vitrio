@@ -269,15 +269,16 @@ cmake --install build --prefix <where>
 ```
 
 To use the libraries installed on the system instead, turn
-`VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
+`VITRIO_USE_SYSTEM_DEPENDENCIES` on. CMake then looks for each of them with
 `find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
 is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
 nlohmann/json 3.6, c-blosc 1.14, zstd 1.4 and Catch2 3 or newer. One of them
-alone is found rather than built by turning its own option off, such as
-`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
-`VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_LIBURING`,
-`VITRIO_BUILD_NLOHMANN_JSON`, `VITRIO_BUILD_BLOSC`, `VITRIO_BUILD_ZSTD`,
-`VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`.
+alone is found rather than built by turning its own option on, such as
+`-DVITRIO_USE_SYSTEM_TIFF=ON`. The others are `VITRIO_USE_SYSTEM_BOOST`,
+`VITRIO_USE_SYSTEM_SPDLOG`, `VITRIO_USE_SYSTEM_ZLIB`,
+`VITRIO_USE_SYSTEM_LIBURING`, `VITRIO_USE_SYSTEM_NLOHMANN_JSON`,
+`VITRIO_USE_SYSTEM_BLOSC`, `VITRIO_USE_SYSTEM_ZSTD`,
+`VITRIO_USE_SYSTEM_CATCH2` and `VITRIO_USE_SYSTEM_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
 directory of its sources instead, such as
@@ -287,7 +288,7 @@ A few options change what gets built:
 
 | Option | Effect |
 |---|---|
-| `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
+| `-DVITRIO_USE_SYSTEM_DEPENDENCIES=ON` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
@@ -301,7 +302,7 @@ With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
 tree, so putting that directory on `PYTHONPATH` is enough to import it.
 `pip install .` builds and installs it in one go. It is given the options
 above as `-C cmake.define.<option>=<value>`, such as
-`-C cmake.define.VITRIO_BUILD_DEPENDENCIES=OFF`.
+`-C cmake.define.VITRIO_USE_SYSTEM_DEPENDENCIES=ON`.
 
 ## Licence
 
