@@ -147,15 +147,12 @@ jobs:
           git worktree add "$RUNNER_TEMP/release" "$tag"
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
 
-      # VITRIO_BUILD_DEPENDENCIES=OFF is how releases up to v0.2.0 spell
-      # VITRIO_USE_SYSTEM_DEPENDENCIES=ON.
       - name: Build both
         run: |
           for tree in . "$RUNNER_TEMP/release"; do
             cmake -S "$tree" --preset debug \
               -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF \
-              -DVITRIO_USE_SYSTEM_DEPENDENCIES=ON \
-              -DVITRIO_BUILD_DEPENDENCIES=OFF
+              -DVITRIO_USE_SYSTEM_DEPENDENCIES=ON
             cmake --build "$tree/build/debug" --parallel 4
           done
 
