@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/vitrio)](https://pypi.org/project/vitrio/)
 [![Build and test](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml)
 
-vitrio reads and writes the images of Cryo-Electron Microscopy (CryoEM). It
+vitrio reads and writes Cryo-Electron Microscopy (CryoEM) images. It
 is made for programs that go through a lot of images, such as particle
 extraction, processing pipelines or the training of neural networks. One
 interface covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the
