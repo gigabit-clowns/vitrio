@@ -3,6 +3,7 @@
 #pragma once
 
 #include "zarr_array_layout.hpp"
+#include "zarr_chunk_buffers.hpp"
 
 #include <file_transfer/file_transfer_executor.hpp>
 
@@ -49,6 +50,7 @@ public:
 		image_descriptor descriptor,
 		image_metadata metadata,
 		std::shared_ptr<file_transfer_executor> transfers,
+		std::shared_ptr<zarr_chunk_buffers> buffers,
 		bool asynchronous
 	);
 
@@ -70,6 +72,7 @@ private:
 	image_descriptor m_descriptor;
 	image_metadata m_metadata;
 	std::shared_ptr<file_transfer_executor> m_transfers;
+	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 	bool m_asynchronous;
 };
 

@@ -7,6 +7,7 @@
 #include <formats/zarr/zarr_chunk_store.hpp>
 
 #include <formats/zarr/zarr_array_layout.hpp>
+#include <formats/zarr/zarr_chunk_buffers.hpp>
 #include <formats/zarr/zarr_image_reader.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
@@ -56,7 +57,8 @@ public:
 	explicit chunk_store_fixture(
 		std::size_t budget = 1UL << 20,
 		const char *endian = "little",
-		extents shape = {4, 4}
+		extents shape = {4, 4},
+		std::size_t sync_budget = 1UL << 20
 	)
 		: m_directory("test_zarr_chunk_store_" + std::to_string(
 			std::hash<std::string>()(
@@ -76,7 +78,7 @@ public:
 		m_layout = std::make_shared<const zarr_array_layout>(
 			read_zarr_node(m_directory.get()));
 		m_store = std::make_shared<zarr_chunk_store>(
-			m_directory.get(), m_layout, budget);
+			m_directory.get(), m_layout, budget, sync_budget);
 	}
 
 	// Writes regions of an array of the shape of the store, as a writer
@@ -142,6 +144,7 @@ public:
 			image_descriptor(make_span(m_shape), 2, numerical_type::uint16),
 			image_metadata(),
 			make_file_transfer_pool()->get_implementation().get_executor(),
+			std::make_shared<zarr_chunk_buffers>(1UL << 20),
 			false
 		);
 		auto destination = make_host_array<std::uint16_t>(
@@ -187,9 +190,53 @@ TEST_CASE( "zarr_chunk_store stores a chunk once all of it is written",
 	REQUIRE( fixture.file_of(0, 0) ==
 		std::vector<std::uint8_t>({100, 0, 101, 0, 102, 0, 103, 0}) );
 
-	const auto unsynced = fixture.m_store->take_unsynced();
-	REQUIRE( unsynced == std::vector<std::string>({fixture.path_of(0, 0)}) );
+	// Put in place, and left for the next sync.
+	REQUIRE( fixture.m_store->take_unsynced() ==
+		std::vector<std::string>({fixture.path_of(0, 0)}) );
 	REQUIRE( fixture.m_store->take_unsynced().empty() );
+}
+
+TEST_CASE( "zarr_chunk_store hands the chunks stored out for a sync once "
+	"they pass its budget", "[zarr_chunk_store]" )
+{
+	// A sync every 12 bytes: the second chunk of 8 passes it.
+	chunk_store_fixture fixture(1UL << 20, "little", {4, 4}, 12);
+	const auto metadata = join_zarr_path(
+		fixture.m_directory.get(), "zarr.json");
+	fixture.m_store->add_unsynced(metadata);
+
+	fixture.write_one(0, 0, 1);
+	fixture.m_store->store(make_span(extents{0, 0}));
+	REQUIRE( fixture.m_store->take_unsynced_past_budget().empty() );
+
+	SECTION( "a chunk stored again counts what it holds now" )
+	{
+		fixture.write_one(0, 1, 2);
+		fixture.m_store->store(make_span(extents{0, 0}));
+		REQUIRE( fixture.m_store->take_unsynced_past_budget().empty() );
+	}
+
+	SECTION( "a file that is not a chunk counts no bytes" )
+	{
+		fixture.m_store->add_unsynced(
+			join_zarr_path(fixture.m_directory.get(), "other.json"));
+		REQUIRE( fixture.m_store->take_unsynced_past_budget().empty() );
+	}
+
+	SECTION( "and every file written goes with the batch" )
+	{
+		fixture.write_one(2, 2, 3);
+		fixture.m_store->store(make_span(extents{1, 1}));
+		REQUIRE( fixture.m_store->take_unsynced_past_budget() ==
+			std::vector<std::string>({
+				fixture.path_of(0, 0), fixture.path_of(1, 1), metadata}) );
+		REQUIRE( fixture.m_store->take_unsynced().empty() );
+
+		// Counted from the batch on.
+		fixture.write_one(0, 2, 4);
+		fixture.m_store->store(make_span(extents{0, 1}));
+		REQUIRE( fixture.m_store->take_unsynced_past_budget().empty() );
+	}
 }
 
 TEST_CASE( "zarr_chunk_store counts only what of an edge chunk is in the array",

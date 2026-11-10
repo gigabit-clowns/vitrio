@@ -65,6 +65,22 @@ def test_images_of_different_shapes_are_refused(__written_stack, tmp_path):
 	with pytest.raises(ValueError):
 		vio.data.ImageSource(locations)
 
+def test_the_first_image_that_does_not_fit_is_the_one_reported(
+	__written_stack, tmp_path
+):
+	# The files are asked at once, and what is reported is the first in
+	# order, not the first answered.
+	locations = __locations(__written_stack, [0])
+	others = []
+	for n in range(40):
+		other = tmp_path / f'other_{n}.mrcs'
+		vio.write_stack(__setup_array((1, 5 + n % 2, 5)), other)
+		others.append(other)
+		locations += __locations(other, [0])
+	with pytest.raises(ValueError) as reported:
+		vio.data.ImageSource(locations)
+	assert str(others[0]) in str(reported.value)
+
 def test_an_index_past_the_end_of_a_stack_is_refused(__written_stack):
 	with pytest.raises(ValueError):
 		vio.data.ImageSource(__locations(__written_stack, [0, 3]))

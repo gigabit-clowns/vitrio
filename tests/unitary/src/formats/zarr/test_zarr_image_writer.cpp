@@ -11,6 +11,7 @@
 #include "../../fixtures/file_transfer_executors.hpp"
 
 #include <formats/zarr/zarr_array_layout.hpp>
+#include <formats/zarr/zarr_chunk_buffers.hpp>
 #include <formats/zarr/zarr_image_reader.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
@@ -53,7 +54,8 @@ std::shared_ptr<zarr_chunk_store> make_store(const std::string &directory)
 	write_byte_array_metadata(directory);
 	const auto layout = std::make_shared<const zarr_array_layout>(
 		read_zarr_node(directory));
-	return std::make_shared<zarr_chunk_store>(directory, layout, 1UL << 20);
+	return std::make_shared<zarr_chunk_store>(
+		directory, layout, 1UL << 20, 1UL << 20);
 }
 
 std::unique_ptr<zarr_image_writer> open_writer(
@@ -80,6 +82,7 @@ std::vector<std::uint8_t> read_back(
 		image_descriptor(make_span(shape), 2, numerical_type::uint8),
 		image_metadata(),
 		std::move(transfers),
+		std::make_shared<zarr_chunk_buffers>(1UL << 20),
 		false
 	);
 	auto destination = make_host_array<std::uint8_t>(

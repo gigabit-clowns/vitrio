@@ -4,6 +4,8 @@
 
 #include "scratch_image_reader.hpp"
 
+#include <tuning.hpp>
+
 #include <vitrio/image_scratch.hpp>
 #include <vitrio/image_scratch_entry.hpp>
 
@@ -64,7 +66,8 @@ scratch_image_reader_provider::acquire(const std::string &key)
 	return std::make_shared<scratch_image_reader>(
 		std::move(entry),
 		std::move(file),
-		m_tasks
+		m_tasks,
+		get_scratch_serve_byte_budget()
 	);
 }
 

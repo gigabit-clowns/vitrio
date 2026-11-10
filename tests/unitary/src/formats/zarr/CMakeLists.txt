@@ -8,6 +8,7 @@ target_sources(
 		test_crc32c_zarr_bytes_codec.cpp
 		test_gzip_zarr_bytes_codec.cpp
 		test_zarr_array_layout.cpp
+		test_zarr_chunk_buffers.cpp
 		test_zarr_chunk_key_encoding.cpp
 		test_zarr_chunk_layout.cpp
 		test_zarr_chunk_store.cpp

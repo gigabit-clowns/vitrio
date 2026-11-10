@@ -41,7 +41,11 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   opens no file until it reads: a read resolves its regions into the chunks
   they reach with `image_chunk_regions`, and its operation opens and reads
   each file, its index first for a shard, and decodes its chunks, a few
-  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. What a chunk
+  is read into and decoded into are buffers of `zarr_chunk_buffers`, which
+  the format keeps from one read to the next, as many bytes of them as that
+  budget, since fresh memory for every chunk costs page faults and a fill
+  of zeros that are most of what a cached chunk costs. Only the codecs that turn bytes into
   bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
   the order of the bytes are the strides and the byte order the strided
   transfer reads a chunk with. A chunk that is not stored is read as its fill
@@ -51,7 +55,13 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   in memory, in the order of the system, in `zarr_chunk_store`, and stores
   each once all of it in the array is written, or when what is held passes
   `VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET`, or on a flush. A chunk is
-  written beside its file and renamed over it, a chunk of the fill value
+  written beside its file and renamed over it, and the chunks stored are
+  synced in batches of `VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET`, each file
+  in a task of its own, as the write that passes the budget finds them,
+  and the rest by the flush: synced one by one, each paid the commit of
+  the storage's log, which on ZFS is a transaction group, and synced at
+  the flush alone, the storage sat idle until then and the flush waited
+  for all of it at once. A chunk of the fill value
   alone is not stored, and one written again after it was stored is read
   back first. The store records the core rank under `vitrio` in its
   attributes, so that it reads back as it was written.

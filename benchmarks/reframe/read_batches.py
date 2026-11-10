@@ -65,6 +65,28 @@ class cache(ReadBatches):
 	cache = parameter([0, 16, 64, 256, 4096], type=int)
 
 @rfm.simple_test
+class micrographs(ReadBatches):
+	"""
+	Whole micrographs read one after another, as pickers and preprocessing
+	read them: one image per file, 4096 square, in the order of the files,
+	a micrograph a batch, and four at once to see what reading ahead across
+	files is worth. The readers are those that read a file whole.
+	"""
+
+	count = 128
+	box = parameter([4096], type=int)
+	layout = parameter(['one-per-file'], type=str)
+	order = parameter(['sequential'], type=str)
+	batch = parameter([1, 4], type=int)
+	reader = parameter(
+		[
+			'vitrio-loader', 'mrcfile-open-last', 'mrcfile-mmap-per-read',
+			'numpy-memmap-kept', 'python-read-kept',
+		],
+		type=str
+	)
+
+@rfm.simple_test
 class dtype(ReadBatches):
 	"""
 	Reading fewer bytes: particles stored as float16 or int16 and delivered

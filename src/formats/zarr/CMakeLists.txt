@@ -9,6 +9,7 @@ target_sources(
 		gzip_zarr_bytes_codec.cpp
 		zarr_array_layout.cpp
 		zarr_bytes_codec.cpp
+		zarr_chunk_buffers.cpp
 		zarr_chunk_key_encoding.cpp
 		zarr_chunk_layout.cpp
 		zarr_chunk_store.cpp
@@ -28,6 +29,7 @@ target_sources(
 		zarr_shard_index.cpp
 		zarr_shard_layout.cpp
 		zarr_store_metadata.cpp
+		zarr_sync_task.cpp
 		zarr_write_operation.cpp
 		zlib_zarr_bytes_codec.cpp
 		zstd_zarr_bytes_codec.cpp

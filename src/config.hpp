@@ -17,6 +17,15 @@
 // scales with what one of its regions spans and is only capped here, so that
 // a gap wider than the data on either side of it is never bridged: a flat cap
 // would have two small regions far apart ask for many times what they hold.
+//
+// Where the cap should lie depends on the storage: a gap is worth bridging
+// while its bytes cost less than the request it saves, so the balance is
+// the bandwidth of the storage times the latency of one request. On a RAID
+// of hard disks under ZFS that is megabytes, and bridging the rows of a
+// patch of a micrograph read patches 1.4 to 2 times faster than reading
+// each row; on an NVMe drive it is tens of kibibytes, and patches of many
+// micrographs at once read twice as fast with no gap bridged. This cap
+// sits between, and is what the variable of the environment moves.
 #ifndef VITRIO_DEFAULT_PREFETCH_GAP_CAP
 	#define VITRIO_DEFAULT_PREFETCH_GAP_CAP (2UL<<16)
 #endif
@@ -63,6 +72,20 @@
 	#define VITRIO_DEFAULT_SCRATCH_LOAD_BYTE_BUDGET (1UL<<26)
 #endif
 
+// Bytes a read through a scratch copies out of what the scratch holds in
+// one task at most.
+//
+// A batch of images held in memory is a copy, which runs at what one thread
+// copies, a few GB/s: one task copying a whole batch of a stack took a
+// later epoch over cached particles longer than the page cache served it.
+// A read of more than this is split into tasks of this many bytes, so that
+// the threads of the executor copy a batch at once. A task costs
+// microseconds and a mebibyte copies in hundreds of them, so the split
+// costs little and a batch of a few mebibytes still spreads.
+#ifndef VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET
+	#define VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET (1UL<<20)
+#endif
+
 // Transfers of files the kernel carries out at once for one asynchronous
 // queue or port: reads, writes and syncs.
 //
@@ -79,11 +102,12 @@
 // Threads that carry out the transfers of files of one file_transfer_pool, each
 // with a port of its own.
 //
-// A thread drives many transfers at once, and only queues their reads and
-// hands their conversions to the executor of computations. Where the kernel
-// copies what a read brings from its cache on the thread that drives the
-// ring, as ext4 does, that copying is the thread's work too, and a solid-state
-// drive delivers more than one thread copies.
+// A thread drives many transfers at once, and only queues them, hands their
+// conversions to the executor of computations and calls their operations
+// back: the kernel carries them out on workers of its own, the copies of
+// what its cache holds included, which it is asked to do rather than copy
+// on the thread that queues them. A few threads keep the operations of many
+// readers called back as their transfers complete.
 #ifndef VITRIO_DEFAULT_FILE_TRANSFER_WORKERS
 	#define VITRIO_DEFAULT_FILE_TRANSFER_WORKERS 4
 #endif
@@ -95,6 +119,12 @@
 // floats, as tomograms are chunked, is 64 MiB. The chunks a read holds are
 // decoded at once on the executor of computations, so this is what lets
 // them keep its threads busy. A read always holds one chunk, however large.
+//
+// The format keeps the buffers of as many bytes of chunks from one read to
+// the next, so that a chunk is read into and decoded into memory the system
+// has already given: a fresh buffer costs a page fault for each page and a
+// fill of zeros, on every chunk, and more under many threads at once, which
+// is most of what a cached chunk costs.
 #ifndef VITRIO_DEFAULT_CHUNK_BYTE_BUDGET
 	#define VITRIO_DEFAULT_CHUNK_BYTE_BUDGET (1UL<<29)
 #endif
@@ -131,6 +161,21 @@
 // bounds: a chunk stored partial is read back when it is written again.
 #ifndef VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET
 	#define VITRIO_DEFAULT_CHUNK_WRITE_BYTE_BUDGET (1UL<<30)
+#endif
+
+// Bytes of chunks a writer of a ZARR array has stored since it last synced
+// them, past which it syncs them, all at once.
+//
+// What a sync costs is a commit of the storage's log, on ZFS of a whole
+// transaction group, and then the wait for the writeback of what is
+// pending, on ext4 of everything written so far. Chunks synced one by one
+// pay the commit for each, and chunks synced at the flush alone leave the
+// storage idle until then and wait for all of it at once. Synced together
+// in batches of this many bytes, with the next ones encoded meanwhile, the
+// commits are shared by the batch, the storage is busy from the first
+// batch on, and the flush waits for one batch at most.
+#ifndef VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET
+	#define VITRIO_DEFAULT_CHUNK_SYNC_BYTE_BUDGET (1UL<<26)
 #endif
 
 // Compressed bytes a read of a gzip file reads at a time, which zlib then

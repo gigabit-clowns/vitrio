@@ -123,7 +123,7 @@ TEST_CASE(
 	ALLOW_CALL(*file, get_descriptor()).LR_RETURN(std::ref(descriptor));
 	ALLOW_CALL(*file, get_metadata()).LR_RETURN(std::ref(metadata));
 
-	const scratch_image_reader reader(entry, file, make_tasks());
+	const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 
 	CHECK( &reader.get_descriptor() == &descriptor );
 	CHECK( &reader.get_metadata() == &metadata );
@@ -141,7 +141,7 @@ TEST_CASE(
 		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	);
 
-	const scratch_image_reader reader(entry, file, make_tasks());
+	const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 	CHECK_THROWS_AS(
 		reader.read_async(
 			make_test_array(),
@@ -150,6 +150,39 @@ TEST_CASE(
 		),
 		std::invalid_argument
 	);
+}
+
+TEST_CASE(
+	"a scratch_image_reader splits a read of more than a task copies, in "
+	"tasks of that many regions", "[scratch_image_reader]"
+)
+{
+	// Images of 64 bytes, two to a task: three images make two parts.
+	const auto regions = make_plan({5, 6, 7}, {0, 1, 2});
+	const auto nothing = make_plan({}, {});
+	const auto entry = std::make_shared<mock_image_scratch_entry>();
+	const auto file = std::make_shared<mock_image_reader>();
+	auto destination = make_test_array();
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( same_regions(_2, make_plan({5, 6}, {0, 1})) )
+		.SIDE_EFFECT( _3->notify_done() )
+		.LR_RETURN(nothing);
+	REQUIRE_CALL(
+		*entry,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( same_regions(_2, make_plan({7}, {2})) )
+		.SIDE_EFFECT( _3->notify_done() )
+		.LR_RETURN(nothing);
+	FORBID_CALL(
+		*file,
+		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	);
+	const scratch_image_reader reader(entry, file, make_tasks(), 128);
+	read_now(reader, destination, regions);
 }
 
 TEST_CASE(
@@ -179,7 +212,7 @@ TEST_CASE(
 		read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 	);
 
-	const scratch_image_reader reader(entry, file, make_tasks());
+	const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 	read_now(reader, destination, regions);
 }
 
@@ -227,7 +260,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		const scratch_image_reader reader(entry, file, make_tasks());
+		const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 		read_now(reader, destination, regions);
 	}
 
@@ -251,7 +284,7 @@ TEST_CASE(
 			.IN_SEQUENCE(order)
 			.SIDE_EFFECT( _3->notify_done() );
 
-		const scratch_image_reader reader(entry, file, make_tasks());
+		const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 		read_now(reader, destination, regions);
 	}
 }
@@ -282,7 +315,7 @@ TEST_CASE(
 	)
 		.LR_SIDE_EFFECT( stored = _3 );
 
-	const scratch_image_reader reader(entry, file, make_tasks());
+	const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 	const auto done = std::make_shared<counting_completion>(1);
 	reader.read_async(make_test_array(), regions, done);
 	CHECK_FALSE( done->is_ready() );
@@ -335,7 +368,7 @@ TEST_CASE(
 			read_async(trompeloeil::_, trompeloeil::_, trompeloeil::_)
 		);
 
-		const scratch_image_reader reader(entry, file, make_tasks());
+		const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 
 		REQUIRE_THROWS_AS(
 			read_now(reader, destination, regions),
@@ -367,7 +400,7 @@ TEST_CASE(
 				std::make_exception_ptr(std::runtime_error("from the file"))
 			) );
 
-		const scratch_image_reader reader(entry, file, make_tasks());
+		const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 
 		REQUIRE_THROWS_AS(
 			read_now(reader, destination, regions),

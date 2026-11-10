@@ -50,7 +50,7 @@ public:
 		const auto layout = std::make_shared<const zarr_array_layout>(
 			read_zarr_node(m_directory.get()));
 		m_store = std::make_shared<zarr_chunk_store>(
-			m_directory.get(), layout, 1UL << 20);
+			m_directory.get(), layout, 1UL << 20, 1UL << 20);
 	}
 
 	// Writes one byte of a chunk, which holds it in memory.
@@ -121,12 +121,11 @@ TEST_CASE( "zarr_flush_operation stores the chunks held, then syncs",
 	REQUIRE( boost::filesystem::exists(fixture.path_of(1, 1)) );
 	REQUIRE( fixture.m_store->get_held_chunks().empty() );
 
-	// The metadata and both chunks, each in a task with an odd tag.
+	// The chunks stored and the metadata, in tasks with odd tags.
 	REQUIRE( fixture.m_tasks.size() == 3 );
-	for (const std::uint64_t tag : {1, 3, 5})
-	{
-		fixture.finish(operation, tag);
-	}
+	fixture.finish(operation, 1);
+	fixture.finish(operation, 3);
+	fixture.finish(operation, 5);
 	REQUIRE( fixture.m_tasks.empty() );
 	REQUIRE( fixture.m_store->take_unsynced().empty() );
 }

@@ -90,6 +90,7 @@ zarr_read_operation::zarr_read_operation(
 	array destination,
 	image_chunk_regions chunks,
 	bool asynchronous,
+	std::shared_ptr<zarr_chunk_buffers> buffers,
 	std::size_t byte_budget,
 	std::size_t chunks_in_flight
 )
@@ -99,6 +100,7 @@ zarr_read_operation::zarr_read_operation(
 	, m_array_data(m_destination.get_data())
 	, m_chunks(std::move(chunks))
 	, m_asynchronous(asynchronous)
+	, m_buffers(std::move(buffers))
 	, m_byte_budget(byte_budget)
 	, m_files_in_flight(std::max<std::size_t>(1, chunks_in_flight))
 	, m_encoded_limit(get_encoded_limit(
@@ -107,6 +109,8 @@ zarr_read_operation::zarr_read_operation(
 	, m_active(0)
 	, m_reserved(0)
 {
+	VITRIO_ASSERT(m_buffers != nullptr);
+
 	// Each chunk reached is a part of the file that holds it: its own, or
 	// that of its shard, which the parts in it share.
 	const auto &keys = m_layout->get_key_encoding();
@@ -206,7 +210,7 @@ void zarr_read_operation::on_task(
 	{
 		for (const auto part : file.parts)
 		{
-			std::vector<byte>().swap(m_parts[part].encoded);
+			give_buffer(m_parts[part].encoded);
 		}
 		file.undecoded = 0;
 		m_reserved -= get_unit_bytes(id);
@@ -335,7 +339,7 @@ void zarr_read_operation::finish_part(
 )
 {
 	VITRIO_ASSERT(id < m_parts.size());
-	std::vector<byte>().swap(m_parts[id].encoded);
+	give_buffer(m_parts[id].encoded);
 
 	const auto index = m_parts[id].unit;
 	auto &file = m_units[index];
@@ -415,8 +419,22 @@ void zarr_read_operation::locate_chunks(std::size_t index) const
 		}
 
 		current.offset = entry.offset;
-		current.encoded.resize(static_cast<std::size_t>(entry.size));
+		take_buffer(current.encoded, static_cast<std::size_t>(entry.size));
 	}
+}
+
+void zarr_read_operation::take_buffer(
+	std::vector<byte> &buffer,
+	std::size_t size
+) const
+{
+	buffer = m_buffers->take(size);
+}
+
+void zarr_read_operation::give_buffer(std::vector<byte> &buffer) const
+{
+	m_buffers->give(std::move(buffer));
+	buffer.clear();
 }
 
 std::size_t zarr_read_operation::get_unit_bytes(std::size_t index) const
@@ -468,7 +486,8 @@ void zarr_read_operation::open(std::size_t index) const
 				"holds more bytes than any encoding of the chunk."
 			);
 		}
-		m_parts[file.parts.front()].encoded.resize(
+		take_buffer(
+			m_parts[file.parts.front()].encoded,
 			static_cast<std::size_t>(size));
 	}
 
@@ -545,7 +564,7 @@ void zarr_read_operation::read_whole(std::size_t index) const
 			read(current.offset, current.encoded);
 		}
 		decode(id);
-		std::vector<byte>().swap(current.encoded);
+		give_buffer(current.encoded);
 	}
 
 	file.file.reset();
@@ -585,6 +604,7 @@ void zarr_read_operation::decode(std::size_t id) const
 	}
 	else
 	{
+		decoded = m_buffers->take(chunk.get_byte_size());
 		try
 		{
 			m_layout->get_codecs().decode(
@@ -622,6 +642,8 @@ void zarr_read_operation::decode(std::size_t id) const
 			order
 		);
 	}
+
+	m_buffers->give(std::move(decoded));
 }
 
 } // namespace zarr

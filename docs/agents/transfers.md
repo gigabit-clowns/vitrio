@@ -37,7 +37,10 @@ How reads, writes, flushes and the loads of a scratch are started, reported and 
     waits for it. The lock of an entry guards only which runs are absent,
     being taken in or held, never a read. What a reader copies out of an
     entry once it has taken that in is a task on the executor the reader
-    was given.
+    was given, and a read of more than
+    `VITRIO_DEFAULT_SCRATCH_SERVE_BYTE_BUDGET` is split into reads of that
+    many, a task each, so that an entry in memory, which copies on the
+    thread that reads from it, serves a batch on every thread at once.
   - A scratch keeps its copies through the operations of its storage,
     never through a pointer: it serves values and loads them as transfers,
     and reads and writes its flags and fingerprint on the calling thread

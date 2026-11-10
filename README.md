@@ -38,7 +38,9 @@ version 1.0.
   files. This makes common access patterns cheap: patches around picked
   particles, a slice of a volume, or random images out of RELION-style
   stacks. Regions that lie close together in a file are merged into fewer,
-  larger reads.
+  larger reads. What a read costs is what it touches of the file, though:
+  a slice along the axis a volume is laid out slowest in touches a few
+  bytes of every row, and so a page of every row, whatever reads it.
 - **Asynchronous and batch-oriented.** Reads and writes run in batches on a
   thread pool. The `_async` functions return at once with a completion to
   wait on, so the next batch can load while you work on the current one.

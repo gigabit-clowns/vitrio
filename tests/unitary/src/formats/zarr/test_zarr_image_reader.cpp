@@ -9,6 +9,7 @@
 #include "../../fixtures/file_transfer_executors.hpp"
 
 #include <formats/zarr/zarr_array_layout.hpp>
+#include <formats/zarr/zarr_chunk_buffers.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
 #include <array/fixed_width_float.hpp>
@@ -45,7 +46,9 @@ using extents = std::vector<std::size_t>;
 // given executor.
 std::unique_ptr<zarr_image_reader> open_tomogram(
 	std::shared_ptr<file_transfer_executor> transfers,
-	bool asynchronous
+	bool asynchronous,
+	std::shared_ptr<zarr_chunk_buffers> buffers =
+		std::make_shared<zarr_chunk_buffers>(1UL << 20)
 )
 {
 	const auto directory = get_zarr_asset_path("v2_float32_blosc_lz4.zarr");
@@ -58,6 +61,7 @@ std::unique_ptr<zarr_image_reader> open_tomogram(
 			make_span(extents{5, 6, 7}), 3, numerical_type::float32),
 		image_metadata(),
 		std::move(transfers),
+		std::move(buffers),
 		asynchronous
 	);
 }
@@ -98,6 +102,27 @@ TEST_CASE( "a zarr_image_reader reads through every kind of executor",
 		read_now(*reader, destination, whole_of({5, 6, 7}));
 		REQUIRE( get_values<float64_t>(destination) == expected_tomogram() );
 	}
+}
+
+TEST_CASE( "a zarr_image_reader gives the buffers of its chunks back for "
+	"the reads that follow", "[zarr_image_reader]" )
+{
+	const auto transfers =
+		GENERATE(from_range(make_every_file_transfer_executor()));
+	const auto buffers = std::make_shared<zarr_chunk_buffers>(1UL << 20);
+	const auto reader = open_tomogram(transfers, false, buffers);
+
+	auto destination = make_host_array<float64_t>(
+		{5, 6, 7}, numerical_type::float64, -1.0);
+	read_now(*reader, destination, whole_of({5, 6, 7}));
+	const auto kept = buffers->get_kept_bytes();
+	REQUIRE( kept > 0 );
+
+	// What a read takes, it gives back. Its chunks may be taken in another
+	// order, and one that finds no buffer that fits takes a new one.
+	read_now(*reader, destination, whole_of({5, 6, 7}));
+	REQUIRE( buffers->get_kept_bytes() >= kept );
+	REQUIRE( get_values<float64_t>(destination) == expected_tomogram() );
 }
 
 TEST_CASE( "reads of a zarr_image_reader may be under way at once",

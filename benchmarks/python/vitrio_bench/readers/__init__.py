@@ -66,6 +66,9 @@ class Reader:
 			)
 		self.dataset = dataset
 		self.scratchdir = Path(scratchdir) if scratchdir is not None else None
+		#: Whether the reader asked for the scratch directory, to keep
+		#: copies there.
+		self.uses_scratchdir = False
 		self.params = {
 			'dtype': 'float32',
 			**self.defaults,
@@ -193,6 +196,7 @@ class Reader:
 				"for it: --environment.scratchdir."
 			)
 		self.scratchdir.mkdir(parents=True, exist_ok=True)
+		self.uses_scratchdir = True
 		return self.scratchdir
 
 	def describe(self) -> dict[str, Any]:

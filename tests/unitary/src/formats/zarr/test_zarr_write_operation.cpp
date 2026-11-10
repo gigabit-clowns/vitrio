@@ -38,7 +38,7 @@ using extents = std::vector<std::size_t>;
 class write_operation_fixture
 {
 public:
-	write_operation_fixture()
+	explicit write_operation_fixture(std::size_t sync_budget = 1UL << 20)
 		// Named after the case, so that cases run at once write apart.
 		: m_directory("test_zarr_write_operation_" + std::to_string(
 			std::hash<std::string>()(
@@ -48,7 +48,7 @@ public:
 		const auto layout = std::make_shared<const zarr_array_layout>(
 			read_zarr_node(m_directory.get()));
 		m_store = std::make_shared<zarr_chunk_store>(
-			m_directory.get(), layout, 1UL << 20);
+			m_directory.get(), layout, 1UL << 20, sync_budget);
 	}
 
 	std::unique_ptr<zarr_write_operation> make_operation(
@@ -107,6 +107,45 @@ TEST_CASE( "zarr_write_operation writes each chunk in a task of its own",
 	{
 		REQUIRE( fixture.is_stored(chunk / 2, chunk % 2) );
 	}
+}
+
+TEST_CASE( "zarr_write_operation syncs the chunks stored as they pass the "
+	"budget", "[zarr_write_operation]" )
+{
+	// Chunks of 4 bytes, synced every 6: the second chunk passes it.
+	write_operation_fixture fixture(6);
+	ALLOW_CALL(fixture.m_scope, run(_, _))
+		.LR_SIDE_EFFECT( fixture.m_tasks[_2] = std::move(_1) );
+	auto operation = fixture.make_operation(whole_of({4, 4}));
+	operation->start(fixture.m_scope);
+	REQUIRE( fixture.m_tasks.size() == 4 );
+
+	auto finish = [&](std::uint64_t tag)
+	{
+		auto work = std::move(fixture.m_tasks.at(tag));
+		fixture.m_tasks.erase(tag);
+		work->run();
+		operation->on_task(tag, nullptr, fixture.m_scope);
+	};
+	finish(0);
+	REQUIRE( fixture.m_tasks.size() == 3 );
+
+	// Two chunks stored: a sync of each, tagged past the chunks.
+	finish(1);
+	REQUIRE( fixture.m_tasks.size() == 4 );
+	REQUIRE( fixture.m_tasks.count(4) == 1 );
+	REQUIRE( fixture.m_tasks.count(5) == 1 );
+	finish(4);
+	finish(5);
+	REQUIRE( fixture.m_tasks.size() == 2 );
+
+	// Counted from the batch on: the third chunk alone does not pass it.
+	finish(2);
+	REQUIRE( fixture.m_tasks.size() == 1 );
+	finish(3);
+	REQUIRE( fixture.m_tasks.size() == 2 );
+	REQUIRE( fixture.m_tasks.count(6) == 1 );
+	REQUIRE( fixture.m_tasks.count(7) == 1 );
 }
 
 TEST_CASE( "zarr_write_operation writes only the chunks the regions reach",

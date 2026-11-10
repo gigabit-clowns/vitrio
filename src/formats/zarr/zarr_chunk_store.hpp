@@ -37,6 +37,12 @@ namespace zarr
  * is read back into memory first, so that what of it is not written again
  * stays.
  *
+ * What a store writes reaches the storage when it is synced, which whoever
+ * writes does: the files of the chunks stored are taken in batches of a
+ * budget of bytes, so that the storage works on a batch while the next is
+ * encoded and the commits of its log are shared by the batch, and a flush
+ * takes whatever is left.
+ *
  * Its methods may be called at once from many threads. Writes of one chunk
  * at once are carried out one after the other; writes that do not overlap
  * may be carried out at once.
@@ -52,11 +58,14 @@ public:
 	 * @param layout How the array lays its chunks out. Not sharded.
 	 * @param byte_budget The bytes of chunks held in memory past which those
 	 * written least recently are stored.
+	 * @param sync_byte_budget The bytes of chunks stored and not yet synced
+	 * past which they are due a sync, together.
 	 */
 	zarr_chunk_store(
 		std::string directory,
 		std::shared_ptr<const zarr_array_layout> layout,
-		std::size_t byte_budget
+		std::size_t byte_budget,
+		std::size_t sync_byte_budget
 	);
 
 	zarr_chunk_store(const zarr_chunk_store &other) = delete;
@@ -111,16 +120,25 @@ public:
 	void store(span<const std::size_t> chunk);
 
 	/**
-	 * @brief Take the files written since this was last called, which a
-	 * flush syncs.
+	 * @brief Take every file written and not yet synced: the chunks stored
+	 * and the files noted, which a flush syncs.
 	 *
 	 * @return std::vector<std::string> Their paths.
 	 */
 	std::vector<std::string> take_unsynced();
 
 	/**
+	 * @brief Take every file written and not yet synced, if the chunks
+	 * among them pass the budget of bytes a batch is synced at.
+	 *
+	 * @return std::vector<std::string> Their paths, or none where they do
+	 * not pass it yet.
+	 */
+	std::vector<std::string> take_unsynced_past_budget();
+
+	/**
 	 * @brief Note a file written beside the chunks, such as metadata, for
-	 * the next flush to sync.
+	 * the next sync.
 	 *
 	 * @param path The file.
 	 */
@@ -156,16 +174,22 @@ private:
 	std::string get_path(const chunk_key &chunk) const;
 	std::size_t count_valid(const chunk_key &chunk) const;
 
+	std::vector<std::string> take_unsynced_locked();
+
 	std::string m_directory;
 	std::shared_ptr<const zarr_array_layout> m_layout;
 	std::size_t m_byte_budget;
+	std::size_t m_sync_byte_budget;
 	std::size_t m_chunk_bytes;
 	std::vector<byte> m_fill_chunk;
 
 	mutable std::mutex m_mutex;
 	std::map<chunk_key, std::shared_ptr<held_chunk>> m_held;
 	std::set<chunk_key> m_stored;
-	std::set<std::string> m_unsynced;
+	// Each with the bytes it holds, which a file that is not a chunk, such
+	// as metadata, counts none of.
+	std::map<std::string, std::size_t> m_unsynced;
+	std::size_t m_unsynced_bytes;
 	std::size_t m_held_bytes;
 	std::uint64_t m_clock;
 	std::uint64_t m_partials;

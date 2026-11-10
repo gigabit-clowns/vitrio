@@ -7,6 +7,7 @@
 #include <formats/zarr/zarr_read_operation.hpp>
 
 #include <formats/zarr/zarr_array_layout.hpp>
+#include <formats/zarr/zarr_chunk_buffers.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
@@ -119,7 +120,8 @@ public:
 
 		return std::make_unique<zarr_read_operation>(
 			m_directory.get(), layout, m_destination.share(),
-			std::move(chunks), asynchronous, 1UL << 20, chunks_in_flight);
+			std::move(chunks), asynchronous, m_buffers, 1UL << 20,
+			chunks_in_flight);
 	}
 
 	// Takes every task the operation runs, by its tag.
@@ -188,6 +190,8 @@ public:
 
 	scoped_directory m_directory;
 	array m_destination;
+	std::shared_ptr<zarr_chunk_buffers> m_buffers =
+		std::make_shared<zarr_chunk_buffers>(1UL << 20);
 	mock_file_transfer_scope m_scope;
 	std::map<std::uint64_t, std::unique_ptr<task>> m_tasks;
 	std::map<std::uint64_t, memory_range> m_reads;
@@ -222,6 +226,44 @@ TEST_CASE( "zarr_read_operation opens, reads and decodes every chunk",
 
 	REQUIRE( fixture.m_tasks.empty() );
 	REQUIRE( fixture.values() == read_operation_fixture::expected() );
+}
+
+TEST_CASE( "zarr_read_operation gives the buffers of its chunks back once "
+	"they are in the array", "[zarr_read_operation]" )
+{
+	read_operation_fixture fixture;
+	const auto tasks = fixture.take_tasks();
+	const auto reads = fixture.take_reads();
+	auto operation = fixture.make_operation(true);
+
+	// Every chunk is read into a buffer of its own, taken as it is opened.
+	operation->start(fixture.m_scope);
+	for (std::size_t chunk = 0; chunk < 4; ++chunk)
+	{
+		fixture.finish(*operation, tag_of(chunk, open_step));
+	}
+	REQUIRE( fixture.m_buffers->get_kept_bytes() == 0 );
+
+	fixture.land(*operation, 0);
+	fixture.finish(*operation, tag_of(0, decode_step));
+	REQUIRE( fixture.m_buffers->get_kept_bytes() >= 4 );
+
+	for (std::size_t chunk = 1; chunk < 4; ++chunk)
+	{
+		fixture.land(*operation, chunk);
+		fixture.finish(*operation, tag_of(chunk, decode_step));
+	}
+	REQUIRE( fixture.m_buffers->get_kept_bytes() >= 16 );
+	REQUIRE( fixture.values() == read_operation_fixture::expected() );
+
+	// A read that follows takes them.
+	auto again = fixture.make_operation(true);
+	again->start(fixture.m_scope);
+	for (std::size_t chunk = 0; chunk < 4; ++chunk)
+	{
+		fixture.finish(*again, tag_of(chunk, open_step));
+	}
+	REQUIRE( fixture.m_buffers->get_kept_bytes() == 0 );
 }
 
 TEST_CASE( "zarr_read_operation fills a chunk that is not stored",
@@ -427,7 +469,8 @@ public:
 
 		return std::make_unique<zarr_read_operation>(
 			directory, layout, m_destination.share(), std::move(chunks),
-			true, 1UL << 20, 64);
+			true, std::make_shared<zarr_chunk_buffers>(1UL << 20),
+			1UL << 20, 64);
 	}
 
 	std::unique_ptr<trompeloeil::expectation> take_tasks()

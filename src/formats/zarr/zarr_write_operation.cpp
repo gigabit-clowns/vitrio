@@ -2,6 +2,8 @@
 
 #include "zarr_write_operation.hpp"
 
+#include "zarr_sync_task.hpp"
+
 #include <vitrio/concurrency/task.hpp>
 
 #include <assert.hpp>
@@ -44,6 +46,7 @@ zarr_write_operation::zarr_write_operation(
 	: m_store(std::move(store))
 	, m_source(std::move(source))
 	, m_chunks(std::move(chunks))
+	, m_syncs(0)
 {
 }
 
@@ -68,14 +71,26 @@ void zarr_write_operation::on_transfer(
 }
 
 void zarr_write_operation::on_task(
-	std::uint64_t,
+	std::uint64_t tag,
 	std::exception_ptr error,
-	file_transfer_scope &
+	file_transfer_scope &scope
 )
 {
 	if (error)
 	{
 		std::rethrow_exception(error);
+	}
+
+	// A chunk written: the batch of chunks stored, if it passes the budget,
+	// is synced, in tasks tagged past the chunks.
+	if (tag < m_chunks.get_chunk_count())
+	{
+		for (auto &path : m_store->take_unsynced_past_budget())
+		{
+			scope.run(
+				std::make_unique<zarr_sync_task>(std::move(path)),
+				m_chunks.get_chunk_count() + m_syncs++);
+		}
 	}
 }
 
