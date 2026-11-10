@@ -10,6 +10,11 @@ set(DOXYGEN_FILE_PATTERNS *.hpp *.md)
 set(DOXYGEN_STRIP_FROM_PATH ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR})
 set(DOXYGEN_STRIP_FROM_INC_PATH ${PROJECT_SOURCE_DIR}/include)
 
+# The mark of the logo heads every page, at the height the stylesheet gives
+# it, since Doxygen shows it at the size the file has.
+set(DOXYGEN_PROJECT_LOGO ${PROJECT_SOURCE_DIR}/docs/logo/isotype/vitrio-mark.svg)
+set(DOXYGEN_HTML_EXTRA_STYLESHEET ${CMAKE_CURRENT_SOURCE_DIR}/logo.css)
+
 # A macro between a keyword and the name it declares hides the declaration
 # from Doxygen, so those of the library are expanded to nothing.
 set(DOXYGEN_MACRO_EXPANSION YES)

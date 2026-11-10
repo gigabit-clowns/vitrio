@@ -30,7 +30,15 @@ autodoc_typehints = 'none'
 
 html_theme = 'furo'
 html_title = f"vitrio {release}"
-html_static_path = []
+# The lockup of the logo holds the name, so the sidebar does not repeat it.
+# The files are those of `docs/logo/`, which the build copies.
+html_static_path = ['../logo/lockup']
+html_favicon = '../logo/favicon/favicon.svg'
+html_theme_options = {
+	'light_logo': 'vitrio-logo-horizontal.svg',
+	'dark_logo': 'vitrio-logo-horizontal-on-dark.svg',
+	'sidebar_hide_name': True,
+}
 
 # A reference that cannot be resolved is a mistake in a docstring.
 nitpicky = False

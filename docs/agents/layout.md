@@ -49,6 +49,7 @@ Where everything lives in the repository, and how sources are listed and tested.
 | `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
 | `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and the README as its first page |
 | `docs/sphinx/` | The reference of the Python package, with Sphinx, from its docstrings. It holds the `.rst` pages and `conf.py` |
+| `docs/logo/` | The logo kit: the mark, the wordmark, the lockups, the favicons, the banners of the README and their PNG renders, with `source/generate.py`, which writes them all again. Its README says which file is for what. The site, Doxygen and Sphinx take their logos from here |
 | `cmake/modules/` | CMake modules of the project, among them a `vitrio_fetch_<dep>.cmake` for each dependency, which fetches it and builds it with the project |
 | `cmake/config/` | The template of the installed CMake package config |
 | `cmake/scripts/` | CMake scripts the build runs |

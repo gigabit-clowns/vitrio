@@ -1,3 +1,7 @@
+<p align="center">
+<img alt="vitrio, high-throughput CryoEM image I/O for C++ and Python" src="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-light.svg" width="800">
+</p>
+
 # vitrio
 
 [![PyPI](https://img.shields.io/pypi/v/vitrio)](https://pypi.org/project/vitrio/)
