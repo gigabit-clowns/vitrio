@@ -17,7 +17,7 @@ function(vitrio_fetch_zlib)
 	if(CMAKE_VERSION VERSION_LESS 3.24)
 		message(
 			FATAL_ERROR
-			"Building zlib needs CMake 3.24. Turn VITRIO_BUILD_ZLIB off or "
+			"Building zlib needs CMake 3.24. Turn VITRIO_USE_SYSTEM_ZLIB on or "
 			"use a newer CMake."
 		)
 	endif()

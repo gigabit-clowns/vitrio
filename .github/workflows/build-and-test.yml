@@ -152,10 +152,7 @@ jobs:
           for tree in . "$RUNNER_TEMP/release"; do
             cmake -S "$tree" --preset debug \
               -DVITRIO_BUILD_TESTING=OFF -DVITRIO_CHECK_HEADERS=OFF \
-              -DVITRIO_BUILD_BOOST=OFF -DVITRIO_BUILD_SPDLOG=OFF \
-              -DVITRIO_BUILD_ZLIB=OFF -DVITRIO_BUILD_TIFF=OFF \
-              -DVITRIO_BUILD_LIBURING=OFF -DVITRIO_BUILD_NLOHMANN_JSON=OFF \
-              -DVITRIO_BUILD_ZSTD=OFF -DVITRIO_BUILD_BLOSC=OFF
+              -DVITRIO_USE_SYSTEM_DEPENDENCIES=ON
             cmake --build "$tree/build/debug" --parallel 4
           done
 
@@ -234,7 +231,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug
           -DVITRIO_CHECK_HEADERS=ON
           -DVITRIO_BUILD_PYTHON=ON
-          -DVITRIO_BUILD_DEPENDENCIES=OFF
+          -DVITRIO_USE_SYSTEM_DEPENDENCIES=ON
 
       - name: Build
         run: >-

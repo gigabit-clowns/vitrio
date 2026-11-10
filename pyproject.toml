@@ -134,7 +134,7 @@ sdist.exclude = [
 ]
 
 # The dependencies are fetched and built with the package, as in any build
-# that does not turn VITRIO_BUILD_DEPENDENCIES off, so a compiler is all it
+# that does not turn VITRIO_USE_SYSTEM_DEPENDENCIES on, so a compiler is all it
 # takes. They are static, and end up inside the library of vitrio.
 [tool.scikit-build.cmake.define]
 VITRIO_BUILD_PYTHON = "ON"

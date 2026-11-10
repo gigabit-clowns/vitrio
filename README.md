@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/vitrio)](https://pypi.org/project/vitrio/)
 [![Build and test](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml)
 
-vitrio reads and writes the images of Cryo-Electron Microscopy (CryoEM). It
+vitrio reads and writes Cryo-Electron Microscopy (CryoEM) images. It
 is made for programs that go through a lot of images, such as particle
 extraction, processing pipelines or the training of neural networks. One
 interface covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the
@@ -19,6 +19,9 @@ micrograph = vio.read("micrograph.mrc")
 particle = vio.read(vio.ImageLocation.from_string("12@particles.mrcs"))
 tomogram = vio.read("tomogram.zarr")
 ```
+
+vitrio is young. Its API and ABI may change between minor releases until
+version 1.0.
 
 ## Highlights
 
@@ -61,50 +64,29 @@ tomogram = vio.read("tomogram.zarr")
   format selector, even at run time. The library does not need to change,
   and every read and write can use the new format right away.
 
-## Status
-
-vitrio is young. Its API and ABI may change between minor releases until
-version 1.0.
-
-[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
-compares vitrio with other ways of reading and writing. Storage varies a
-lot from one machine to another, so it is best run on your own.
-
 ## Supported formats
 
-| Format | Read | Write | Extensions | Notes |
+| Format | Extensions | Holds | Read | Write |
 |---|---|---|---|---|
-| MRC | yes | yes | `.mrc`, `.mrcs`, `.map`; also `.st`, `.rec` and `.ali` when reading, and any of these compressed with gzip, such as `.map.gz` | Images, volumes and stacks of either. 8- and 16-bit integers, 16- and 32-bit floats, complex. Either byte order. A file compressed with gzip, as the EMDB holds its maps, is read but not written. |
-| TIFF | yes | yes | `.tif`, `.tiff` | Classic and BigTIFF, with one page or many. Integers and floats up to 64 bits, complex. |
-| EER | yes | no | `.eer` | The events of an electron-counting detector. It can provide access to a raw electron-event timeline or seamless rendering into a movie of arbitrary fractionation. Supports compression 65000, 65001 and 65002. |
-| DM (DigitalMicrograph) | yes | no | `.dm3`, `.dm4` | Versions 3 and 4, as Gatan Microscopy Suite writes gain and dark references. Images and stacks of them. Integers, floats and complex; RGB and packed complex are not read. Either byte order. The thumbnail is skipped, and only the first image of a file is read. Versions 2 and 5 are not read. |
-| ZARR | yes | yes | any: a directory; `.zarr` when writing | Versions 2 and 3, an array or an image of OME-Zarr 0.4 or 0.5, whose finest level is read. Booleans, integers, floats and complex, either byte order, C or F order and transposes. Chunks compressed with blosc, zstd, zlib or gzip, and checked with crc32c, alone or in shards; a chunk that is not stored reads as the fill value. Filters, other codecs and shards compressed whole are not read yet. Written as version 3 and, with two or three axes of space, an image of OME-Zarr 0.5 of one level: chunks of 1024 by 1024 of each image, or 128 cubed of each volume, compressed with blosc and zstd, and none written of a chunk that holds only zeros. Shards are not written yet. |
+| MRC | `.mrc`, `.mrcs`, `.map`, `.st`, `.rec`, `.ali`, and any of these compressed with gzip, such as `.map.gz` | Images, volumes, stacks of either | All of them, in either byte order. 8- and 16-bit integers, 16- and 32-bit floats, 64-bit complex | `.mrc`, `.mrcs` and `.map`, never compressed. The same data types |
+| TIFF | `.tif`, `.tiff` | Images, stacks | Classic and BigTIFF, with one page or many. 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Classic, or BigTIFF when the images would not fit one. Both extensions, and the same data types |
+| EER | `.eer` | Movies | Compression 65000, 65001 and 65002. Electron events, read as a timeline or counted into images | Not written |
+| DigitalMicrograph | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order, and only the first image of a file. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
+| ZARR | a directory of any name, `.zarr` when writing | Images, volumes, stacks | Versions 2 and 3, and OME-Zarr 0.4 and 0.5, in either byte order. Booleans, 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex. Chunks compressed with blosc, zstd, zlib or gzip, alone or in shards | Version 3, and OME-Zarr 0.5. The same data types. Chunks compressed with blosc and zstd, never in shards |
 
 A file is recognized by its contents where the format allows it, and by its
 extension otherwise. A ZARR array is recognized by the metadata in its
-directory. TIFF and EER go through libtiff, ZARR through nlohmann/json,
-c-blosc, zstd and zlib, and MRC compressed with gzip through zlib, and each
-can be left out of a build. More formats will follow.
+directory.
 
-gzip can only be inflated from its start, so a read of an MRC file
-compressed with gzip inflates the file again from its start up to the last
-value it needs, and keeps nothing between reads: such a file is usually read
-once, whole. Reading the images of a large compressed stack one at a time
-inflates everything before each of them, and is best done from the file
-decompressed instead.
+An EER file holds the events a detector counted rather than images. They are
+read as they are, a stretch of time at a time, or counted into a movie of as
+many fractions as you ask for, after which the file is read like any other
+image.
 
-ZARR does not say whether three axes are a volume or a stack of images. The
-axes of OME-Zarr say which are of space, and a stack is told apart from a
-volume by levels of resolution that never scale its first axis, as the tilt
-series of the CryoET Data Portal are stored. Without OME-Zarr, the names of
-the dimensions of version 3 decide, and otherwise up to three trailing axes
-are one image or volume. A scratch that holds the images of a ZARR array does
-not notice a chunk rewritten in place: it goes by when the directory was last
-written, which a file inside it changing does not change.
+A read of an MRC file compressed with gzip inflates it from its start, so
+such a file is best read once, whole.
 
-A ZARR store written over a path replaces what is there only when it is a
-file or another ZARR store: a directory that holds anything else is refused
-and left as it is.
+More formats will follow.
 
 ## Installing
 
@@ -289,15 +271,16 @@ cmake --install build --prefix <where>
 ```
 
 To use the libraries installed on the system instead, turn
-`VITRIO_BUILD_DEPENDENCIES` off. CMake then looks for each of them with
+`VITRIO_USE_SYSTEM_DEPENDENCIES` on. CMake then looks for each of them with
 `find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
 is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
 nlohmann/json 3.6, c-blosc 1.14, zstd 1.4 and Catch2 3 or newer. One of them
-alone is found rather than built by turning its own option off, such as
-`-DVITRIO_BUILD_TIFF=OFF`. The others are `VITRIO_BUILD_BOOST`,
-`VITRIO_BUILD_SPDLOG`, `VITRIO_BUILD_ZLIB`, `VITRIO_BUILD_LIBURING`,
-`VITRIO_BUILD_NLOHMANN_JSON`, `VITRIO_BUILD_BLOSC`, `VITRIO_BUILD_ZSTD`,
-`VITRIO_BUILD_CATCH2` and `VITRIO_BUILD_TROMPELOEIL`.
+alone is found rather than built by turning its own option on, such as
+`-DVITRIO_USE_SYSTEM_TIFF=ON`. The others are `VITRIO_USE_SYSTEM_BOOST`,
+`VITRIO_USE_SYSTEM_SPDLOG`, `VITRIO_USE_SYSTEM_ZLIB`,
+`VITRIO_USE_SYSTEM_LIBURING`, `VITRIO_USE_SYSTEM_NLOHMANN_JSON`,
+`VITRIO_USE_SYSTEM_BLOSC`, `VITRIO_USE_SYSTEM_ZSTD`,
+`VITRIO_USE_SYSTEM_CATCH2` and `VITRIO_USE_SYSTEM_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
 directory of its sources instead, such as
@@ -307,7 +290,7 @@ A few options change what gets built:
 
 | Option | Effect |
 |---|---|
-| `-DVITRIO_BUILD_DEPENDENCIES=OFF` | Find the libraries vitrio needs installed, rather than fetching and building them |
+| `-DVITRIO_USE_SYSTEM_DEPENDENCIES=ON` | Find the libraries vitrio needs installed, rather than fetching and building them |
 | `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
 | `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
 | `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
@@ -321,7 +304,7 @@ With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
 tree, so putting that directory on `PYTHONPATH` is enough to import it.
 `pip install .` builds and installs it in one go. It is given the options
 above as `-C cmake.define.<option>=<value>`, such as
-`-C cmake.define.VITRIO_BUILD_DEPENDENCIES=OFF`.
+`-C cmake.define.VITRIO_USE_SYSTEM_DEPENDENCIES=ON`.
 
 ## Licence
 
