@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/* Doxygen shows the logo at the size of the file, which is far taller
+ * than the title beside it. */
+#projectlogo img {
+	height: 48px;
+	width: auto;
+}

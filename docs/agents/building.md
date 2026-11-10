@@ -65,7 +65,9 @@ Doxygen and writes the documentation of the C++ API under
 parameter that is not there does not go unnoticed. The README is its first
 page, so a link in it to another file of the repository is a full URL: a
 relative one is taken for a reference to a page of the documentation, and
-fails it.
+fails it. PyPI shows the README too, so its banner is a full URL into
+`docs/logo/` on `main`, and a single `<img>`: Doxygen fails on
+`<picture>`.
 
 With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
 imports the package from the build tree and has Sphinx write its reference
