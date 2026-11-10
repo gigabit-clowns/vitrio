@@ -244,7 +244,6 @@ def lockup_v(C, pad=0):
 
 
 TAGLINE = "High-throughput cryo-EM image I/O for C++ & Python"
-FORMATS = "MRC  ·  TIFF  ·  Zarr  ·  EER  ·  DM3/DM4"
 
 
 def banner(mode):
@@ -256,11 +255,10 @@ def banner(mode):
     body, lw, lh = lockup_h(C)
     s = 1.25
     lx = (W - lw * s) / 2
-    ly = 52
+    ly = 64                                    # centres the lockup and the tagline
     t1, _ = text_path(TAGLINE, 30, "Medium", W / 2, ly + lh * s + 60, sub, "middle")
-    t2, _ = text_path(FORMATS, 18, "SemiBold", W / 2, ly + lh * s + 98, C["track"], "middle", tracking=1.2)
     return svg(W, H, f'<rect width="{W}" height="{H}" rx="0" fill="{bg}"/>'
-               f'<g transform="translate({lx:.2f} {ly}) scale({s})">{body}</g>{t1}{t2}',
+               f'<g transform="translate({lx:.2f} {ly}) scale({s})">{body}</g>{t1}',
                title="vitrio — " + TAGLINE)
 
 
