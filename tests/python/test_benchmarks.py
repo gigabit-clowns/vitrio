@@ -35,11 +35,19 @@ LAYOUTS = ['single-stack', 'per-micrograph:7']
 
 def harness(*arguments, check=True):
 	paths = [str(HARNESS), os.environ.get('PYTHONPATH', '')]
-	return subprocess.run(
+	completed = subprocess.run(
 		[sys.executable, '-m', 'vitrio_bench', *arguments],
 		env={**os.environ, 'PYTHONPATH': os.pathsep.join(paths)},
-		check=check, capture_output=True, text=True, timeout=120
+		check=False, capture_output=True, text=True, timeout=120
 	)
+	# What the harness said is the reason it failed; the exit status alone
+	# is not.
+	if check and completed.returncode != 0:
+		pytest.fail(
+			f"vitrio_bench {' '.join(arguments)} exited with "
+			f"{completed.returncode}:\n{completed.stderr}"
+		)
+	return completed
 
 def run(datadir, results_file, *options, check=True):
 	return harness(
@@ -182,15 +190,18 @@ def test_the_evict_helper_stands_alone():
 	with pytest.raises(evict.Error, match='numbers of bytes'):
 		evict.run(['arc-max', 'much'])
 
-@pytest.mark.skipif(
-	hasattr(os, 'geteuid') and os.geteuid() == 0, reason="root needs no helper"
-)
-def test_a_privileged_mode_without_the_helper_says_so(monkeypatch):
+def test_a_privileged_mode_without_privilege_says_what_gives_it(monkeypatch):
+	# Whoever runs the tests may have the privilege, or the helper: without
+	# either, the failure names what would give it on this platform.
+	monkeypatch.setattr(cache, '_has_privilege', lambda: False)
 	monkeypatch.setattr(cache, '_find_helper', lambda: None)
-	with pytest.raises(environment.Unavailable, match=cache.HELPER):
-		cache.evict([], 'drop')
-	with pytest.raises(environment.Unavailable, match=cache.HELPER):
-		cache.evict([], 'zfs')
+	gives = (
+		'administrator' if sys.platform in ('win32', 'cygwin')
+		else cache.HELPER
+	)
+	for mode in ('drop', 'zfs'):
+		with pytest.raises(environment.Unavailable, match=gives):
+			cache.evict([], mode)
 
 @pytest.mark.parametrize('platform', ['darwin', 'win32', 'sunos5'])
 def test_what_a_platform_lacks_is_said_not_skipped(monkeypatch, platform):
