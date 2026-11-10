@@ -2,8 +2,8 @@
 
 """vitrio: a store written with one call, and read with one, its chunks
 carried out at once on the threads of a pool of transfers. Patches are
-read through a loader, those of an image in one call, every call under way
-at once.
+read through a loader, made once and kept as a program keeps one, those
+of an image in one call, every call under way at once.
 
 Parameters:
 	workers: The threads of the pool of transfers and of the loader.
@@ -29,6 +29,7 @@ class VitrioLibrary(ZarrLibrary):
 	def __init__(self, params: dict[str, Any]) -> None:
 		super().__init__(params)
 		self._transfers = None
+		self._loader = None
 
 	def _pool(self):
 		import vitrio as vio
@@ -67,7 +68,9 @@ class VitrioLibrary(ZarrLibrary):
 	) -> None:
 		import vitrio as vio
 
-		loader = vio.loader(self.params['workers'], transfers=self._pool())
+		if self._loader is None:
+			self._loader = vio.loader(self.params['workers'], transfers=self._pool())
+		loader = self._loader
 		extents = out.shape[1:]
 		stack = len(layout.shape) - layout.core_rank
 		pending = []
