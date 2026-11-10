@@ -397,7 +397,11 @@ since the archive of a commit lacks its libraries, which are submodules.
   opens no file until it reads: a read resolves its regions into the chunks
   they reach with `image_chunk_regions`, and its operation opens and reads
   each file, its index first for a shard, and decodes its chunks, a few
-  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. Only the codecs that turn bytes into
+  files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. What a chunk
+  is read into and decoded into are buffers of `zarr_chunk_buffers`, which
+  the format keeps from one read to the next, as many bytes of them as that
+  budget, since fresh memory for every chunk costs page faults and a fill
+  of zeros that are most of what a cached chunk costs. Only the codecs that turn bytes into
   bytes are classes, `zarr_bytes_codec`: an order of C or F, a transpose and
   the order of the bytes are the strides and the byte order the strided
   transfer reads a chunk with. A chunk that is not stored is read as its fill

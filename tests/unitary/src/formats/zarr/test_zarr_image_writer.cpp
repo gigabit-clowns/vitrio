@@ -11,6 +11,7 @@
 #include "../../fixtures/file_transfer_executors.hpp"
 
 #include <formats/zarr/zarr_array_layout.hpp>
+#include <formats/zarr/zarr_chunk_buffers.hpp>
 #include <formats/zarr/zarr_image_reader.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
@@ -81,6 +82,7 @@ std::vector<std::uint8_t> read_back(
 		image_descriptor(make_span(shape), 2, numerical_type::uint8),
 		image_metadata(),
 		std::move(transfers),
+		std::make_shared<zarr_chunk_buffers>(1UL << 20),
 		false
 	);
 	auto destination = make_host_array<std::uint8_t>(

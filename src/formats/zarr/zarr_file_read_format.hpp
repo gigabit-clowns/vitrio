@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "zarr_chunk_buffers.hpp"
+
 #include <vitrio/image_file_read_format.hpp>
+
+#include <memory>
 
 namespace vitrio
 {
@@ -24,12 +28,16 @@ namespace zarr
  * Arrays are read in a regular grid of chunks, each a file of its own or
  * grouped into shards, with the codecs of zarr_codec_pipeline. Reading one
  * that holds anything else is reported as an unsupported_operation_error.
+ *
+ * The buffers the chunks are read into and decoded into are kept from one
+ * read to the next, up to the bytes of chunks a read holds at once, so that
+ * a chunk costs no fresh memory: see zarr_chunk_buffers.
  */
 class zarr_file_read_format final
 	: public image_file_read_format
 {
 public:
-	zarr_file_read_format() noexcept = default;
+	zarr_file_read_format();
 
 	~zarr_file_read_format() override = default;
 
@@ -42,6 +50,9 @@ public:
 		const image_file_probe &probe,
 		const file_transfer_pool &transfers
 	) const override;
+
+private:
+	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 };
 
 } // namespace zarr

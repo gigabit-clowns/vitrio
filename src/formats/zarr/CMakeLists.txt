@@ -9,6 +9,7 @@ target_sources(
 		gzip_zarr_bytes_codec.cpp
 		zarr_array_layout.cpp
 		zarr_bytes_codec.cpp
+		zarr_chunk_buffers.cpp
 		zarr_chunk_key_encoding.cpp
 		zarr_chunk_layout.cpp
 		zarr_chunk_store.cpp

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "zarr_array_layout.hpp"
+#include "zarr_chunk_buffers.hpp"
 
 #include <file_transfer/file_transfer_operation.hpp>
 #include <strided_transfer/image_chunk_regions.hpp>
@@ -43,7 +44,9 @@ namespace zarr
  *
  * It holds as many files at once as fit the budget of bytes, counting what
  * each chunk is read into and what it is decoded into, and as many as it may
- * have open, and one at least.
+ * have open, and one at least. What a chunk is read into and decoded into
+ * are buffers taken from the zarr_chunk_buffers it is given, and given back
+ * once the chunk is in the array.
  */
 class zarr_read_operation final
 	: public file_transfer_operation
@@ -60,6 +63,8 @@ public:
 	 * must lie in the array and in @p destination.
 	 * @param asynchronous Whether the transfers go through asynchronous
 	 * ports.
+	 * @param buffers Where the buffers of the chunks are taken from and
+	 * given back to. It must not be null.
 	 * @param byte_budget The bytes of chunks it holds at once.
 	 * @param chunks_in_flight The files it has open at once.
 	 */
@@ -69,6 +74,7 @@ public:
 		array destination,
 		image_chunk_regions chunks,
 		bool asynchronous,
+		std::shared_ptr<zarr_chunk_buffers> buffers,
 		std::size_t byte_budget,
 		std::size_t chunks_in_flight
 	);
@@ -150,6 +156,8 @@ private:
 
 	std::uint64_t get_index_offset(const unit &file) const;
 	void locate_chunks(std::size_t unit) const;
+	void take_buffer(std::vector<byte> &buffer, std::size_t size) const;
+	void give_buffer(std::vector<byte> &buffer) const;
 	std::size_t get_unit_bytes(std::size_t unit) const;
 
 	void open(std::size_t unit) const;
@@ -162,6 +170,7 @@ private:
 	byte *m_array_data;
 	image_chunk_regions m_chunks;
 	bool m_asynchronous;
+	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 	std::size_t m_byte_budget;
 	std::size_t m_files_in_flight;
 	std::size_t m_encoded_limit;

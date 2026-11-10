@@ -21,6 +21,7 @@
 #include <vitrio/image_metadata.hpp>
 
 #include <logger.hpp>
+#include <tuning.hpp>
 
 #include <boost/filesystem/path.hpp>
 
@@ -106,6 +107,11 @@ boost::optional<zarr_multiscale> find_parent_multiscale(
 
 } // anonymous namespace
 
+zarr_file_read_format::zarr_file_read_format()
+	: m_buffers(std::make_shared<zarr_chunk_buffers>(get_chunk_byte_budget()))
+{
+}
+
 std::string zarr_file_read_format::get_name() const
 {
 	return "ZARR";
@@ -189,6 +195,7 @@ std::shared_ptr<image_reader> zarr_file_read_format::open(
 			shape, core_rank, layout->get_chunk_layout().get_data_type()),
 		image_metadata(),
 		transfers.get_implementation().get_executor(),
+		m_buffers,
 		asynchronous_file_transfer_port_opener::is_supported()
 	);
 }

@@ -119,6 +119,12 @@
 // floats, as tomograms are chunked, is 64 MiB. The chunks a read holds are
 // decoded at once on the executor of computations, so this is what lets
 // them keep its threads busy. A read always holds one chunk, however large.
+//
+// The format keeps the buffers of as many bytes of chunks from one read to
+// the next, so that a chunk is read into and decoded into memory the system
+// has already given: a fresh buffer costs a page fault for each page and a
+// fill of zeros, on every chunk, and more under many threads at once, which
+// is most of what a cached chunk costs.
 #ifndef VITRIO_DEFAULT_CHUNK_BYTE_BUDGET
 	#define VITRIO_DEFAULT_CHUNK_BYTE_BUDGET (1UL<<29)
 #endif
