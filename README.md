@@ -1,5 +1,8 @@
 <p align="center">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-dark.svg">
 <img alt="vitrio, high-throughput CryoEM image I/O for C++ and Python" src="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-light.svg" width="800">
+</picture>
 </p>
 
 # vitrio

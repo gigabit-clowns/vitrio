@@ -3,9 +3,9 @@
 find_package(Doxygen REQUIRED)
 
 # The documentation is what the public headers say of themselves, with the
-# README as its first page. Its name, version and brief are those of the
-# project.
-set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${PROJECT_SOURCE_DIR}/README.md)
+# page of its own first, which points to the README. Its name, version and
+# brief are those of the project.
+set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md)
 set(DOXYGEN_FILE_PATTERNS *.hpp *.md)
 set(DOXYGEN_STRIP_FROM_PATH ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR})
 set(DOXYGEN_STRIP_FROM_INC_PATH ${PROJECT_SOURCE_DIR}/include)
@@ -35,7 +35,7 @@ set(DOXYGEN_WARN_AS_ERROR FAIL_ON_WARNINGS)
 
 doxygen_add_docs(
 	vitrio-docs
-	${PROJECT_SOURCE_DIR}/README.md
+	${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
 	${PROJECT_SOURCE_DIR}/include
 	COMMENT "Generating the documentation of the API"
 )

@@ -62,12 +62,13 @@ job.
 `-DVITRIO_BUILD_DOCS=ON` adds the target `vitrio-docs`, which needs
 Doxygen and writes the documentation of the C++ API under
 `docs/doxygen/html` of the build tree. A warning of Doxygen fails it, so a comment that names a
-parameter that is not there does not go unnoticed. The README is its first
-page, so a link in it to another file of the repository is a full URL: a
+parameter that is not there does not go unnoticed. Its first page is
+`docs/doxygen/mainpage.md`, not the README, whose `<picture>` Doxygen fails
+on. A link in that page to anything outside the reference is a full URL: a
 relative one is taken for a reference to a page of the documentation, and
-fails it. PyPI shows the README too, so its banner is a full URL into
-`docs/logo/` on `main`, and a single `<img>`: Doxygen fails on
-`<picture>`.
+fails it. PyPI shows the README, so a link or an image in it to another
+file of the repository is a full URL too, such as its banners in
+`docs/logo/` on `main`.
 
 With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
 imports the package from the build tree and has Sphinx write its reference
