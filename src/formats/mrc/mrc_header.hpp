@@ -188,12 +188,16 @@ bool has_map_identifier(span<const byte> bytes) noexcept;
  * other way around says the stamp is wrong, which happens in files written by
  * software that byte swapped the data and not the stamp.
  *
+ * The identifier is not required: whether a file is MRC at all is decided
+ * before, by @ref has_map_identifier or by its extension, and the files
+ * written before MRC2014 specified the identifier carry none. The fields are
+ * what is checked.
+ *
  * @param bytes The bytes of the file, of which the first
  * @ref header_size are read.
  * @return mrc_header The parsed header.
- * @throws image_file_format_error If there are not enough bytes, if the
- * identifier is missing, if no byte order resolves the mode, or if a field
- * contradicts what the format allows.
+ * @throws image_file_format_error If there are not enough bytes, if no byte
+ * order resolves the mode, or if a field contradicts what the format allows.
  */
 mrc_header parse_header(span<const byte> bytes);
 

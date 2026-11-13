@@ -541,14 +541,6 @@ mrc_header parse_header(span<const byte> bytes)
 		);
 	}
 
-	if (!has_map_identifier(bytes))
-	{
-		throw image_file_format_error(
-			"mrc::parse_header: The file does not carry the MRC "
-			"identifier."
-		);
-	}
-
 	const auto order = resolve_byte_order(bytes);
 
 	mrc_header header;
