@@ -85,4 +85,5 @@ The rules every C++ source of the library follows.
   asynchronous ports does. None of them is an argument of the API.
 - **Versions.** `VERSION` holds the version of the project. Before 1.0 a minor
   release may break the ABI, so the name of the shared library carries the
-  minor version (`libvitrio.so.0.1`).
+  minor version (`libvitrio.so.0.1`). `CITATION.cff` states a version and a
+  date of release of its own: both are bumped with `VERSION`.

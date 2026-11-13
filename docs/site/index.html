@@ -4,10 +4,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>vitrio</title>
+<title>vitrio — cryo-EM image I/O for C++ and Python</title>
+<meta name="description" content="High-throughput image I/O for cryo-EM and cryo-ET. One interface reads and writes MRC, TIFF, EER, DigitalMicrograph and ZARR into NumPy, PyTorch and JAX.">
+<link rel="canonical" href="https://gigabit-clowns.github.io/vitrio/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="vitrio">
+<meta property="og:title" content="vitrio — cryo-EM image I/O for C++ and Python">
+<meta property="og:description" content="High-throughput image I/O for cryo-EM and cryo-ET. One interface reads and writes MRC, TIFF, EER, DigitalMicrograph and ZARR into NumPy, PyTorch and JAX.">
+<meta property="og:url" content="https://gigabit-clowns.github.io/vitrio/">
+<meta property="og:image" content="https://gigabit-clowns.github.io/vitrio/logo/png/social-preview-1280x640.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="logo/favicon/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="logo/png/apple-touch-icon-180.png">
+<script type="application/ld+json">
+{
+	"@context": "https://schema.org",
+	"@type": "SoftwareSourceCode",
+	"name": "vitrio",
+	"description": "vitrio is a high-throughput image I/O library for Cryo-Electron Microscopy (cryo-EM and cryo-ET). One interface reads and writes the micrographs, movies, particle stacks, volumes and tomograms held in MRC, TIFF, EER, DigitalMicrograph and ZARR files, into memory the caller already owns, such as a NumPy array or a PyTorch or JAX tensor.",
+	"url": "https://gigabit-clowns.github.io/vitrio/",
+	"codeRepository": "https://github.com/gigabit-clowns/vitrio",
+	"programmingLanguage": ["C++", "Python"],
+	"license": "https://spdx.org/licenses/LGPL-2.1-or-later.html",
+	"applicationCategory": "Science",
+	"keywords": "cryo-EM, cryo-ET, electron microscopy, image I/O, MRC, EER, ZARR, data loader, high-performance computing",
+	"author": {
+		"@type": "Organization",
+		"name": "Gigabit Clowns",
+		"url": "https://github.com/gigabit-clowns"
+	}
+}
+</script>
 <style>
 	:root {
 		--bg: #ffffff;
@@ -15,6 +43,7 @@
 		--muted: #57606a;
 		--border: #d0d7de;
 		--accent: #0b5cad;
+		--code-bg: #f6f8fa;
 	}
 	@media (prefers-color-scheme: dark) {
 		:root {
@@ -23,6 +52,7 @@
 			--muted: #9198a1;
 			--border: #30363d;
 			--accent: #58a6ff;
+			--code-bg: #161b22;
 		}
 	}
 	body {
@@ -32,15 +62,42 @@
 		font: 16px/1.5 system-ui, sans-serif;
 	}
 	main {
-		max-width: 40rem;
+		max-width: 44rem;
 		margin: 0 auto;
 		padding: 4rem 1rem;
 	}
-	h1 { margin: 0 0 0.5rem; }
+	h1 { margin: 0 0 1.5rem; }
 	h1 img { display: block; height: 4rem; width: auto; }
+	h2 {
+		margin: 2.5rem 0 0.75rem;
+		font-size: 1.1rem;
+	}
 	p { color: var(--muted); }
-	ul { list-style: none; padding: 0; margin: 2rem 0; }
-	li a {
+	p.lead {
+		color: var(--fg);
+		font-size: 1.15rem;
+	}
+	a { color: var(--accent); }
+	code, pre {
+		font-family: ui-monospace, monospace;
+		font-size: 0.9rem;
+	}
+	pre {
+		background: var(--code-bg);
+		border: 1px solid var(--border);
+		border-radius: 0.5rem;
+		padding: 0.9rem 1rem;
+		overflow-x: auto;
+	}
+	dl { color: var(--muted); }
+	dt {
+		color: var(--fg);
+		font-weight: 600;
+		margin-top: 0.75rem;
+	}
+	dd { margin: 0 0 0 1.25rem; }
+	ul.cards { list-style: none; padding: 0; margin: 2rem 0; }
+	ul.cards a {
 		display: block;
 		padding: 1rem 1.25rem;
 		margin-bottom: 0.75rem;
@@ -50,12 +107,19 @@
 		text-decoration: none;
 		font-weight: 600;
 	}
-	li a span {
+	ul.cards a span {
 		display: block;
 		color: var(--muted);
 		font-weight: 400;
 	}
-	li a:hover { border-color: var(--accent); }
+	ul.cards a:hover { border-color: var(--accent); }
+	footer {
+		margin-top: 3rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--border);
+		color: var(--muted);
+		font-size: 0.9rem;
+	}
 </style>
 </head>
 <body>
@@ -63,13 +127,37 @@
 	<h1>
 		<picture>
 			<source media="(prefers-color-scheme: dark)" srcset="logo/lockup/vitrio-logo-horizontal-on-dark.svg">
-			<img alt="vitrio" src="logo/lockup/vitrio-logo-horizontal.svg">
+			<img alt="vitrio, high-throughput cryo-EM image I/O for C++ and Python" src="logo/lockup/vitrio-logo-horizontal.svg">
 		</picture>
 	</h1>
-	<p>
-		High-throughput image I/O for Cryo-Electron Microscopy (CryoEM)
+
+	<p class="lead">
+		High-throughput image I/O for Cryo-Electron Microscopy (cryo-EM and
+		cryo-ET).
 	</p>
-	<ul>
+
+	<p>
+		vitrio reads and writes the micrographs, movies, particle stacks,
+		volumes and tomograms that electron microscopy works on. It is made
+		for programs that go through a lot of them, such as particle
+		extraction, single-particle processing pipelines or the training of
+		neural networks. One interface covers MRC, TIFF, EER,
+		DigitalMicrograph and ZARR files, and the pixels go straight into
+		memory you already have: a NumPy array, a PyTorch or JAX tensor, or
+		your own buffer in C++. It is a C++14 library with a Python package
+		on top.
+	</p>
+
+	<pre><code>pip install vitrio</code></pre>
+
+	<pre><code>import vitrio as vio
+
+micrograph = vio.read("micrograph.mrc")
+particle = vio.read(vio.ImageLocation.from_string("12@particles.mrcs"))
+tomogram = vio.read("tomogram.zarr")</code></pre>
+
+	<h2>Reference</h2>
+	<ul class="cards">
 		<li>
 			<a href="python/">
 				Python reference
@@ -89,6 +177,62 @@
 			</a>
 		</li>
 	</ul>
+
+	<h2>Formats</h2>
+	<dl>
+		<dt>MRC</dt>
+		<dd>
+			<code>.mrc</code>, <code>.mrcs</code>, <code>.map</code>,
+			<code>.st</code>, <code>.rec</code>, <code>.ali</code>, and
+			these compressed with gzip, such as the <code>.map.gz</code> of
+			a map in the EMDB. Images, volumes and stacks of either, read
+			and written.
+		</dd>
+		<dt>TIFF</dt>
+		<dd>
+			<code>.tif</code>, <code>.tiff</code>. Classic and BigTIFF,
+			with one page or many, read and written.
+		</dd>
+		<dt>EER</dt>
+		<dd>
+			<code>.eer</code>. The movies of an electron-counting detector,
+			read as the events they hold or counted into as many fractions
+			as you ask for.
+		</dd>
+		<dt>DigitalMicrograph</dt>
+		<dd>
+			<code>.dm3</code>, <code>.dm4</code>. Images and stacks of
+			Gatan software, read.
+		</dd>
+		<dt>ZARR</dt>
+		<dd>
+			Versions 2 and 3, and OME-Zarr 0.4 and 0.5. Images, volumes and
+			stacks, read, and written in version 3.
+		</dd>
+	</dl>
+
+	<h2>Feeding a model</h2>
+	<p>
+		<code>vitrio.data</code> reads a cryo-EM dataset for training in
+		shuffled batches of NumPy arrays, PyTorch tensors or JAX arrays,
+		with the next batches in flight on a thread pool and no worker
+		processes. It takes the locations and the metadata of the particles
+		of a RELION or cryoSPARC job as you parsed them, crops patches
+		around picked centres, and keeps what a run goes back to in a
+		scratch in RAM or on local storage.
+	</p>
+
+	<footer>
+		<p>
+			vitrio is free software under the
+			<a href="https://github.com/gigabit-clowns/vitrio/blob/main/LICENSE">GNU LGPL, version 2.1 or later</a>.
+			It is cited as
+			<a href="https://github.com/gigabit-clowns/vitrio/blob/main/CITATION.cff">CITATION.cff</a>
+			says, and
+			<a href="https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md">benchmarks/</a>
+			measures it against mrcfile, zarr-python, tensorstore and LMDB.
+		</p>
+	</footer>
 </main>
 </body>
 </html>

@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# How vitrio is cited. GitHub reads this file and offers "Cite this
+# repository", which turns it into BibTeX or APA, and Zenodo takes the
+# title and the authors from it when a release is archived. Its `version`
+# and `date-released` are those of `VERSION`, and are bumped with it.
+cff-version: 1.2.0
+message: If you use vitrio in your research, please cite it as below.
+title: vitrio
+abstract: >-
+  vitrio is a high-throughput image I/O library for Cryo-Electron
+  Microscopy (cryo-EM and cryo-ET). One interface reads and writes the
+  micrographs, movies, particle stacks, volumes and tomograms held in MRC,
+  TIFF, EER, DigitalMicrograph and ZARR files, into memory the caller
+  already owns, such as a NumPy array or a PyTorch or JAX tensor. It is a
+  C++14 library with a Python package on top, made for programs that go
+  through many images, such as particle extraction, processing pipelines
+  and the training of neural networks.
+type: software
+authors:
+  - given-names: Oier
+    family-names: Lauzirika Zarrabeitia
+    email: oierlauzi@bizkaia.eu
+  - given-names: Martin
+    family-names: Salinas Antón
+    email: ssalinasmartin@gmail.com
+  - given-names: Mikel
+    family-names: Iceta Tena
+    email: m.icetatena@gmail.com
+repository-code: https://github.com/gigabit-clowns/vitrio
+url: https://gigabit-clowns.github.io/vitrio/
+license: LGPL-2.1-or-later
+version: 0.2.1
+date-released: '2026-11-11'
+keywords:
+  - cryo-EM
+  - cryo-ET
+  - electron microscopy
+  - image I/O
+  - MRC
+  - EER
+  - ZARR
+  - data loader
+  - high-performance computing

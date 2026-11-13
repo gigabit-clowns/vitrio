@@ -46,7 +46,7 @@ Where everything lives in the repository, and how sources are listed and tested.
 | `benchmarks/datasets/` | The manifests of real datasets, in JSON: where to download each, what its files are, how to check them (`python -m vitrio_bench dataset check`) and how to make its variants. The data is never committed |
 | `docs/` | Builds the documentation of the API, a directory for each of its parts |
 | `docs/agents/` | The documents for agents that `AGENTS.md` indexes. No build reads them |
-| `docs/site/` | The root of the published site, whose page links both references. It is copied as it is |
+| `docs/site/` | The root of the published site: its page, which says what vitrio is and links both references, `sitemap.xml`, which names the three of them for a search engine, and `llms.txt`, which says the same to a model that reads one. Copied as it is, so a file added here is published |
 | `docs/doxygen/` | The reference of the C++ headers, with Doxygen, and `mainpage.md`, its first page |
 | `docs/sphinx/` | The reference of the Python package, with Sphinx, from its docstrings. It holds the `.rst` pages and `conf.py` |
 | `docs/logo/` | The logo kit: the mark, the wordmark, the lockups, the favicons, the banners of the README and their PNG renders, with `source/generate.py`, which writes them all again. Its README says which file is for what. The site, Doxygen and Sphinx take their logos from here |
