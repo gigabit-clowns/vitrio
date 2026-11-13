@@ -34,6 +34,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -291,6 +292,30 @@ def _locked(path: Path) -> Iterator[None]:
 			fcntl.flock(file, fcntl.LOCK_EX)
 		yield
 
+# Windows refuses to rename a directory while a handle to it or to
+# anything inside it is open, with `PermissionError` and `WinError 5`, and
+# an antivirus or an indexer may hold one for a moment after the files are
+# written. Elsewhere a rename does not care what is open, so the wait costs
+# nothing and is not worth a branch per platform; what it does cost is this
+# much of a wait before a directory held for a reason, such as one that
+# cannot be written at all, says so.
+_RENAME_DELAYS = (0.1, 0.2, 0.4, 0.8, 1.6, 3.2)
+
+def _rename_when_free(partial: Path, final: Path) -> None:
+	"""
+	Rename `partial` to `final`, waiting for whoever holds it to let go.
+
+	Raises:
+		PermissionError: If it is still held after the last wait.
+	"""
+	for delay in _RENAME_DELAYS:
+		try:
+			partial.rename(final)
+			return
+		except PermissionError:
+			time.sleep(delay)
+	partial.rename(final)
+
 def generate(datadir: str | Path, spec: dict[str, Any]) -> Dataset:
 	"""
 	Generate a dataset under `datadir`, unless it is there already.
@@ -348,7 +373,7 @@ def _write(datadir: str | Path, spec: dict[str, Any]) -> Dataset:
 	)
 	if hasattr(os, 'sync'):
 		os.sync()
-	partial.rename(final)
+	_rename_when_free(partial, final)
 	return Dataset(final, spec, sizes)
 
 @dataclass
