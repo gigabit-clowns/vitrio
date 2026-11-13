@@ -19,6 +19,7 @@
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_saver.hpp>
 #include <vitrio/image_write.hpp>
+#include <vitrio/index_table.hpp>
 #include <vitrio/span.hpp>
 
 #include <nanobind/stl/filesystem.h>
@@ -125,6 +126,33 @@ std::shared_ptr<completion> py_write_batch_async(
 	);
 }
 
+std::shared_ptr<completion> py_write_patches_async(
+	const image_saver &saver,
+	const_host_ndarray source,
+	const image_location &location,
+	const index_table &centres
+)
+{
+	memory_loan loan(source);
+	auto imported = import_const_array(source, loan);
+
+	std::shared_ptr<completion> work;
+	{
+		const nb::gil_scoped_release release;
+		work = write_patches_async(
+			saver,
+			std::move(imported),
+			location,
+			centres
+		);
+	}
+
+	return std::make_shared<memory_loan_completion>(
+		std::move(work),
+		std::move(loan)
+	);
+}
+
 } // anonymous namespace
 
 void bind_image_write(nb::module_ &m)
@@ -209,6 +237,27 @@ void bind_image_write(nb::module_ &m)
 		"    ValueError: If the leading extent of `source` is not the number "
 		"of locations, or if the locations mix those that name an index with "
 		"those that name none."
+	);
+	m.def(
+		"write_patches_async", &py_write_patches_async,
+		nb::arg("saver"), nb::arg("source").noconvert(),
+		nb::arg("location"), nb::arg("centres"),
+		"Write patches of equal size into one image.\n"
+		"\n"
+		"Prefer `vitrio.write_patches_async`, which takes the centres as an "
+		"array or a list.\n"
+		"\n"
+		"Args:\n"
+		"    saver: The `ImageSaver` the writes are dispatched to.\n"
+		"    source: The patches. Its leading extent is the number of "
+		"patches and the rest are the shape of one.\n"
+		"    location: The `ImageLocation` of the image they are written "
+		"into.\n"
+		"    centres: An `IndexTable` with a centre for each patch.\n"
+		"\n"
+		"Returns:\n"
+		"    Completion: Ready once every patch has been written or has "
+		"failed."
 	);
 }
 

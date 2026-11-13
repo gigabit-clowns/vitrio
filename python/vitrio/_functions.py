@@ -47,6 +47,7 @@ from ._binding import (
 	ImageLocation,
 	ImageLocationGrouping,
 	ImageReaderProvider,
+	ImageSaver,
 	ImageScratch,
 	ImageWriterProvider,
 	IndexTable,
@@ -691,14 +692,58 @@ def read_patches_async(
 		It keeps `destination` alive, and destroying it waits for the
 		reads.
 	"""
+	return _binding.read_patches_async(
+		loader, destination, location, _as_centres(centres, destination)
+	)
+
+def write_patches_async(
+	saver: ImageSaver,
+	source: HostArray,
+	location: ImageLocation,
+	centres: IndexTable | HostArray | Sequence[Sequence[int]]
+) -> Completion:
+	"""
+	Write a batch of equally sized patches into one image.
+
+	The mirror of `read_patches_async`: each slot of `source` is written
+	where a read around its centre would have read it from. The part of a
+	patch past the edge of the image is not written. Patches of one call
+	must not overlap, and what no patch covers keeps what the format leaves
+	there. Returns before the writes are done.
+
+	The file has to be declared with its final shape beforehand, on the
+	provider `saver` writes through, so an image or volume can be written a
+	batch of patches at a time: the tiles of a sliding window, for one.
+
+	Args:
+		saver: Where the writes are dispatched.
+		source: The patches. Its leading extent is the batch size and the
+			rest are the shape of one patch.
+		location: The image every patch is written into.
+		centres: The centre of each patch, as `read_patches_async` takes
+			them.
+
+	Returns:
+		Completion: Ready once every patch has been written or has failed.
+		It keeps `source` alive, and destroying it waits for the writes.
+	"""
+	return _binding.write_patches_async(
+		saver, source, location, _as_centres(centres, source)
+	)
+
+def _as_centres(
+	centres: IndexTable | HostArray | Sequence[Sequence[int]],
+	patches: HostArray
+) -> IndexTable:
+	"""The centres of a batch of patches as the table the binding takes."""
+	if isinstance(centres, IndexTable):
+		return centres
 	if isinstance(centres, Sequence):
-		table = IndexTable(max(len(destination.shape) - 1, 0))
+		table = IndexTable(max(len(patches.shape) - 1, 0))
 		for centre in centres:
 			table.add(centre)
-		centres = table
-	elif not isinstance(centres, IndexTable):
-		centres = IndexTable.from_array(centres)
-	return _binding.read_patches_async(loader, destination, location, centres)
+		return table
+	return IndexTable.from_array(centres)
 
 def write_single(
 	array: HostArray,
