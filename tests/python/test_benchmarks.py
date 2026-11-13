@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -290,6 +291,40 @@ def test_a_dataset_not_generated_fails_the_run(tmp_path):
 	(record,) = results.load(records_file)
 	assert record['status'] == 'failed'
 	assert 'generate' in record['reason']
+
+def hold_the_rename(monkeypatch, times):
+	"""Refuse the next `times` renames as Windows refuses a held one."""
+	rename = Path.rename
+	refused = []
+	def refuse(self, target):
+		if times is None or len(refused) < times:
+			refused.append(target)
+			raise PermissionError(5, "Access is denied")
+		return rename(self, target)
+	monkeypatch.setattr(Path, 'rename', refuse)
+	monkeypatch.setattr(time, 'sleep', lambda delay: None)
+	return refused
+
+def test_a_dataset_is_renamed_once_whoever_held_it_lets_go(
+	tmp_path, monkeypatch
+):
+	partial = tmp_path / 'set.partial'
+	partial.mkdir()
+	(partial / 'stack_000000.mrcs').write_bytes(b'')
+	refused = hold_the_rename(monkeypatch, 2)
+	datasets._rename_when_free(partial, tmp_path / 'set')
+	assert len(refused) == 2
+	assert (tmp_path / 'set').is_dir()
+	assert not partial.exists()
+
+def test_a_dataset_held_for_good_says_so_rather_than_waiting_for_ever(
+	tmp_path, monkeypatch
+):
+	partial = tmp_path / 'set.partial'
+	partial.mkdir()
+	hold_the_rename(monkeypatch, None)
+	with pytest.raises(PermissionError):
+		datasets._rename_when_free(partial, tmp_path / 'set')
 
 def find_reframe():
 	beside = Path(sys.executable).parent / 'reframe'
