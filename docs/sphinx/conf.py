@@ -30,6 +30,10 @@ autodoc_typehints = 'none'
 
 html_theme = 'furo'
 html_title = f"vitrio {release}"
+# Where the reference is published, which the theme writes into the
+# canonical link of every page, so that a search engine keeps one copy of it
+# however it was reached.
+html_baseurl = 'https://gigabit-clowns.github.io/vitrio/python/'
 # The lockup of the logo holds the name, so the sidebar does not repeat it.
 # The files are those of `docs/logo/`, which the build copies.
 html_static_path = ['../logo/lockup']

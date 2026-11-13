@@ -1,0 +1,60 @@
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+# vitrio
+
+> vitrio is a high-throughput image I/O library for Cryo-Electron
+> Microscopy (cryo-EM and cryo-ET). One interface reads and writes the
+> micrographs, movies, particle stacks, volumes and tomograms held in MRC,
+> TIFF, EER, DigitalMicrograph and ZARR files, into memory the caller
+> already owns, such as a NumPy array or a PyTorch or JAX tensor. It is a
+> C++14 library with a Python package on top, made for programs that go
+> through many images, such as particle extraction, processing pipelines
+> and the training of neural networks.
+
+- Install it with `pip install vitrio`, which has wheels for Linux, macOS
+  and Windows, on Python 3.10 and newer. The C++ library is built from
+  source with CMake 3.24 or newer and a C++14 compiler.
+- `vitrio.read` works the format out from the file. A read or a write is a
+  list of regions that fill one array, and those regions may come from any
+  number of images and files, so reading the patches around picked
+  particles, a slice of a volume or random images out of a RELION-style
+  stack costs what it touches of the file.
+- Reads and writes run in batches on a thread pool, and the `_async`
+  functions return at once with a completion to wait on. MRC,
+  DigitalMicrograph and ZARR files go through io_uring where the kernel
+  offers it.
+- `vitrio.data` feeds images and their metadata to PyTorch or JAX in
+  shuffled batches, with no worker processes, and a batch bound for a GPU
+  is read straight into pinned memory.
+- An EER movie is read like any other movie: you say how many fractions
+  you want and vitrio counts the electron events into them as it reads.
+- A scratch keeps a local copy of the images a program goes back to, in
+  RAM or in a file on fast local storage, which may be larger than RAM and
+  shared between programs.
+- vitrio is free software under the GNU LGPL, version 2.1 or later. Its API
+  and ABI may change between minor releases until version 1.0.
+
+## Documentation
+
+- [Python reference](https://gigabit-clowns.github.io/vitrio/python/): every
+  class and function of the package, from its docstrings, with pages on
+  arrays and locations, reading and writing, loaders and providers,
+  scratches, detector events and `vitrio.data`.
+- [C++ reference](https://gigabit-clowns.github.io/vitrio/cpp/): the public
+  headers under `include/vitrio/`, which are the whole API.
+
+## Source
+
+- [Repository](https://github.com/gigabit-clowns/vitrio): the source, the
+  issues and the releases.
+- [README](https://github.com/gigabit-clowns/vitrio#readme): what vitrio
+  is, the table of the supported formats and their data types, how to
+  install it, and how it is used from Python and from C++.
+- [Examples](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md):
+  programs that train a PyTorch network on the 2D classes of a RELION job,
+  extract picked particles into stacks and cut EER movies into fractions.
+- [Benchmarks](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md):
+  the harness that measures vitrio against mrcfile, zarr-python,
+  tensorstore, LMDB and PyTorch's own `DataLoader`, over the EMPIAR-10180
+  and EMPIAR-10076 datasets.
+- [CITATION.cff](https://github.com/gigabit-clowns/vitrio/blob/main/CITATION.cff):
+  how to cite vitrio.
