@@ -21,12 +21,14 @@ authors:
   - given-names: Oier
     family-names: Lauzirika Zarrabeitia
     email: oierlauzi@bizkaia.eu
+    orcid: https://orcid.org/0009-0003-7908-180X
   - given-names: Martin
     family-names: Salinas Antón
     email: ssalinasmartin@gmail.com
   - given-names: Mikel
     family-names: Iceta Tena
     email: m.icetatena@gmail.com
+    orcid: https://orcid.org/0000-0002-5342-3299
 repository-code: https://github.com/gigabit-clowns/vitrio
 url: https://gigabit-clowns.github.io/vitrio/
 license: LGPL-2.1-or-later
