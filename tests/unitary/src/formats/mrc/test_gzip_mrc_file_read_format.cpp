@@ -221,21 +221,6 @@ TEST_CASE( "the gzip MRC format refuses what it can not read",
 	const scoped_path path("gzip_read_format_refused.map.gz");
 	const gzip_mrc_file_read_format format;
 
-	SECTION( "a header without the identifier" )
-	{
-		auto raw = make_file(4, 3, 1, 0, 2, counting(12));
-		raw[208] = 'X';
-		write_gzip(path.get(), raw);
-
-		REQUIRE_THROWS_AS(
-			format.open(
-				image_file_probe(path.get()),
-				*make_file_transfer_pool()
-			),
-			image_file_format_error
-		);
-	}
-
 	SECTION( "a stream that ends within the header" )
 	{
 		auto raw = make_file(4, 3, 1, 0, 2, counting(12));
@@ -305,4 +290,27 @@ TEST_CASE(
 		REQUIRE( std::vector<std::size_t>(extents.begin(), extents.end()) ==
 			std::vector<std::size_t>{3, 4} );
 	}
+}
+
+TEST_CASE( "the gzip MRC format opens a file without the identifier by its fields",
+	"[gzip_mrc_file_read_format]" )
+{
+	// What was written before MRC2014 specified the identifier carries
+	// none, and is claimed by its extension.
+	const scoped_path path("gzip_read_format_without_identifier.map.gz");
+	const gzip_mrc_file_read_format format;
+	auto raw = make_file(4, 3, 1, 0, 2, counting(12));
+	std::memset(raw.data() + 208, 0, 4);
+	write_gzip(path.get(), raw);
+
+	const auto reader = format.open(
+		image_file_probe(path.get()),
+		*make_file_transfer_pool()
+	);
+
+	const auto extents = reader->get_descriptor().get_extents();
+	REQUIRE(
+		std::vector<std::size_t>(extents.begin(), extents.end()) ==
+		std::vector<std::size_t>{3, 4}
+	);
 }

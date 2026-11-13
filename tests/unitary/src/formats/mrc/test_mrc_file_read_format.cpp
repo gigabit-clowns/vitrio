@@ -199,21 +199,6 @@ TEST_CASE( "the MRC read format refuses a file that contradicts its header",
 	const scoped_path path("read_format_bad_header.mrc");
 	const mrc_file_read_format format;
 
-	SECTION( "one without the identifier" )
-	{
-		auto raw = make_file(4, 3, 1, 0, 2, counting(12));
-		raw[208] = 'X';
-		write_file(path.get(), raw);
-
-		REQUIRE_THROWS_AS(
-			format.open(
-				image_file_probe(path.get()),
-				*make_file_transfer_pool()
-			),
-			image_file_format_error
-		);
-	}
-
 	SECTION( "one shorter than the shape it states, naming it" )
 	{
 		auto raw = make_file(4, 3, 2, 0, 2, counting(24));
@@ -269,4 +254,27 @@ TEST_CASE(
 		REQUIRE( std::vector<std::size_t>(extents.begin(), extents.end()) ==
 			std::vector<std::size_t>{3, 4} );
 	}
+}
+
+TEST_CASE( "the MRC format opens a file without the identifier by its fields",
+	"[mrc_file_read_format]" )
+{
+	// What was written before MRC2014 specified the identifier carries
+	// none, and is claimed by its extension.
+	const scoped_path path("read_format_without_identifier.mrc");
+	const mrc_file_read_format format;
+	auto raw = make_file(4, 3, 1, 0, 2, counting(12));
+	std::memset(raw.data() + 208, 0, 4);
+	write_file(path.get(), raw);
+
+	const auto reader = format.open(
+		image_file_probe(path.get()),
+		*make_file_transfer_pool()
+	);
+
+	const auto extents = reader->get_descriptor().get_extents();
+	REQUIRE(
+		std::vector<std::size_t>(extents.begin(), extents.end()) ==
+		std::vector<std::size_t>{3, 4}
+	);
 }

@@ -277,12 +277,18 @@ TEST_CASE( "an MRC header that contradicts the format is refused",
 		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
 	}
 
-	SECTION( "a block without the identifier is refused" )
+	// Files written before MRC2014 specified the identifier carry none, and
+	// whether a file is MRC is not the parser's to decide.
+	SECTION( "a block without the identifier is parsed by its fields" )
 	{
 		auto raw = make_raw_header(byte_order::little_endian);
 		raw[map_offset] = byte('X');
 
-		REQUIRE_THROWS_AS( parse_header(view(raw)), image_file_format_error );
+		const auto header = parse_header(view(raw));
+
+		REQUIRE( header.get_column_count() == 4 );
+		REQUIRE( header.get_row_count() == 3 );
+		REQUIRE( header.get_section_count() == 2 );
 	}
 
 	SECTION( "a negative extent is refused" )
