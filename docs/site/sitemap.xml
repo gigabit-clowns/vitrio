@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<!--
+	The pages of the site a search engine is pointed at: this one and the
+	entry point of each reference, whose own pages are linked from theirs.
+	A site served from a directory cannot hold a robots.txt that a crawler
+	reads, so this file is handed to Search Console instead.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url>
+		<loc>https://gigabit-clowns.github.io/vitrio/</loc>
+		<priority>1.0</priority>
+	</url>
+	<url>
+		<loc>https://gigabit-clowns.github.io/vitrio/python/</loc>
+		<priority>0.8</priority>
+	</url>
+	<url>
+		<loc>https://gigabit-clowns.github.io/vitrio/cpp/</loc>
+		<priority>0.8</priority>
+	</url>
+</urlset>

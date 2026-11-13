@@ -1,7 +1,7 @@
 <p align="center">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-dark.svg">
-<img alt="vitrio, high-throughput CryoEM image I/O for C++ and Python" src="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-light.svg" width="800">
+<img alt="vitrio, high-throughput cryo-EM image I/O for C++ and Python" src="https://raw.githubusercontent.com/gigabit-clowns/vitrio/main/docs/logo/github/readme-banner-light.svg" width="800">
 </picture>
 </p>
 
@@ -9,13 +9,16 @@
 
 [![PyPI](https://img.shields.io/pypi/v/vitrio)](https://pypi.org/project/vitrio/)
 [![Build and test](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml)
+[![Documentation](https://img.shields.io/badge/docs-gigabit--clowns.github.io%2Fvitrio-0b5cad)](https://gigabit-clowns.github.io/vitrio/)
 
-vitrio reads and writes Cryo-Electron Microscopy (CryoEM) images. It
-is made for programs that go through a lot of images, such as particle
-extraction, processing pipelines or the training of neural networks. One
-interface covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the
-pixels go straight into memory you already have: a NumPy array, a PyTorch or
-JAX tensor, or your own buffer in C++.
+vitrio reads and writes the images of Cryo-Electron Microscopy (cryo-EM
+and cryo-ET): the micrographs, movies, particle stacks, volumes and
+tomograms that electron microscopy works on. It is made for programs that go
+through a lot of them, such as particle extraction, single-particle
+processing pipelines or the training of neural networks. One interface
+covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the pixels go
+straight into memory you already have: a NumPy array, a PyTorch or JAX
+tensor, or your own buffer in C++.
 
 vitrio is a C++14 library with a Python package on top.
 
@@ -90,8 +93,9 @@ read as they are, a stretch of time at a time, or counted into a movie of as
 many fractions as you ask for, after which the file is read like any other
 image.
 
-A read of an MRC file compressed with gzip inflates it from its start, so
-such a file is best read once, whole.
+A read of an MRC file compressed with gzip, such as the `.map.gz` of a map
+in the EMDB, inflates it from its start, so such a file is best read once,
+whole.
 
 More formats will follow.
 
@@ -152,9 +156,9 @@ movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
 
 ## Feeding a model
 
-`vitrio.data` reads a dataset for training in batches. A `Dataset` is rows
-of named fields: images read from files, and whatever metadata goes with
-them, such as the CTF, the pose or the class of each particle. vitrio
+`vitrio.data` reads a cryo-EM dataset for training in batches. A `Dataset`
+is rows of named fields: images read from files, and whatever metadata goes
+with them, such as the CTF, the pose or the class of each particle. vitrio
 parses no metadata file itself. It takes what you parsed it into, such as
 the columns of a DataFrame from [starfile](https://github.com/teamtomo/starfile).
 A `DataLoader` goes through it in shuffled batches, as dicts of NumPy
@@ -211,6 +215,22 @@ and `advanced/` names the thread pools, loaders and scratches. Among them,
 RELION job, `extract_particles.py` crops the particles picked on a set of
 micrographs into stacks, and `fractionate_eer.py` cuts EER movies into
 fractions.
+
+## Benchmarks
+
+[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
+holds a harness that measures how fast vitrio reads and writes against the
+ways other software does it: mrcfile for MRC files, zarr-python and
+tensorstore for ZARR stores, and LMDB and PyTorch's own `DataLoader` for the
+batches of a training run. A procedure measures one of those from outside
+vitrio and records a run as a line of JSON, a question sweeps a procedure's
+parameters, and ReFrame runs campaigns of them on a machine. The datasets
+are real: the manifests of `benchmarks/datasets/` say where to download
+EMPIAR-10180 and EMPIAR-10076, and how to check them.
+
+The results of a campaign are not published yet. Until they are, run one
+yourself on the storage you care about, as the README of the harness
+describes.
 
 ## Using it from C++
 
@@ -312,6 +332,12 @@ tree, so putting that directory on `PYTHONPATH` is enough to import it.
 `pip install .` builds and installs it in one go. It is given the options
 above as `-C cmake.define.<option>=<value>`, such as
 `-C cmake.define.VITRIO_USE_SYSTEM_DEPENDENCIES=ON`.
+
+## Citing vitrio
+
+[CITATION.cff](https://github.com/gigabit-clowns/vitrio/blob/main/CITATION.cff)
+holds the citation of the library, which GitHub offers under **Cite this
+repository** and turns into BibTeX or APA.
 
 ## Licence
 

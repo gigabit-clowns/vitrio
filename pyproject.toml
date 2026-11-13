@@ -21,6 +21,37 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = []
+# What PyPI and the search engines match the package by, beside the
+# classifiers: the spellings of the field, the formats it reads and writes,
+# and what it is used for.
+keywords = [
+    "cryo-em",
+    "cryoem",
+    "cryo-electron-microscopy",
+    "electron-microscopy",
+    "cryo-et",
+    "tomography",
+    "single-particle-analysis",
+    "image-io",
+    "mrc",
+    "eer",
+    "tiff",
+    "zarr",
+    "dm3",
+    "dm4",
+    "micrograph",
+    "particle-stack",
+    "dataloader",
+    "pytorch",
+    "jax",
+    "numpy",
+    "dlpack",
+    "empiar",
+    "relion",
+    "cryosparc",
+    "hpc",
+    "io-uring",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -40,8 +71,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gigabit-clowns/vitrio"
+Homepage = "https://gigabit-clowns.github.io/vitrio/"
+Documentation = "https://gigabit-clowns.github.io/vitrio/python/"
+Source = "https://github.com/gigabit-clowns/vitrio"
 Issues = "https://github.com/gigabit-clowns/vitrio/issues"
+Changelog = "https://github.com/gigabit-clowns/vitrio/releases"
 
 # numpy drops a version of Python sooner than vitrio does, so each gets the
 # last release that still has it.
