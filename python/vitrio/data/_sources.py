@@ -162,19 +162,29 @@ def _image_shape(
 	"""
 	Get the shape of what a location names, the type its file holds, and how
 	many images or volumes its file stacks, or None when it is not a stack.
+
+	An index into a file of one volume names a section of it, which is how
+	the reads underneath address it and how RELION reads `index@key` of any
+	MRC file: a stack of images that a file states as one volume is common,
+	since that is what a stack written as an array of three axes becomes.
 	"""
 	descriptor = query_descriptor(location.key, readers)
 	is_stack = len(descriptor.extents) > descriptor.core_rank
 	stacked = descriptor.extents[0] if is_stack else None
 	if not location.has_index_in_stack:
 		return tuple(descriptor.extents), descriptor.data_type, stacked
-	if not is_stack:
-		raise ValueError(
-			f"{location} names an image of a stack, and {location.key} is "
-			"not a stack. Name it without an index."
+	if is_stack:
+		return (
+			tuple(get_core_extents(descriptor)), descriptor.data_type, stacked
 		)
-	return (
-		tuple(get_core_extents(descriptor)), descriptor.data_type, stacked
+	if descriptor.core_rank == 3:
+		return (
+			tuple(descriptor.extents[1:]), descriptor.data_type,
+			descriptor.extents[0]
+		)
+	raise ValueError(
+		f"{location} names an image of a stack, and {location.key} is "
+		"neither a stack nor a volume. Name it without an index."
 	)
 
 class ImageSource:
@@ -188,7 +198,8 @@ class ImageSource:
 
 	Every location has to name an image of the same shape. The files are
 	asked for their shape when the source is made, each file once and many
-	at a time, and a location that does not fit is reported then.
+	at a time, and a location that does not fit is reported then. An index
+	into a file of one volume names a section of it.
 	"""
 
 	def __init__(
