@@ -20,6 +20,7 @@
 #include <vitrio/image_metadata.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/image_reader_provider.hpp>
+#include <vitrio/index_table.hpp>
 #include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
 #include <vitrio/tests/scoped_path.hpp>
@@ -343,4 +344,95 @@ TEST_CASE(
 
 		CHECK( get_values<float>(destination) == values );
 	}
+}
+
+TEST_CASE(
+	"patches written around a grid of centres tile an image whole",
+	"[mrc][image_write]"
+)
+{
+	// Patches of four centred at one and five begin at minus one and three,
+	// so the four of them cover an image of five by seven exactly once,
+	// reaching past its near edges and its far ones alike.
+	const scoped_path path("tiled.mrc");
+	const std::vector<std::size_t> image_extents = {5, 7};
+	const std::size_t patch_extent = 4;
+	const std::vector<std::vector<std::size_t>> centres = {
+		{1, 1}, {1, 5}, {5, 1}, {5, 5}
+	};
+	const image_descriptor descriptor(
+		make_span(image_extents),
+		image_extents.size(),
+		numerical_type::float32
+	);
+
+	const auto writer_formats =
+		image_file_write_format_selector::get_shared();
+	const auto writers =
+		std::make_shared<file_image_writer_provider>(
+			writer_formats,
+			test::make_file_transfer_pool()
+		);
+	const executor_image_saver saver(
+		writers,
+		std::make_shared<synchronous_executor>()
+	);
+	writers->declare(path.get(), descriptor, image_metadata());
+
+	// Each sample of a patch holds the index of the sample of the image it
+	// lands on, and -1 where it lands on none, which must not be written.
+	const std::vector<std::size_t> batch_extents = {
+		centres.size(), patch_extent, patch_extent
+	};
+	auto source = make_host_array<float>(
+		batch_extents,
+		numerical_type::float32
+	);
+	auto *const samples = reinterpret_cast<float*>(source.get_data());
+	index_table table(image_extents.size());
+	for (std::size_t slot = 0; slot < centres.size(); ++slot)
+	{
+		table.add(make_span(centres[slot]));
+		for (std::size_t i = 0; i < patch_extent; ++i)
+		{
+			for (std::size_t j = 0; j < patch_extent; ++j)
+			{
+				const auto y = static_cast<std::ptrdiff_t>(
+					centres[slot][0] + i) - 2;
+				const auto x = static_cast<std::ptrdiff_t>(
+					centres[slot][1] + j) - 2;
+				const auto inside =
+					y >= 0 && y < 5 && x >= 0 && x < 7;
+				samples[(slot * patch_extent + i) * patch_extent + j] =
+					inside ? static_cast<float>(y * 7 + x) : -1.0F;
+			}
+		}
+	}
+
+	REQUIRE_NOTHROW(
+		write_patches_async(
+			saver,
+			source.share_const(),
+			image_location(path.get()),
+			table
+		)->get()
+	);
+	writers->close(path.get());
+
+	const auto reader_formats =
+		image_file_read_format_selector::get_shared();
+	file_image_reader_provider readers(
+		reader_formats,
+		make_file_transfer_pool()
+	);
+	const auto image = vitrio::read(image_location(path.get()), readers);
+	REQUIRE(
+		std::vector<std::size_t>(
+			image.get_descriptor().get_extents().begin(),
+			image.get_descriptor().get_extents().end()
+		) == image_extents
+	);
+	std::vector<float> expected(5 * 7);
+	std::iota(expected.begin(), expected.end(), 0.0F);
+	CHECK( get_values<float>(image) == expected );
 }
