@@ -29,9 +29,9 @@ constexpr image_metadata_field<double> pixel_size_fields[] = {
 constexpr std::size_t pixel_size_field_count =
 	sizeof(pixel_size_fields) / sizeof(pixel_size_fields[0]);
 
-// How many ångströms a unit of length is, as DigitalMicrograph spells it,
+// How many angstroms a unit of length is, as DigitalMicrograph spells it,
 // or zero for what is no length this format knows. The micro and the
-// ångström each have two characters that look alike, and files have both.
+// angstrom each have two characters that look alike, and files have both.
 double get_angstroms(const std::u16string &units) noexcept
 {
 	struct length
@@ -41,12 +41,12 @@ double get_angstroms(const std::u16string &units) noexcept
 	};
 
 	static const length lengths[] = {
-		{u"Å", 1.0},
-		{u"Å", 1.0},
+		{u"\u00C5", 1.0},
+		{u"\u212B", 1.0},
 		{u"pm", 1.0e-2},
 		{u"nm", 1.0e1},
-		{u"µm", 1.0e4},
-		{u"μm", 1.0e4},
+		{u"\u00B5m", 1.0e4},
+		{u"\u03BCm", 1.0e4},
 		{u"um", 1.0e4},
 		{u"mm", 1.0e7}
 	};

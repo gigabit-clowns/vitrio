@@ -18,7 +18,7 @@ using Catch::Matchers::WithinRel;
 namespace
 {
 
-// A pixel of an ångström is a hundred million pixels to a centimetre.
+// A pixel of an angstrom is a hundred million pixels to a centimetre.
 constexpr double per_centimetre = 1.0e8;
 
 tiff_page_tags make_tags(double x_resolution, double y_resolution)

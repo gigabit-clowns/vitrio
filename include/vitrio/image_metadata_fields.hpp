@@ -21,19 +21,19 @@ namespace image_metadata_fields
 
 /**
  * @brief The distance between two consecutive samples along @c x, in
- * ångströms. Finite and above zero.
+ * angstroms. Finite and above zero.
  */
 constexpr image_metadata_field<double> pixel_size_x{"pixel_size_x"};
 
 /**
  * @brief The distance between two consecutive samples along @c y, in
- * ångströms. Finite and above zero.
+ * angstroms. Finite and above zero.
  */
 constexpr image_metadata_field<double> pixel_size_y{"pixel_size_y"};
 
 /**
  * @brief The distance between two consecutive samples along @c z, in
- * ångströms. Finite and above zero. Only a volume states it.
+ * angstroms. Finite and above zero. Only a volume states it.
  */
 constexpr image_metadata_field<double> pixel_size_z{"pixel_size_z"};
 

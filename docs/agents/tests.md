@@ -17,3 +17,7 @@ How the tests name the files they write, stand in for interfaces and wait for tr
 - **Transfers in tests.** A test that reads or writes through an interface
   waits with `read_now`, `write_now`, `flush_now` and `store_now`, from
   `tests/assets/include/vitrio/tests/transfers.hpp`.
+- **Names of cases.** The name of a case is ASCII, as all of a C++ source
+  is. CTest runs a case by handing its name to the test program, and on
+  Windows a name with any other character does not come back as it was
+  written, so the case is not found and fails without having run.

@@ -129,7 +129,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a length of OME-Zarr is so many ångströms",
+	"a length of OME-Zarr is so many angstroms",
 	"[zarr_metadata]"
 )
 {

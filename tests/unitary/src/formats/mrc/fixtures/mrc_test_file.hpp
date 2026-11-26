@@ -39,9 +39,9 @@ inline void put_int32(
  * @param sampling_x How many times the cell is sampled along X.
  * @param sampling_y How many times the cell is sampled along Y.
  * @param sampling_z How many times the cell is sampled along Z.
- * @param size_x The size of the cell along X, in ångströms.
- * @param size_y The size of the cell along Y, in ångströms.
- * @param size_z The size of the cell along Z, in ångströms.
+ * @param size_x The size of the cell along X, in angstroms.
+ * @param size_y The size of the cell along Y, in angstroms.
+ * @param size_z The size of the cell along Z, in angstroms.
  */
 inline void put_cell(
 	std::vector<char> &raw,

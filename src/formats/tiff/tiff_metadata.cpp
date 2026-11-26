@@ -26,7 +26,7 @@ constexpr double max_resolution =
 	static_cast<double>(std::numeric_limits<std::uint32_t>::max());
 constexpr double min_resolution = 1.0 / max_resolution;
 
-// Both ways: pixels to a centimetre from ångströms to a pixel, and back.
+// Both ways: pixels to a centimetre from angstroms to a pixel, and back.
 // Zero for what states nothing, and for what the other can not hold.
 double invert(double value) noexcept
 {

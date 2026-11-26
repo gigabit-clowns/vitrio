@@ -219,7 +219,7 @@ TEST_CASE( "make_ome_group_metadata makes an image of OME-Zarr 0.5",
 TEST_CASE( "make_ome_group_metadata states the pixel sizes it is given",
 	"[zarr_store_metadata]" )
 {
-	SECTION( "as the scale of an axis in ångströms" )
+	SECTION( "as the scale of an axis in angstroms" )
 	{
 		const auto metadata = make_ome_group_metadata(
 			describe({20, 40, 30}, 3), {3.0, 2.0, 1.5});

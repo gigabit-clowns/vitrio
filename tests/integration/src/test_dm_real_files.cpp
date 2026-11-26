@@ -202,7 +202,7 @@ TEST_CASE(
 
 	// Its columns are 0.083 nm apart and its rows 0.166 nm, each a real of
 	// 32 bits, which holds it as near as that.
-	SECTION( "a calibrated image states its pixel sizes, in ångströms" )
+	SECTION( "a calibrated image states its pixel sizes, in angstroms" )
 	{
 		const auto path = get_dm_asset_path("image_float32_calibrated.dm4");
 

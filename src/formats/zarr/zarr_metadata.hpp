@@ -48,7 +48,7 @@ image_metadata derive_metadata(
  * @param metadata What is stated of the array.
  * @param descriptor What the array holds.
  * @return std::vector<double> The distance along each axis of
- * @p descriptor, in ångströms, or zero along an axis none is stated for:
+ * @p descriptor, in angstroms, or zero along an axis none is stated for:
  * an axis that is not of one image or volume, and one whose distance is
  * not finite and above zero.
  */

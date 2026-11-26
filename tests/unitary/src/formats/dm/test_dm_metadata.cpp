@@ -125,7 +125,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"a length of DigitalMicrograph is so many ångströms",
+	"a length of DigitalMicrograph is so many angstroms",
 	"[dm_metadata]"
 )
 {
@@ -135,13 +135,13 @@ TEST_CASE(
 
 	// The micro sign and the letter mu, and the letter the files of those
 	// who have neither use.
-	REQUIRE( pixel_size_in(u"µm") == 2.0e4 );
-	REQUIRE( pixel_size_in(u"μm") == 2.0e4 );
+	REQUIRE( pixel_size_in(u"\u00B5m") == 2.0e4 );
+	REQUIRE( pixel_size_in(u"\u03BCm") == 2.0e4 );
 	REQUIRE( pixel_size_in(u"um") == 2.0e4 );
 
 	// The letter and the sign.
-	REQUIRE( pixel_size_in(u"Å") == 2.0 );
-	REQUIRE( pixel_size_in(u"Å") == 2.0 );
+	REQUIRE( pixel_size_in(u"\u00C5") == 2.0 );
+	REQUIRE( pixel_size_in(u"\u212B") == 2.0 );
 
 	// What is calibrated in no length: an image that is not calibrated, a
 	// diffraction pattern, a spectrum, a series in time.

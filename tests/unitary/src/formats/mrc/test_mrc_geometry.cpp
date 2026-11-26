@@ -593,7 +593,7 @@ TEST_CASE( "a header is built from the shape a file is created with",
 		REQUIRE( holds_signed_bytes(header) );
 	}
 
-	// A cell of the extents would state a distance of an ångström between
+	// A cell of the extents would state a distance of an angstrom between
 	// the samples, which nobody stated.
 	SECTION( "it states no distance between its samples, and has no label" )
 	{

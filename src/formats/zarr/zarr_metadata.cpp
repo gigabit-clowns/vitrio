@@ -29,7 +29,7 @@ constexpr image_metadata_field<double> pixel_size_fields[] = {
 constexpr std::size_t pixel_size_field_count =
 	sizeof(pixel_size_fields) / sizeof(pixel_size_fields[0]);
 
-// How many ångströms a unit of length of OME-Zarr is, or zero for what is
+// How many angstroms a unit of length of OME-Zarr is, or zero for what is
 // no length this format knows. The names are those of UDUNITS-2, as
 // OME-Zarr has them.
 double get_angstroms(const std::string &unit) noexcept

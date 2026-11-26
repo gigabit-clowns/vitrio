@@ -379,7 +379,7 @@ mrc_header make_header(const image_descriptor &descriptor)
 	}
 
 	// The cell is left without a size, which states no distance between the
-	// samples: one of the extents would state one of an ångström.
+	// samples: one of the extents would state one of an angstrom.
 	header.set_cell_angles({{90.0F, 90.0F, 90.0F}});
 	header.set_column_axis(column_space_axis);
 	header.set_row_axis(row_space_axis);

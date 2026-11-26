@@ -90,12 +90,12 @@ nlohmann::json make_array_metadata(
  * OME-Zarr 0.5, of one level, the array "0".
  *
  * An axis a distance between samples is given for is at that scale, in
- * ångströms. Any other is at a scale of one and of no unit, which states
+ * angstroms. Any other is at a scale of one and of no unit, which states
  * no distance.
  *
  * @param descriptor What the image holds, which is_ome_image accepts.
  * @param pixel_sizes The distance between the samples along each axis of
- * @p descriptor, in ångströms, or zero along an axis none is stated for.
+ * @p descriptor, in angstroms, or zero along an axis none is stated for.
  * As many as @p descriptor has axes.
  * @return nlohmann::json The document of zarr.json.
  */

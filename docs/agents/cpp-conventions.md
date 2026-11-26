@@ -23,6 +23,13 @@ The rules every C++ source of the library follows.
   `file_image_reader_provider` and `caching_image_reader_provider` are
   `image_reader_provider`s, `tiff_image_reader` is an `image_reader` and
   `mock_executor` is the mock of `executor`. Its files are named as it is.
+- **ASCII.** A C++ source holds ASCII and nothing else, its comments
+  included. MSVC reads a source in the code page of the system unless told
+  otherwise, so a character beyond ASCII is another one there: in a comment
+  it may take the end of the line with it, and in a string it is the wrong
+  text. A character a string needs is written as its universal character
+  name, as `u"\u00B5m"` is for the micrometre, and a unit is spelled out,
+  as an angstrom is.
 - **Formatting.** Tabs, 80 columns. The code is formatted by hand and there is
   no `.clang-format`: none reproduces the style, so one would rewrite the code
   it was run on.

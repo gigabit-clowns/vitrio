@@ -256,7 +256,7 @@ TEST_CASE(
 
 		const auto metadata = selector.read_metadata(path);
 
-		// A cell of 228 Å sampled 20 times along each axis.
+		// A cell of 228 angstroms sampled 20 times along each axis.
 		REQUIRE_THAT( get_field(metadata, pixel_size_x), WithinRel(11.4) );
 		REQUIRE_THAT( get_field(metadata, pixel_size_y), WithinRel(11.4) );
 		REQUIRE_THAT( get_field(metadata, pixel_size_z), WithinRel(11.4) );
@@ -267,9 +267,9 @@ TEST_CASE(
 
 	SECTION( "a volume whose columns, rows and sections are Z, X and Y" )
 	{
-		// EMD-3001 has a cell of 17.93, 4.71 and 33.03 Å along X, Y and Z,
-		// sampled 40, 12 and 72 times, and columns that run along Z. A
-		// reader that took the sampling for that of the columns, the rows
+		// EMD-3001 has a cell of 17.93, 4.71 and 33.03 angstroms along X, Y
+		// and Z, sampled 40, 12 and 72 times, and columns that run along Z.
+		// A reader that took the sampling for that of the columns, the rows
 		// and the sections would divide each size by the wrong count.
 		const auto path = get_mrc_asset_path("EMD-3001.map");
 		const auto raw = read_bytes(path);
