@@ -87,12 +87,22 @@ nlohmann::json make_array_metadata(
 
 /**
  * @brief Make the metadata of a group of version 3 that is an image of
- * OME-Zarr 0.5, of one level, the array "0", at a scale of one.
+ * OME-Zarr 0.5, of one level, the array "0".
+ *
+ * An axis a distance between samples is given for is at that scale, in
+ * ångströms. Any other is at a scale of one and of no unit, which states
+ * no distance.
  *
  * @param descriptor What the image holds, which is_ome_image accepts.
+ * @param pixel_sizes The distance between the samples along each axis of
+ * @p descriptor, in ångströms, or zero along an axis none is stated for.
+ * As many as @p descriptor has axes.
  * @return nlohmann::json The document of zarr.json.
  */
-nlohmann::json make_ome_group_metadata(const image_descriptor &descriptor);
+nlohmann::json make_ome_group_metadata(
+	const image_descriptor &descriptor,
+	const std::vector<double> &pixel_sizes
+);
 
 } // namespace zarr
 } // namespace vitrio

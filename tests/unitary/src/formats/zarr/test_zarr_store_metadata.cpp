@@ -186,7 +186,7 @@ TEST_CASE( "make_ome_group_metadata makes an image of OME-Zarr 0.5",
 	"[zarr_store_metadata]" )
 {
 	const auto metadata = make_ome_group_metadata(
-		describe({5, 40, 30}, 2));
+		describe({5, 40, 30}, 2), {0.0, 0.0, 0.0});
 
 	REQUIRE( metadata["zarr_format"] == 3 );
 	REQUIRE( metadata["node_type"] == "group" );
@@ -214,4 +214,59 @@ TEST_CASE( "make_ome_group_metadata makes an image of OME-Zarr 0.5",
 	REQUIRE( multiscale->datasets.size() == 1 );
 	REQUIRE( decide_core_rank(3, nlohmann::json::object(), {},
 		&*multiscale) == 2 );
+}
+
+TEST_CASE( "make_ome_group_metadata states the pixel sizes it is given",
+	"[zarr_store_metadata]" )
+{
+	SECTION( "as the scale of an axis in ångströms" )
+	{
+		const auto metadata = make_ome_group_metadata(
+			describe({20, 40, 30}, 3), {3.0, 2.0, 1.5});
+		const auto &image = metadata["attributes"]["ome"]["multiscales"][0];
+
+		REQUIRE( image["axes"][0] == nlohmann::json(
+			{{"name", "z"}, {"type", "space"}, {"unit", "angstrom"}}) );
+		REQUIRE( image["axes"][2] == nlohmann::json(
+			{{"name", "x"}, {"type", "space"}, {"unit", "angstrom"}}) );
+		REQUIRE(
+			image["datasets"][0]["coordinateTransformations"][0]["scale"] ==
+			nlohmann::json({3.0, 2.0, 1.5})
+		);
+	}
+
+	SECTION( "and leaves an axis none is given for at a scale of one, of "
+		"no unit" )
+	{
+		const auto metadata = make_ome_group_metadata(
+			describe({5, 40, 30}, 2), {0.0, 0.0, 1.5});
+		const auto &image = metadata["attributes"]["ome"]["multiscales"][0];
+
+		REQUIRE( image["axes"][0] == nlohmann::json({{"name", "n"}}) );
+		REQUIRE( image["axes"][1] ==
+			nlohmann::json({{"name", "y"}, {"type", "space"}}) );
+		REQUIRE( image["axes"][2] == nlohmann::json(
+			{{"name", "x"}, {"type", "space"}, {"unit", "angstrom"}}) );
+		REQUIRE(
+			image["datasets"][0]["coordinateTransformations"][0]["scale"] ==
+			nlohmann::json({1.0, 1.0, 1.5})
+		);
+	}
+
+	// A scale that changes along the axes of one image is what tells a
+	// stack from a volume where nothing else does, so the core rank a
+	// file is written with must not depend on it.
+	SECTION( "without changing what the image reads back as" )
+	{
+		const auto metadata = make_ome_group_metadata(
+			describe({5, 40, 30}, 2), {0.0, 2.0, 1.5});
+		const auto multiscale = parse_multiscale(
+			metadata["attributes"], "test.zarr");
+
+		REQUIRE( multiscale->axes[2].unit == "angstrom" );
+		REQUIRE( multiscale->datasets[0].scale ==
+			std::vector<double>({1.0, 2.0, 1.5}) );
+		REQUIRE( decide_core_rank(3, nlohmann::json::object(), {},
+			&*multiscale) == 2 );
+	}
 }

@@ -50,6 +50,12 @@ struct zarr_multiscale
 {
 	std::vector<zarr_axis> axes;
 	std::vector<zarr_dataset> datasets;
+
+	/**
+	 * @brief The scale it states for every level, on top of the one of
+	 * each, one per axis, or none.
+	 */
+	std::vector<double> scale;
 };
 
 /**
@@ -61,9 +67,8 @@ struct zarr_multiscale
  * may be stated by its name alone, as before 0.4, which gives "x", "y" and
  * "z" the type of space, "t" that of time and "c" that of a channel.
  *
- * Only the scale of each level is read of its transformations, and only
- * those of the levels. A translation, and the transformations that apply to
- * every level, change no scale relative to another.
+ * Only a scale is read of the transformations, that of each level and the
+ * one that applies to every level. A translation changes no scale.
  *
  * @param attributes The attributes of the group.
  * @param where What a message starts with.

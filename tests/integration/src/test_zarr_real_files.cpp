@@ -8,6 +8,8 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_read.hpp>
 
@@ -100,5 +102,49 @@ TEST_CASE( "the bundled formats read the ZARR stores of the assets",
 			const auto reader = readers->acquire(get_zarr_asset_path(name));
 			REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
 		}
+	}
+}
+
+TEST_CASE( "the bundled formats read the metadata of the ZARR assets",
+	"[zarr]" )
+{
+	using namespace image_metadata_fields;
+
+	const auto selector = image_file_read_format_selector::get_shared();
+
+	SECTION( "a tomogram of OME-Zarr states its voxel size" )
+	{
+		const auto metadata = selector->read_metadata(
+			get_zarr_asset_path("ome_v04_tomogram.zarr"));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 10.0 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 10.0 );
+		REQUIRE( get_field(metadata, pixel_size_z) == 10.0 );
+	}
+
+	SECTION( "a level of it states its own, twice as large a level" )
+	{
+		const auto metadata = selector->read_metadata(
+			get_zarr_asset_path("ome_v04_tomogram.zarr/1"));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 20.0 );
+	}
+
+	SECTION( "a tilt series states the pixel size of its images, and no z" )
+	{
+		const auto metadata = selector->read_metadata(
+			get_zarr_asset_path("ome_v05_tilt_series.zarr/"));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 2.0 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 2.0 );
+		REQUIRE( find_field(metadata, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "an array of no image states nothing" )
+	{
+		REQUIRE(
+			selector->read_metadata(get_zarr_asset_path(
+				"v3_uint16_big_endian_gzip.zarr")).get_entries().empty()
+		);
 	}
 }

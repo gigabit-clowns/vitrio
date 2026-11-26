@@ -4,6 +4,8 @@
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
+#include <assert.hpp>
+
 #include <algorithm>
 
 namespace vitrio
@@ -159,19 +161,29 @@ nlohmann::json make_array_metadata(
 	return metadata;
 }
 
-nlohmann::json make_ome_group_metadata(const image_descriptor &descriptor)
+nlohmann::json make_ome_group_metadata(
+	const image_descriptor &descriptor,
+	const std::vector<double> &pixel_sizes
+)
 {
 	const auto names = name_axes(descriptor);
 	const auto rank = names.size();
 	const auto core = descriptor.get_core_rank();
+	VITRIO_ASSERT( pixel_sizes.size() == rank );
 
 	auto axes = nlohmann::json::array();
+	std::vector<double> scale(rank, 1.0);
 	for (std::size_t axis = 0; axis < rank; ++axis)
 	{
 		nlohmann::json entry = {{"name", names[axis]}};
 		if (axis >= rank - core)
 		{
 			entry["type"] = "space";
+		}
+		if (pixel_sizes[axis] > 0.0)
+		{
+			entry["unit"] = "angstrom";
+			scale[axis] = pixel_sizes[axis];
 		}
 		axes.push_back(entry);
 	}
@@ -188,7 +200,7 @@ nlohmann::json make_ome_group_metadata(const image_descriptor &descriptor)
 						{"path", "0"},
 						{"coordinateTransformations", nlohmann::json::array({{
 							{"type", "scale"},
-							{"scale", std::vector<double>(rank, 1.0)},
+							{"scale", scale},
 						}})},
 					}})},
 				}})},

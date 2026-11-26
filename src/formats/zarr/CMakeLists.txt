@@ -23,6 +23,7 @@ target_sources(
 		zarr_image_reader.cpp
 		zarr_image_writer.cpp
 		zarr_json.cpp
+		zarr_metadata.cpp
 		zarr_multiscale.cpp
 		zarr_node.cpp
 		zarr_read_operation.cpp

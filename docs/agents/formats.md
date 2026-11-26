@@ -61,6 +61,20 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   states what its first page does: every page is written with the
   resolutions and the first alone with the texts, so that a stack does
   not hold a long description once a page.
+- **Metadata of ZARR.** Only an image of OME-Zarr states a distance
+  between samples: the scale of a level along an axis of space, times the
+  scale the image states for every level, in the unit of the axis. An axis
+  with no unit states a scale and no distance, and so does one in a unit
+  that is no length `zarr_metadata` knows. An array that is no level of an
+  image states nothing. `locate_array` resolves a path into the array it
+  names, its descriptor and the level of the image it is, for `open` and
+  for `read_metadata` alike, so that the pixel sizes are those of the
+  array that is opened, along the axes it is opened with: a tilt series,
+  whose first axis is a stack, has no `z`. An image is written with a
+  scale in ångströms along the axes a pixel size is given for, and at a
+  scale of one and of no unit along the others. The core rank a store is
+  written with is in its attributes, so no scale changes what it reads
+  back as.
 - **Detector events.** A detector that counts electrons records events, not
   images. A `detector_event_timeline` holds the events of a stretch of time,
   in groups of one timestamp each, and `detector_event_position_view` views

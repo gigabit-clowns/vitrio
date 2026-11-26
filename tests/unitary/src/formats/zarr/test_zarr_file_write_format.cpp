@@ -17,6 +17,7 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -31,6 +32,7 @@
 #include <cstdint>
 #include <fstream>
 #include <memory>
+#include <string>
 #include <vector>
 
 using namespace vitrio;
@@ -217,6 +219,107 @@ TEST_CASE( "what zarr_file_write_format writes reads back as it was written",
 		const auto reader = reopen(store.get());
 		REQUIRE( read_whole<std::uint8_t>(*reader, numerical_type::uint8) ==
 			expected );
+	}
+}
+
+TEST_CASE( "zarr_file_write_format writes the pixel sizes it is given",
+	"[zarr_file_write_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const zarr_file_write_format write_format;
+	const zarr_file_read_format read_format;
+
+	image_metadata metadata;
+	set_field(metadata, pixel_size_x, 1.5);
+	set_field(metadata, pixel_size_y, 2.0);
+	set_field(metadata, pixel_size_z, 3.0);
+	metadata.set("mrc.labels", "nothing an image of OME-Zarr holds");
+
+	const auto create_with = [&write_format] (
+		const std::string &path,
+		const image_descriptor &descriptor,
+		const image_metadata &given
+	)
+	{
+		const auto writer = write_format.open(
+			image_file_probe(path), descriptor, given,
+			*make_file_transfer_pool());
+		flush_now(*writer);
+	};
+
+	SECTION( "of a volume, which reads them back along its three axes" )
+	{
+		const scoped_directory store("test_zarr_write_metadata_volume.zarr");
+		const extents shape = {7, 9, 30};
+		create_with(store.get(), image_descriptor(
+			make_span(shape), 3, numerical_type::float32), metadata);
+
+		const auto read =
+			read_format.read_metadata(image_file_probe(store.get()));
+
+		REQUIRE( get_field(read, pixel_size_x) == 1.5 );
+		REQUIRE( get_field(read, pixel_size_y) == 2.0 );
+		REQUIRE( get_field(read, pixel_size_z) == 3.0 );
+		REQUIRE( read.get_entries().size() == 3 );
+	}
+
+	SECTION( "of a stack of images, which has no z and stays a stack" )
+	{
+		const scoped_directory store("test_zarr_write_metadata_stack.zarr");
+		const extents shape = {3, 40, 50};
+		const image_descriptor descriptor(
+			make_span(shape), 2, numerical_type::uint16);
+		create_with(store.get(), descriptor, metadata);
+
+		const auto read =
+			read_format.read_metadata(image_file_probe(store.get()));
+
+		REQUIRE( get_field(read, pixel_size_x) == 1.5 );
+		REQUIRE( get_field(read, pixel_size_y) == 2.0 );
+		REQUIRE( find_field(read, pixel_size_z) == nullptr );
+		REQUIRE( reopen(store.get())->get_descriptor() == descriptor );
+	}
+
+	SECTION( "and the array of the image states them as the image does" )
+	{
+		const scoped_directory store("test_zarr_write_metadata_level.zarr");
+		const extents shape = {7, 9, 30};
+		create_with(store.get(), image_descriptor(
+			make_span(shape), 3, numerical_type::float32), metadata);
+
+		const auto read = read_format.read_metadata(
+			image_file_probe(store.get() + "/0"));
+
+		REQUIRE( get_field(read, pixel_size_z) == 3.0 );
+	}
+
+	SECTION( "a store created with none states none" )
+	{
+		const scoped_directory store("test_zarr_write_metadata_none.zarr");
+		const extents shape = {7, 9, 30};
+		create_with(store.get(), image_descriptor(
+			make_span(shape), 3, numerical_type::float32), image_metadata());
+
+		REQUIRE(
+			read_format.read_metadata(
+				image_file_probe(store.get())).get_entries().empty()
+		);
+	}
+
+	// An array of one axis is no image of OME-Zarr, which is what states
+	// a distance between samples.
+	SECTION( "an array that is no image of OME-Zarr is written without" )
+	{
+		const scoped_directory store("test_zarr_write_metadata_plain.zarr");
+		const extents shape = {64};
+		REQUIRE_NOTHROW( create_with(store.get(), image_descriptor(
+			make_span(shape), 1, numerical_type::float32), metadata) );
+
+		REQUIRE(
+			read_format.read_metadata(
+				image_file_probe(store.get())).get_entries().empty()
+		);
 	}
 }
 

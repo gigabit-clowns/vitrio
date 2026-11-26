@@ -6,6 +6,7 @@
 #include "zarr_chunk_store.hpp"
 #include "zarr_image_writer.hpp"
 #include "zarr_json.hpp"
+#include "zarr_metadata.hpp"
 #include "zarr_node.hpp"
 #include "zarr_store_metadata.hpp"
 
@@ -16,6 +17,7 @@
 #include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata.hpp>
 
 #include <tuning.hpp>
 
@@ -113,7 +115,7 @@ zarr_file_write_format::get_suitability(const image_file_probe &probe) const
 std::shared_ptr<image_writer> zarr_file_write_format::open(
 	const image_file_probe &probe,
 	const image_descriptor &descriptor,
-	const image_metadata &/*metadata*/,
+	const image_metadata &metadata,
 	const file_transfer_pool &transfers
 ) const
 {
@@ -131,7 +133,13 @@ std::shared_ptr<image_writer> zarr_file_write_format::open(
 	if (is_ome_image(descriptor))
 	{
 		const auto group = join_zarr_path(root, "zarr.json");
-		write_json_document(group, make_ome_group_metadata(descriptor));
+		// The image of OME-Zarr is what states a distance between samples,
+		// so an array that is none is written without what is given.
+		write_json_document(
+			group,
+			make_ome_group_metadata(
+				descriptor, derive_pixel_sizes(metadata, descriptor))
+		);
 		written.push_back(group);
 
 		directory = join_zarr_path(root, "0");

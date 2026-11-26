@@ -9,6 +9,7 @@ import pytest
 import vitrio as vio
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'mrc'
+ZARR_ASSETS = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'zarr'
 
 # The cell of an MRC file is of single precision, so a pixel size comes back
 # as near as that holds it.
@@ -320,6 +321,48 @@ def test_a_text_that_is_not_utf8_is_read_with_what_is_not_replaced(tmp_path):
 	path.write_bytes(raw.replace(b'at 1 A', b'at 1 \xc5'))
 	read = vio.read_metadata(path)
 	assert read['tiff.image_description'] == 'a micrograph at 1 \ufffd'
+
+def test_a_zarr_store_states_the_pixel_sizes_it_is_written_with(tmp_path):
+	path = tmp_path / 'volume.zarr'
+	metadata = {
+		'pixel_size_x': 0.83, 'pixel_size_y': 0.84, 'pixel_size_z': 1.06
+	}
+	__write_zarr(vio.write_single, __setup_array((5, 4, 6)), path, metadata)
+	# A scale is a number of a JSON document, which rounds nothing.
+	assert vio.read_metadata(path) == metadata
+
+def test_a_stack_in_a_zarr_store_has_no_pixel_size_along_z(tmp_path):
+	path = tmp_path / 'stack.zarr'
+	metadata = {
+		'pixel_size_x': 0.83, 'pixel_size_y': 0.84, 'pixel_size_z': 1.06
+	}
+	__write_zarr(vio.write_stack, __setup_array((5, 4, 6)), path, metadata)
+	assert vio.read_metadata(path) == {
+		'pixel_size_x': 0.83, 'pixel_size_y': 0.84
+	}
+	assert vio.query_descriptor(path).core_rank == 2
+
+def test_a_zarr_store_written_with_no_metadata_states_nothing(tmp_path):
+	path = tmp_path / 'volume.zarr'
+	__write_zarr(vio.write_single, __setup_array((5, 4, 6)), path, None)
+	assert vio.read_metadata(path) == {}
+
+def test_a_tomogram_of_ome_zarr_states_its_voxel_size():
+	path = ZARR_ASSETS / 'ome_v04_tomogram.zarr'
+	try:
+		read = vio.read_metadata(path)
+	except RuntimeError:
+		pytest.skip('this build reads no ZARR arrays')
+	assert read == {
+		'pixel_size_x': 10.0, 'pixel_size_y': 10.0, 'pixel_size_z': 10.0
+	}
+	assert vio.read_metadata(path / '1')['pixel_size_x'] == 20.0
+
+def __write_zarr(write, array, path, metadata):
+	try:
+		write(array, path, metadata=metadata)
+	except RuntimeError:
+		pytest.skip('this build writes no ZARR arrays')
 
 def __write_tiff(array, path, metadata):
 	try:
