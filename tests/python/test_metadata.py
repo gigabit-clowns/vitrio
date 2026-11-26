@@ -10,6 +10,7 @@ import vitrio as vio
 
 ASSETS = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'mrc'
 ZARR_ASSETS = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'zarr'
+DM_ASSETS = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'dm'
 
 # The cell of an MRC file is of single precision, so a pixel size comes back
 # as near as that holds it.
@@ -357,6 +358,17 @@ def test_a_tomogram_of_ome_zarr_states_its_voxel_size():
 		'pixel_size_x': 10.0, 'pixel_size_y': 10.0, 'pixel_size_z': 10.0
 	}
 	assert vio.read_metadata(path / '1')['pixel_size_x'] == 20.0
+
+def test_a_digital_micrograph_image_states_its_calibration():
+	read = vio.read_metadata(DM_ASSETS / 'image_float32_calibrated.dm4')
+	# 0.083 nm and 0.166 nm, each held as a real of 32 bits.
+	assert read == {
+		'pixel_size_x': pytest.approx(0.83, rel=TOLERANCE),
+		'pixel_size_y': pytest.approx(1.66, rel=TOLERANCE),
+	}
+
+def test_a_digital_micrograph_image_not_calibrated_states_nothing():
+	assert vio.read_metadata(DM_ASSETS / 'stack_int16.dm4') == {}
 
 def __write_zarr(write, array, path, metadata):
 	try:

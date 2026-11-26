@@ -101,8 +101,9 @@ What a file states beyond its values is its metadata. Of an MRC file, the
 pixel size along each axis and its labels are read, and written when the
 file is created. Of a TIFF file, the pixel size its resolution states, its
 description, its software and its date are, and of an image of OME-Zarr,
-the pixel size its scale states. A file created with no pixel size states
-none. DigitalMicrograph files state nothing yet.
+the pixel size its scale states. Of a DigitalMicrograph file, the pixel
+size its calibration states is read. A file created with no pixel size
+states none.
 
 More formats will follow.
 

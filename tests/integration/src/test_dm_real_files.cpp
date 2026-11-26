@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -8,6 +9,8 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
@@ -182,5 +185,53 @@ TEST_CASE(
 			make_descriptor({4, 5}, numerical_type::float32) );
 		REQUIRE( read_whole<float>(*reader, numerical_type::float32) ==
 			float32_values(20) );
+	}
+}
+
+TEST_CASE(
+	"DigitalMicrograph files this project did not lay out through its own "
+	"code state their metadata",
+	"[dm][image_file_format_selector]"
+)
+{
+	using namespace image_metadata_fields;
+	using Catch::Matchers::WithinRel;
+
+	image_file_read_format_selector selector;
+	selector.register_builtin_formats();
+
+	// Its columns are 0.083 nm apart and its rows 0.166 nm, each a real of
+	// 32 bits, which holds it as near as that.
+	SECTION( "a calibrated image states its pixel sizes, in ångströms" )
+	{
+		const auto path = get_dm_asset_path("image_float32_calibrated.dm4");
+
+		const auto metadata = selector.read_metadata(path);
+
+		REQUIRE_THAT(
+			get_field(metadata, pixel_size_x), WithinRel(0.83, 1.0e-6) );
+		REQUIRE_THAT(
+			get_field(metadata, pixel_size_y), WithinRel(1.66, 1.0e-6) );
+		REQUIRE( metadata.get_entries().size() == 2 );
+
+		const auto reader = selector.open(path, *make_file_transfer_pool());
+		REQUIRE( reader->get_descriptor() ==
+			make_descriptor({6, 8}, numerical_type::float32) );
+		REQUIRE( read_whole<float>(*reader, numerical_type::float32) ==
+			float32_values(48) );
+	}
+
+	SECTION( "an image that is not calibrated states nothing" )
+	{
+		for (const auto *name : {
+			"image_float32.dm3", "image_uint16_unaligned.dm4",
+			"stack_int16.dm4", "image_float32_big_endian.dm3"
+		})
+		{
+			CHECK(
+				selector.read_metadata(get_dm_asset_path(name))
+					.get_entries().empty()
+			);
+		}
 	}
 }

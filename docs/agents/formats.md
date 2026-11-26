@@ -75,6 +75,19 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   scale of one and of no unit along the others. The core rank a store is
   written with is in its attributes, so no scale changes what it reads
   back as.
+- **Metadata of DigitalMicrograph.** An image calibrates each of its axes
+  in `ImageData`, `Calibrations`, `Dimension`, that of its columns first:
+  a `Scale`, a real, and its `Units`, a text of 16-bit characters. The
+  distance between the samples along x and y is the scale of the first
+  and of the second, in units `dm_metadata` knows as a length. An axis
+  with no units is not calibrated, and one in the units of a diffraction
+  pattern, of a spectrum or of time states no distance. The micro and the
+  ångström each have two characters that look alike, and both are known.
+  A file is an image or a stack of images, so it has no `z`. The metadata
+  is of the image `find_image` finds, which is the one that is opened. What
+  an image lacks or holds as anything else is left out, and only tags that
+  can not be parsed are refused. The tags an acquisition writes beside the
+  image, under `ImageTags`, are not read.
 - **Detector events.** A detector that counts electrons records events, not
   images. A `detector_event_timeline` holds the events of a stretch of time,
   in groups of one timestamp each, and `detector_event_position_view` views

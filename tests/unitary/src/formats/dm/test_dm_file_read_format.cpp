@@ -9,10 +9,12 @@
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -161,6 +163,58 @@ TEST_CASE( "the DM read format opens a file as its tags state it",
 	REQUIRE( reader->get_descriptor() ==
 		image_descriptor(make_span(extents), 2, numerical_type::float32) );
 	REQUIRE( read_whole(*reader) == counting(60) );
+}
+
+TEST_CASE( "the DM read format reads the metadata its image states",
+	"[dm_file_read_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const scoped_path path("dm_read_format_metadata.dm4");
+	const dm_file_read_format format;
+
+	SECTION( "the pixel sizes its axes are calibrated with" )
+	{
+		write_file(path.get(), make_calibrated_file(
+			4, true, {{0.25F, u"nm"}, {0.5F, u"nm"}, {4.0F, u"s"}}));
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 2.5 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 5.0 );
+		REQUIRE( metadata.get_entries().size() == 2 );
+	}
+
+	SECTION( "nothing of an image that is not calibrated" )
+	{
+		write_image_file(path.get(), 4, true, {5, 4}, true);
+
+		REQUIRE(
+			format.read_metadata(
+				image_file_probe(path.get())).get_entries().empty()
+		);
+	}
+
+	SECTION( "of a file whose tags are cut short, that it is malformed" )
+	{
+		auto raw = make_calibrated_file(4, true, {{0.25F, u"nm"}});
+		raw.resize(raw.size() - 24);
+		write_file(path.get(), raw);
+
+		REQUIRE_THROWS_AS(
+			format.read_metadata(image_file_probe(path.get())),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "of a file that is not there, that it can not be reached" )
+	{
+		REQUIRE_THROWS_AS(
+			format.read_metadata(image_file_probe(path.get())),
+			image_file_error
+		);
+	}
 }
 
 TEST_CASE( "the DM read format refuses what it can not open",

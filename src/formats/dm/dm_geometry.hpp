@@ -16,18 +16,35 @@ namespace dm
 {
 
 /**
- * @brief Find the image a DigitalMicrograph file holds, and how its values
- * are laid out.
+ * @brief Find the image a DigitalMicrograph file holds, among its tags.
  *
  * The images of a file are the unlabelled groups of its `ImageList`, and
  * those the `Thumbnails` group names by position are previews written for
  * the file browser. The image of the file is the first of the others, which
  * is the one DigitalMicrograph shows, and any after it are not read.
  *
- * Its `ImageData` group states the code of its data type in `DataType`, its
- * extents in `Dimensions`, columns first, and holds its values in `Data`.
- * Two extents make an image and three a stack of images, the first axis of
- * the descriptor running along the last extent of the file.
+ * @param root The root group of the file, as @ref parse_tags made it.
+ * @param file The whole of the file.
+ * @param order The byte order of the values of the file.
+ * @return const dm_tag& The group of the image, which @p root owns.
+ * @throws image_file_format_error If the file has no list of images, or
+ * holds none but thumbnails.
+ */
+const dm_tag& find_image(
+	const dm_tag &root,
+	span<const byte> file,
+	byte_order order
+);
+
+/**
+ * @brief Find the image a DigitalMicrograph file holds, and how its values
+ * are laid out.
+ *
+ * The image is the one @ref find_image finds. Its `ImageData` group states
+ * the code of its data type in `DataType`, its extents in `Dimensions`,
+ * columns first, and holds its values in `Data`. Two extents make an image
+ * and three a stack of images, the first axis of the descriptor running
+ * along the last extent of the file.
  *
  * @param root The root group of the file, as @ref parse_tags made it.
  * @param file The whole of the file.

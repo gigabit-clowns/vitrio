@@ -68,3 +68,15 @@ Read by RosettaSciIO, which finds its tags, its shape and its data type, but
 reads the values of an image in the byte order of the host whatever the file
 states: what it reads are these values with their bytes reversed. ncempy
 refuses big-endian files.
+
+
+image_float32_calibrated.dm4
+2,866 bytes
+Version 4, little-endian. An image of 8 columns by 6 rows of float32 values,
+which begin at byte 2,044, aligned. A thumbnail comes first, as above. It is
+the one file whose axes are calibrated: its columns are 0.083 nm apart and its
+rows 0.166 nm, each a Scale of 32 bits with the Units 'nm'. Every other file
+states a Scale of 1 with no Units, which is an image that is not calibrated.
+
+Read by RosettaSciIO and ncempy alike, which find that scale and those units
+along each axis.

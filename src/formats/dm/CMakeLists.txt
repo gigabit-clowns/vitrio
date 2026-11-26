@@ -10,6 +10,7 @@ target_sources(
 		dm_geometry.cpp
 		dm_header.cpp
 		dm_image_location.cpp
+		dm_metadata.cpp
 		dm_tag.cpp
 		dm_tag_parser.cpp
 		dm_tag_values.cpp

@@ -304,6 +304,67 @@ inline std::vector<char> make_image_file(
 }
 
 /**
+ * @brief How one axis of an image of a test file is calibrated.
+ */
+struct dm_test_calibration
+{
+	/// The length of a step along the axis.
+	float scale;
+	/// The units of that length, as the format writes a text: in UTF-16.
+	std::u16string units;
+};
+
+/**
+ * @brief Write the calibrations of the axes of an image, a group of its
+ * ImageData.
+ *
+ * @param file The file, at where the group goes.
+ * @param axes The calibration of each axis, that of the columns first.
+ */
+inline void put_calibrations(
+	dm_test_file &file,
+	const std::vector<dm_test_calibration> &axes
+)
+{
+	file.group("Calibrations", 1).group("Dimension", axes.size());
+	for (const auto &axis : axes)
+	{
+		file.group("", 3)
+			.scalar<float>("Origin", dm::encoding::float32, 0.0F)
+			.scalar<float>("Scale", dm::encoding::float32, axis.scale)
+			.array<std::uint16_t>(
+				"Units",
+				dm::encoding::uint16,
+				std::vector<std::uint16_t>(
+					axis.units.cbegin(), axis.units.cend())
+			);
+	}
+}
+
+/**
+ * @brief Lay out a file of one image that states how its axes are
+ * calibrated and nothing else, which is enough to read its metadata and
+ * not to open it.
+ *
+ * @param version 3 or 4.
+ * @param little_endian The byte order of the values.
+ * @param axes The calibration of each axis, that of the columns first.
+ * @return std::vector<char> The bytes of the file.
+ */
+inline std::vector<char> make_calibrated_file(
+	std::uint32_t version,
+	bool little_endian,
+	const std::vector<dm_test_calibration> &axes
+)
+{
+	dm_test_file file(version, little_endian, 1);
+	file.group("ImageList", 1).group("", 1).group("ImageData", 1);
+	put_calibrations(file, axes);
+
+	return file.finish();
+}
+
+/**
  * @brief Make the float32 values 0, 1, 2 and onwards.
  *
  * @param count How many values to make.
