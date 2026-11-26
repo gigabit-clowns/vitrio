@@ -34,6 +34,18 @@ The rules every C++ source of the library follows.
   `vitrio::memory_range` is a stretch of the address space, such as one to
   be advised, and not elements to be accessed, even though a span of bytes
   is built the same way.
+- **Metadata.** `image_metadata` is a dictionary of what a file states
+  beyond its shape and data type: an `image_metadata_value`, which is an
+  integer, a real or a text and nothing else, under a label. A label with no
+  dot is a standard field, one of the constants of `image_metadata_fields`,
+  and any other has a prefix that says whose it is, such as `mrc.`. A field
+  is an `image_metadata_field<T>`, a label with the type of its value, and
+  is set and got through `set_field`, `find_field` and `get_field`, free
+  functions written against the dictionary's public members: the dictionary
+  knows labels and values only. A new standard field is a constant in
+  `image_metadata_fields.hpp`, with its unit in its comment, and its name in
+  the list of `src/standard_image_metadata_field.cpp`, from which the
+  dictionary knows the type to hold it as.
 - **Arrays.** Four classes with one job each: `array` and `const_array` keep
   their memory alive, `array_ref` and `const_array_ref` do not, and the
   `const` ones cannot be written through. A reference is two pointers, as
@@ -48,7 +60,9 @@ The rules every C++ source of the library follows.
 - **Constants of a class.** A `static constexpr` member of a public class is
   marked `VITRIO_API` and defined in its `.cpp`. C++14 needs that definition
   whenever the constant is bound to a reference, and a consumer gets it from
-  the shared library.
+  the shared library. A constant at the scope of a namespace, as the fields
+  of `image_metadata_fields` are, is `constexpr` in its header and marked
+  with nothing: every source that includes it has its own.
 - **Private headers use their dependencies openly.** A header under `src/`
   includes what it needs and names its types as they are: a mapping of a
   file is a `boost::interprocess::mapped_region`, not a class wrapped around

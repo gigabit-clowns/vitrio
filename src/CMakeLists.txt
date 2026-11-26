@@ -97,6 +97,7 @@ target_sources(
 		image_location.cpp
 		image_location_grouping.cpp
 		image_metadata.cpp
+		image_metadata_value.cpp
 		image_plan_builders.cpp
 		image_read.cpp
 		image_reader.cpp
@@ -124,6 +125,7 @@ target_sources(
 		memory_range.cpp
 		scratch_image_reader.cpp
 		scratch_image_reader_provider.cpp
+		standard_image_metadata_field.cpp
 		strict_image_transfer_sanitizer.cpp
 		synchronous_image_reader.cpp
 		synchronous_image_writer.cpp
