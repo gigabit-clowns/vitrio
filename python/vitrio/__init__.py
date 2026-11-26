@@ -98,6 +98,7 @@ from ._functions import (
 	saver as saver,
 	write as write,
 	write_single as write_single,
+	write_patches_async as write_patches_async,
 	write_stack as write_stack,
 	writer_provider as writer_provider,
 )
@@ -156,6 +157,7 @@ __all__ = [
 	'saver',
 	'write',
 	'write_batch_async',
+	'write_patches_async',
 	'write_single',
 	'write_stack',
 	'writer_provider',

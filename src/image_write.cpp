@@ -4,6 +4,7 @@
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array.hpp>
+#include <vitrio/clipping_image_transfer_sanitizer.hpp>
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_location.hpp>
@@ -11,6 +12,7 @@
 #include <vitrio/image_transaction_plan.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_writer.hpp>
+#include <vitrio/index_table.hpp>
 #include <vitrio/span.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 
@@ -143,6 +145,26 @@ std::shared_ptr<completion> write_batch_async(
 		std::move(source),
 		transaction,
 		strict_image_transfer_sanitizer::get_shared()
+	);
+}
+
+std::shared_ptr<completion> write_patches_async(
+	const image_saver &saver,
+	const_array source,
+	const image_location &location,
+	const index_table &centres
+)
+{
+	const auto transaction = make_patch_plan(
+		source.get_descriptor().get_extents(),
+		location,
+		centres
+	);
+
+	return saver.save(
+		std::move(source),
+		transaction,
+		clipping_image_transfer_sanitizer::get_shared()
 	);
 }
 
