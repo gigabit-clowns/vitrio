@@ -6,6 +6,7 @@
 #include "mrc_extensions.hpp"
 #include "mrc_geometry.hpp"
 #include "mrc_header.hpp"
+#include "mrc_metadata.hpp"
 
 #include <vitrio/image_file_probe.hpp>
 
@@ -57,10 +58,12 @@ std::shared_ptr<image_reader> mrc_file_read_format::open(
 }
 
 image_metadata
-mrc_file_read_format::read_metadata(const image_file_probe &/*probe*/) const
+mrc_file_read_format::read_metadata(const image_file_probe &probe) const
 {
-	// Nothing of the file is read as metadata yet.
-	return image_metadata();
+	return derive_metadata(
+		parse_header(probe.get_leading_bytes()),
+		get_single_section(probe.get_extension())
+	);
 }
 
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(mrc, vitrio::mrc::mrc_file_read_format);

@@ -97,6 +97,11 @@ A read of an MRC file compressed with gzip, such as the `.map.gz` of a map
 in the EMDB, inflates it from its start, so such a file is best read once,
 whole.
 
+What a file states beyond its values is its metadata. Of an MRC file, the
+pixel size along each axis and its labels are read, and written when the
+file is created. A file created with no pixel size states none. The other
+formats state nothing yet.
+
 More formats will follow.
 
 ## Installing

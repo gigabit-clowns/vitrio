@@ -593,14 +593,153 @@ TEST_CASE( "a header is built from the shape a file is created with",
 		REQUIRE( holds_signed_bytes(header) );
 	}
 
-	SECTION( "it is signed with the library that built it" )
+	// A cell of the extents would state a distance of an ångström between
+	// the samples, which nobody stated.
+	SECTION( "it states no distance between its samples, and has no label" )
 	{
-		const auto header = make_header(make_descriptor(image, 2));
+		const auto header = make_header(make_descriptor(stack, 3));
+
+		REQUIRE( header.get_cell_size() ==
+			mrc_header::vector3f_type{{0.0F, 0.0F, 0.0F}} );
+		REQUIRE( header.get_column_sampling() == 4 );
+		REQUIRE( header.get_row_sampling() == 3 );
+		REQUIRE( header.get_section_sampling() == 5 );
+		REQUIRE( header.get_labels().empty() );
+	}
+}
+
+TEST_CASE( "a header is signed with the library that wrote its file",
+	"[mrc_geometry]" )
+{
+	mrc_header header;
+
+	SECTION( "a header with no label gets one" )
+	{
+		sign_header(header);
 
 		const auto labels = header.get_labels();
-
 		REQUIRE( labels.size() == 1 );
 		REQUIRE( labels[0].compare(0, 17, "Created by vitrio") == 0 );
+	}
+
+	SECTION( "after the labels it already has" )
+	{
+		header.add_label("Created by something else");
+
+		sign_header(header);
+
+		const auto labels = header.get_labels();
+		REQUIRE( labels.size() == 2 );
+		REQUIRE( labels[0] == "Created by something else" );
+		REQUIRE( labels[1].compare(0, 17, "Created by vitrio") == 0 );
+	}
+
+	SECTION( "once, however often it is signed in a row" )
+	{
+		sign_header(header);
+		sign_header(header);
+
+		REQUIRE( header.get_labels().size() == 1 );
+	}
+
+	SECTION( "again after something else wrote the file" )
+	{
+		sign_header(header);
+		header.add_label("Modified by something else");
+		sign_header(header);
+
+		REQUIRE( header.get_labels().size() == 3 );
+	}
+
+	SECTION( "unless there is no room for one more label" )
+	{
+		for (std::size_t i = 0; i < label_count; ++i)
+		{
+			header.add_label("filler");
+		}
+
+		REQUIRE_NOTHROW( sign_header(header) );
+		REQUIRE( header.get_labels().size() == label_count );
+		REQUIRE( header.get_labels()[label_count - 1] == "filler" );
+	}
+}
+
+TEST_CASE( "the axes of one image or volume each run along an axis of space",
+	"[mrc_geometry]" )
+{
+	using axes = std::vector<std::int32_t>;
+
+	const auto volume = make_header_of(4, 3, 5, 5, 1);
+	const auto stack = make_header_of(4, 3, 5, 1, 0);
+	const auto image = make_header_of(4, 3, 1, 1, 0);
+
+	SECTION( "a volume runs along the three, the highest first" )
+	{
+		REQUIRE( derive_core_space_axes(volume) == axes({3, 2, 1}) );
+		REQUIRE(
+			derive_core_space_axes(with_axes(volume, 3, 1, 2)) ==
+			axes({3, 2, 1})
+		);
+	}
+
+	SECTION( "an image runs along those of its rows and its columns" )
+	{
+		REQUIRE( derive_core_space_axes(image) == axes({2, 1}) );
+		REQUIRE( derive_core_space_axes(stack) == axes({2, 1}) );
+		REQUIRE(
+			derive_core_space_axes(with_axes(image, 2, 1, 3)) == axes({2, 1})
+		);
+		REQUIRE(
+			derive_core_space_axes(with_axes(image, 1, 3, 2)) == axes({3, 1})
+		);
+		REQUIRE(
+			derive_core_space_axes(with_axes(image, 3, 2, 1)) == axes({3, 2})
+		);
+	}
+
+	SECTION( "a stack of one image is a file of images" )
+	{
+		REQUIRE(
+			derive_core_space_axes(image, mrc_single_section::image_stack) ==
+			axes({2, 1})
+		);
+	}
+
+	SECTION( "a header that names none is resolved as though in order" )
+	{
+		REQUIRE(
+			derive_core_space_axes(with_axes(volume, 0, 0, 0)) ==
+			axes({3, 2, 1})
+		);
+		REQUIRE(
+			derive_core_space_axes(with_axes(image, 0, 0, 0)) == axes({2, 1})
+		);
+	}
+
+	SECTION( "a header that names them wrongly is refused" )
+	{
+		REQUIRE_THROWS_AS(
+			derive_core_space_axes(with_axes(volume, 1, 1, 3)),
+			image_file_format_error
+		);
+	}
+
+	// The extent along each axis of space is that of whichever of the
+	// columns, the rows and the sections runs along it, so the axes agree
+	// with the layout when the extents they pick are those it reports.
+	SECTION( "they are the axes the layout orders the extents by" )
+	{
+		const auto header = with_axes(make_header_of(4, 3, 5, 5, 1), 3, 1, 2);
+		const std::vector<std::size_t> by_space_axis = {3, 5, 4}; // X, Y, Z
+
+		std::vector<std::size_t> expected;
+		for (const auto space_axis : derive_core_space_axes(header))
+		{
+			expected.push_back(
+				by_space_axis[static_cast<std::size_t>(space_axis - 1)]);
+		}
+
+		REQUIRE( extents_of(derive_file_layout(header)) == expected );
 	}
 }
 

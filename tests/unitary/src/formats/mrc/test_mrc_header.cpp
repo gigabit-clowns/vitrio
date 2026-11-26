@@ -638,6 +638,18 @@ TEST_CASE( "an MRC file records the software that wrote it",
 	}
 }
 
+TEST_CASE( "a text is a label if an MRC file can carry it", "[mrc_header]" )
+{
+	REQUIRE( is_label("") );
+	REQUIRE( is_label("Created by something") );
+	REQUIRE( is_label(std::string(80, 'x')) );
+	REQUIRE_FALSE( is_label(std::string(81, 'x')) );
+	REQUIRE_FALSE( is_label("a\tb") );
+	REQUIRE_FALSE( is_label("a\nb") );
+	REQUIRE_FALSE( is_label(std::string("a\0b", 3)) );
+	REQUIRE_FALSE( is_label("\xC3\x85") );
+}
+
 TEST_CASE( "a label an MRC file cannot carry is refused", "[mrc_header]" )
 {
 	mrc_header header;

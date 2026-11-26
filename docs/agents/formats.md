@@ -35,6 +35,18 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   disagree on whether a file has a `z`. A header field is under one label
   only, the standard field where there is one and otherwise a label
   prefixed with the format, such as `mrc.labels`.
+- **Metadata of MRC.** The distance between the samples along an axis of
+  space is the size of the cell along it over the sampling of the cell
+  along it, and `MX`, `MY` and `MZ` are that sampling along X, Y and Z,
+  whichever of them the columns run along, though `mrc_header` names them
+  after the columns, the rows and the sections. `derive_core_space_axes`
+  says which axis of space each axis of the descriptor runs along, for the
+  layout and the metadata alike. A cell with no size along an axis states
+  no distance there, which is how a file created with none is written: a
+  cell of the extents would state an ångström. A file of images states
+  nothing along the axis it stacks them on. The labels are one text,
+  `mrc.labels`, a label a line, and a file is created with those it is
+  given followed by that of the library, unless it is the last already.
 - **Detector events.** A detector that counts electrons records events, not
   images. A `detector_event_timeline` holds the events of a stretch of time,
   in groups of one timestamp each, and `detector_event_position_view` views

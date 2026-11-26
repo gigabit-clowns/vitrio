@@ -8,6 +8,7 @@
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -84,6 +85,12 @@ TEST_CASE(
 		const auto compressed = selector.open(compressed_path, *transfers);
 
 		REQUIRE( compressed->get_descriptor() == plain->get_descriptor() );
+		REQUIRE(
+			selector.read_metadata(compressed_path) ==
+			selector.read_metadata(plain_path)
+		);
+		REQUIRE_FALSE(
+			selector.read_metadata(compressed_path).get_entries().empty() );
 
 		const auto shape = shape_of(*plain);
 		const std::vector<std::size_t> origin(shape.size(), 0);

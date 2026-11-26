@@ -15,6 +15,7 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_writer.hpp>
 
 #include <vitrio/tests/file_transfer_pools.hpp>
@@ -215,6 +216,91 @@ TEST_CASE( "the MRC write format creates a file with its header written",
 
 		REQUIRE( labels.size() == 1 );
 		REQUIRE( labels[0].compare(0, 17, "Created by vitrio") == 0 );
+	}
+
+	SECTION( "the header states no distance between samples nobody stated" )
+	{
+		REQUIRE( header_of(path.get()).get_cell_size() ==
+			mrc_header::vector3f_type{{0.0F, 0.0F, 0.0F}} );
+	}
+}
+
+TEST_CASE( "the MRC write format writes the metadata it is given",
+	"[mrc_file_write_format]" )
+{
+	const scoped_path path("write_format_metadata.mrc");
+	const mrc_file_write_format format;
+	const std::vector<std::size_t> extents = {5, 3, 4};
+
+	image_metadata metadata;
+	set_field(metadata, image_metadata_fields::pixel_size_x, 0.5);
+	set_field(metadata, image_metadata_fields::pixel_size_y, 1.0);
+	set_field(metadata, image_metadata_fields::pixel_size_z, 1.5);
+	metadata.set("mrc.labels", "Created by something else");
+	metadata.set("tiff.software", "nothing an MRC file holds");
+
+	SECTION( "the pixel sizes of a volume, as the size of its cell" )
+	{
+		{
+			const auto writer = format.open(
+				image_file_probe(path.get()),
+				make_descriptor(extents, 3),
+				metadata,
+				*test::make_file_transfer_pool()
+			);
+		}
+
+		REQUIRE( header_of(path.get()).get_cell_size() ==
+			mrc_header::vector3f_type{{2.0F, 3.0F, 7.5F}} );
+	}
+
+	SECTION( "the pixel sizes of a stack of images, along its two axes" )
+	{
+		{
+			const auto writer = format.open(
+				image_file_probe(path.get()),
+				make_descriptor(extents, 2),
+				metadata,
+				*test::make_file_transfer_pool()
+			);
+		}
+
+		REQUIRE( header_of(path.get()).get_cell_size() ==
+			mrc_header::vector3f_type{{2.0F, 3.0F, 0.0F}} );
+	}
+
+	SECTION( "the labels, and after them that of the library" )
+	{
+		{
+			const auto writer = format.open(
+				image_file_probe(path.get()),
+				make_descriptor(extents, 3),
+				metadata,
+				*test::make_file_transfer_pool()
+			);
+		}
+
+		const auto header = header_of(path.get());
+		const auto labels = header.get_labels();
+
+		REQUIRE( labels.size() == 2 );
+		REQUIRE( labels[0] == "Created by something else" );
+		REQUIRE( labels[1].compare(0, 17, "Created by vitrio") == 0 );
+	}
+
+	SECTION( "and the file it creates is as large as without any" )
+	{
+		{
+			const auto writer = format.open(
+				image_file_probe(path.get()),
+				make_descriptor(extents, 3),
+				metadata,
+				*test::make_file_transfer_pool()
+			);
+		}
+
+		REQUIRE( boost::filesystem::file_size(path.get()) ==
+			1024 + 60 * sizeof(float) );
 	}
 }
 

@@ -13,6 +13,7 @@
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -212,6 +213,39 @@ TEST_CASE( "the gzip MRC format opens a file as its header states it",
 
 		REQUIRE( reader->get_descriptor().get_core_rank() == 3 );
 		REQUIRE( read_whole(*reader) == values );
+	}
+}
+
+TEST_CASE( "the gzip MRC format reads the metadata its header states",
+	"[gzip_mrc_file_read_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const scoped_path path("gzip_read_format_metadata.map.gz");
+	const gzip_mrc_file_read_format format;
+
+	SECTION( "the pixel sizes of a volume" )
+	{
+		auto raw = make_file(4, 3, 5, 1, 2, counting(60));
+		put_cell(raw, 4, 3, 5, 2.0F, 3.0F, 7.5F);
+		write_gzip(path.get(), raw);
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 0.5 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 1.0 );
+		REQUIRE( get_field(metadata, pixel_size_z) == 1.5 );
+	}
+
+	SECTION( "nothing of a header that states nothing" )
+	{
+		write_gzip(path.get(), make_file(4, 3, 2, 0, 2, counting(24)));
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( metadata.get_entries().empty() );
 	}
 }
 

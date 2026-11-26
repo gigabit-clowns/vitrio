@@ -9,6 +9,7 @@ target_sources(
 		test_mrc_file_write_format.cpp
 		test_mrc_geometry.cpp
 		test_mrc_header.cpp
+		test_mrc_metadata.cpp
 		test_mrc_mode.cpp
 )
 
