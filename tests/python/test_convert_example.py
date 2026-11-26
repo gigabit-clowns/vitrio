@@ -46,6 +46,17 @@ def test_a_single_image_stays_a_single_image(images, tmp_path):
 		np.asarray(vio.read(tmp_path / 'again.mrc')), image
 	)
 
+def test_what_the_file_states_goes_with_it(tmp_path):
+	image = np.arange(8 * 12, dtype=np.float32).reshape(8, 12)
+	vio.write_single(
+		image, tmp_path / 'image.mrc',
+		metadata={'pixel_size_x': 0.5, 'pixel_size_y': 0.25}
+	)
+	__run_example(tmp_path / 'image.mrc', tmp_path / 'again.mrc')
+	metadata = vio.read_metadata(tmp_path / 'again.mrc')
+	assert metadata['pixel_size_x'] == 0.5
+	assert metadata['pixel_size_y'] == 0.25
+
 def test_converts_the_data_type(images, tmp_path):
 	__run_example(
 		tmp_path / 'stack.mrcs', tmp_path / 'half.mrcs',

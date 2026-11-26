@@ -25,6 +25,15 @@ The rules of the binding, the Python package and `vitrio.data`.
   given no executor, opening its files, prefetching and copying out what it
   took in, runs on that thread pool too. A child of a fork makes its own, as
   `_default_loader.py` does.
+- **Metadata in Python.** An `image_metadata` crosses the binding as a
+  plain `dict` of `int`, `float` and `str` under `str` labels, and no class
+  is bound for it: `python/src/image_metadata.hpp` converts it both ways. A
+  function that takes one takes any mapping, or `None` for nothing, and the
+  scalars of numpy for the numbers. A `bool` is refused with `TypeError`,
+  since Python makes it an `int`, and what `image_metadata::set` refuses,
+  a label with no prefix that is no standard field or a standard field of
+  another type, is a `ValueError`. The standard fields are listed in the
+  docstring of `vitrio.read_metadata`, which a new one is added to.
 - **Docstrings.** Everything `vitrio.__all__` exports has a docstring, and so
   has each public method and property of a class, which
   `tests/python/test_documentation.py` checks. They are written in the style

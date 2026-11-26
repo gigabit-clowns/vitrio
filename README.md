@@ -139,6 +139,16 @@ tensor = torch.from_dlpack(micrograph)    # and again
 vio.write_single(pixels, "copy.tif")
 ```
 
+What a file states beyond its values, such as its pixel size, is read apart
+from them, as a dict, and given when a file is written.
+
+```python
+metadata = vio.read_metadata("map.mrc")
+pixel_size = metadata.get("pixel_size_x")    # in ångströms, or None
+
+vio.write_single(volume, "copy.mrc", metadata=metadata)
+```
+
 Reading many images is done in batches, on a thread pool, and the `_async`
 functions return right away with a completion to wait on, so that the next
 batch is on its way while you work on the current one. Patches are cropped

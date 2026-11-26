@@ -17,7 +17,7 @@ written.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from . import _binding
@@ -57,6 +57,7 @@ from ._binding import (
 
 HostArray = Any
 Key = str | os.PathLike
+Metadata = Mapping[str, int | float | str]
 
 def _default_worker_count() -> int:
 	return os.cpu_count() or 1
@@ -617,6 +618,48 @@ def query_descriptor(
 	"""
 	return _binding.query_descriptor(_resolve_readers(readers), key)
 
+def read_metadata(
+	path: Key,
+	formats: ImageFileReadFormatSelector | None = None
+) -> dict[str, int | float | str]:
+	"""
+	Read what an image file states beyond its shape and data type.
+
+	The result is a dict of values under labels. Nothing has to be in it:
+	what the file does not state is absent, and so is what its format
+	does not read. So ask for a label with `get`::
+
+		pixel_size = vio.read_metadata(path).get('pixel_size_x')
+
+	A label with no dot in it is a standard field, which means the same
+	whatever the format of the file:
+
+	- `pixel_size_x`, `pixel_size_y` and `pixel_size_z`, each a `float`:
+	  the distance between two consecutive samples along that axis, in
+	  ångströms. Of the axes of one image or volume, `x` is the last, `y`
+	  the one before it and `z` the one before that, so an image has no
+	  `z`, whether or not its file stacks several.
+
+	Any other label has a prefix that says whose it is, such as the
+	format that defines it:
+
+	- `mrc.labels`, a `str`: the labels of an MRC file, one a line, in
+	  which software records what it did to the file.
+
+	The file is not opened for reading its values, and the GIL is
+	released while it is read.
+
+	Args:
+		path: The file to read.
+		formats: The formats to choose from. Defaults to the bundled ones.
+
+	Returns:
+		dict: An `int`, a `float` or a `str` under each label, sorted by
+		label. It is yours to change, and what the writes take as
+		`metadata`.
+	"""
+	return _resolve_read_formats(formats).read_metadata(path)
+
 def read(
 	location: Key | ImageLocation,
 	readers: ImageReaderProvider | None = None,
@@ -705,7 +748,8 @@ def write_single(
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
 	data_type: object | None = None,
-	transfers: FileTransferPool | None = None
+	transfers: FileTransferPool | None = None,
+	metadata: Metadata | None = None
 ) -> None:
 	"""
 	Write an array to an image file as one image or volume.
@@ -718,13 +762,26 @@ def write_single(
 			the array already carries.
 		transfers: The threads that carry out the writes of the file.
 			Defaults to a pool shared by the process.
+		metadata: What the file states beyond its shape and data type, as
+			a mapping of labels to values such as `read_metadata` returns.
+			Its format writes what of it it can carry and leaves out the
+			rest. Defaults to nothing.
+
+	Raises:
+		TypeError: If a label of `metadata` is no `str`, or if a value of
+			it is not an `int`, a `float` or a `str`. A `bool` is none of
+			them.
+		ValueError: If a label of `metadata` has no prefix and is no
+			standard field, or if a standard field is given a value of
+			another type.
 	"""
 	_binding.write_single(
 		array,
 		path,
 		_resolve_write_formats(formats),
 		_resolve_transfers(transfers),
-		_resolve_data_type(data_type)
+		_resolve_data_type(data_type),
+		metadata
 	)
 
 def write_stack(
@@ -732,7 +789,8 @@ def write_stack(
 	path: Key,
 	formats: ImageFileWriteFormatSelector | None = None,
 	data_type: object | None = None,
-	transfers: FileTransferPool | None = None
+	transfers: FileTransferPool | None = None,
+	metadata: Metadata | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a stack of images or volumes.
@@ -748,13 +806,26 @@ def write_stack(
 			the array already carries.
 		transfers: The threads that carry out the writes of the file.
 			Defaults to a pool shared by the process.
+		metadata: What the file states beyond its shape and data type, as
+			a mapping of labels to values such as `read_metadata` returns.
+			Its format writes what of it it can carry and leaves out the
+			rest. Defaults to nothing.
+
+	Raises:
+		TypeError: If a label of `metadata` is no `str`, or if a value of
+			it is not an `int`, a `float` or a `str`. A `bool` is none of
+			them.
+		ValueError: If a label of `metadata` has no prefix and is no
+			standard field, or if a standard field is given a value of
+			another type.
 	"""
 	_binding.write_stack(
 		array,
 		path,
 		_resolve_write_formats(formats),
 		_resolve_transfers(transfers),
-		_resolve_data_type(data_type)
+		_resolve_data_type(data_type),
+		metadata
 	)
 
 def write(
@@ -762,7 +833,8 @@ def write(
 	path: Key,
 	descriptor: ImageDescriptor,
 	formats: ImageFileWriteFormatSelector | None = None,
-	transfers: FileTransferPool | None = None
+	transfers: FileTransferPool | None = None,
+	metadata: Metadata | None = None
 ) -> None:
 	"""
 	Write an array to an image file as a descriptor states.
@@ -779,11 +851,24 @@ def write(
 		formats: The formats to choose from. Defaults to the bundled ones.
 		transfers: The threads that carry out the writes of the file.
 			Defaults to a pool shared by the process.
+		metadata: What the file states beyond its shape and data type, as
+			a mapping of labels to values such as `read_metadata` returns.
+			Its format writes what of it it can carry and leaves out the
+			rest. Defaults to nothing.
+
+	Raises:
+		TypeError: If a label of `metadata` is no `str`, or if a value of
+			it is not an `int`, a `float` or a `str`. A `bool` is none of
+			them.
+		ValueError: If a label of `metadata` has no prefix and is no
+			standard field, or if a standard field is given a value of
+			another type.
 	"""
 	_binding.write(
 		array,
 		path,
 		_resolve_write_formats(formats),
 		_resolve_transfers(transfers),
-		descriptor
+		descriptor,
+		metadata
 	)

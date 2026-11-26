@@ -2,6 +2,7 @@
 
 #include "image_write.hpp"
 
+#include "image_metadata.hpp"
 #include "utf8_string.hpp"
 
 #include <array/array_import.hpp>
@@ -17,6 +18,7 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
+#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_saver.hpp>
 #include <vitrio/image_write.hpp>
 #include <vitrio/span.hpp>
@@ -45,12 +47,14 @@ void py_write_single(
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
 	const file_transfer_pool &transfers,
-	std::optional<numerical_type> data_type
+	std::optional<numerical_type> data_type,
+	nb::object metadata
 )
 {
 	const memory_loan loan(source);
 	const auto imported = import_const_array(source, loan);
 	const auto text = to_utf8_string(path);
+	const auto stated = import_image_metadata(metadata);
 
 	const nb::gil_scoped_release release;
 	write_single(
@@ -58,7 +62,8 @@ void py_write_single(
 		text,
 		formats,
 		transfers,
-		data_type.value_or(numerical_type::unknown)
+		data_type.value_or(numerical_type::unknown),
+		stated
 	);
 }
 
@@ -67,12 +72,14 @@ void py_write_stack(
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
 	const file_transfer_pool &transfers,
-	std::optional<numerical_type> data_type
+	std::optional<numerical_type> data_type,
+	nb::object metadata
 )
 {
 	const memory_loan loan(source);
 	const auto imported = import_const_array(source, loan);
 	const auto text = to_utf8_string(path);
+	const auto stated = import_image_metadata(metadata);
 
 	const nb::gil_scoped_release release;
 	write_stack(
@@ -80,7 +87,8 @@ void py_write_stack(
 		text,
 		formats,
 		transfers,
-		data_type.value_or(numerical_type::unknown)
+		data_type.value_or(numerical_type::unknown),
+		stated
 	);
 }
 
@@ -89,15 +97,24 @@ void py_write(
 	const std::filesystem::path &path,
 	const image_file_write_format_selector &formats,
 	const file_transfer_pool &transfers,
-	const image_descriptor &descriptor
+	const image_descriptor &descriptor,
+	nb::object metadata
 )
 {
 	const memory_loan loan(source);
 	const auto imported = import_const_array(source, loan);
 	const auto text = to_utf8_string(path);
+	const auto stated = import_image_metadata(metadata);
 
 	const nb::gil_scoped_release release;
-	write(const_array_ref(imported), text, formats, transfers, descriptor);
+	write(
+		const_array_ref(imported),
+		text,
+		formats,
+		transfers,
+		descriptor,
+		stated
+	);
 }
 
 std::shared_ptr<completion> py_write_batch_async(
@@ -133,6 +150,7 @@ void bind_image_write(nb::module_ &m)
 		"write_single", &py_write_single,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
 		nb::arg("transfers"), nb::arg("data_type") = nb::none(),
+		nb::arg("metadata") = nb::none(),
 		"Write an array to a file as one image or volume.\n"
 		"\n"
 		"Prefer `vitrio.write_single`, which defaults the formats and the "
@@ -144,12 +162,15 @@ void bind_image_write(nb::module_ &m)
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
 		"    transfers: The `FileTransferPool` that carries out the writes.\n"
 		"    data_type: The type to store the values as. Defaults to the one "
-		"the array carries."
+		"the array carries.\n"
+		"    metadata: A mapping of what the file states beyond its shape "
+		"and data type. Defaults to nothing."
 	);
 	m.def(
 		"write_stack", &py_write_stack,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
 		nb::arg("transfers"), nb::arg("data_type") = nb::none(),
+		nb::arg("metadata") = nb::none(),
 		"Write an array to a file as a stack of images or volumes.\n"
 		"\n"
 		"The leading extent of the array is the axis the file stacks along. "
@@ -162,12 +183,15 @@ void bind_image_write(nb::module_ &m)
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
 		"    transfers: The `FileTransferPool` that carries out the writes.\n"
 		"    data_type: The type to store the values as. Defaults to the one "
-		"the array carries."
+		"the array carries.\n"
+		"    metadata: A mapping of what the file states beyond its shape "
+		"and data type. Defaults to nothing."
 	);
 	m.def(
 		"write", &py_write,
 		nb::arg("array").noconvert(), nb::arg("path"), nb::arg("formats"),
 		nb::arg("transfers"), nb::arg("descriptor"),
+		nb::arg("metadata") = nb::none(),
 		"Write an array to a file as a descriptor states.\n"
 		"\n"
 		"Prefer `vitrio.write`, which defaults the formats and the transfers.\n"
@@ -178,7 +202,9 @@ void bind_image_write(nb::module_ &m)
 		"    path: The file to create.\n"
 		"    formats: The `ImageFileWriteFormatSelector` that creates it.\n"
 		"    transfers: The `FileTransferPool` that carries out the writes.\n"
-		"    descriptor: The `ImageDescriptor` of what the file holds."
+		"    descriptor: The `ImageDescriptor` of what the file holds.\n"
+		"    metadata: A mapping of what the file states beyond its shape "
+		"and data type. Defaults to nothing."
 	);
 	m.def(
 		"write_batch_async", &py_write_batch_async,

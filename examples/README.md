@@ -22,7 +22,7 @@ a build on `PYTHONPATH`. All of them need NumPy.
 |---|---|
 | [basic/read_stack.py](python/basic/read_stack.py) | `vio.read`: a file, one image of a stack, another data type, your own array |
 | [basic/write.py](python/basic/write.py) | `write_single`, `write_stack`, `write` with a descriptor, data types and formats |
-| [basic/convert.py](python/basic/convert.py) | A command line tool: a file in another format or data type, as the same image, stack or volume |
+| [basic/convert.py](python/basic/convert.py) | A command line tool: a file in another format or data type, as the same image, stack or volume, with the metadata the other format can carry |
 | [basic/iterate_batches.py](python/basic/iterate_batches.py) | `vio.data`: a dataset of images and metadata, gone through in shuffled batches |
 | [basic/train_2d_classifier.py](python/basic/train_2d_classifier.py) | `vio.data` on a RELION job, feeding a PyTorch network. Needs starfile, pandas and PyTorch |
 | [advanced/batches_in_flight.py](python/advanced/batches_in_flight.py) | A thread pool, a loader, and batches read in the background while the last one is used |
