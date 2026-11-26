@@ -7,6 +7,7 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array.hpp>
+#include <vitrio/clipping_image_transfer_sanitizer.hpp>
 #include <vitrio/concurrency/completion.hpp>
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -14,6 +15,7 @@
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/index_table.hpp>
 #include <vitrio/strict_image_transfer_sanitizer.hpp>
 #include <vitrio/tests/file_transfer_pools.hpp>
 
@@ -55,6 +57,20 @@ std::vector<std::size_t> extents_of(const const_array &arr)
 const_array make_const_array(const std::vector<std::size_t> &extents)
 {
 	return make_test_array(extents, numerical_type::float32).share_const();
+}
+
+index_table make_centres(
+	const std::vector<std::vector<std::size_t>> &centres,
+	std::size_t rank
+)
+{
+	index_table result(rank);
+	for (const auto &centre : centres)
+	{
+		result.add(make_span(centre));
+	}
+
+	return result;
 }
 
 } // anonymous namespace
@@ -636,4 +652,124 @@ TEST_CASE(
 	);
 
 	CHECK( completion == pending );
+}
+
+TEST_CASE(
+	"write_patches_async validates the source against the centres",
+	"[image_write]"
+)
+{
+	// No expectations set on `saver`: none of these calls may reach it.
+	mock_image_saver saver;
+	const image_location location("a.mrc");
+
+	SECTION( "a source with no extents" )
+	{
+		const auto centres = make_centres({}, 2);
+
+		REQUIRE_THROWS_AS(
+			write_patches_async(
+				saver,
+				make_const_array({}),
+				location,
+				centres
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "a batch size that does not match the centre count" )
+	{
+		const auto centres = make_centres({{10, 10}, {20, 20}}, 2);
+
+		REQUIRE_THROWS_AS(
+			write_patches_async(
+				saver,
+				make_const_array({3, 10, 10}),
+				location,
+				centres
+			),
+			std::invalid_argument
+		);
+	}
+
+	SECTION( "centres that do not have the rank of one patch" )
+	{
+		const auto centres = make_centres({{10, 10, 10}}, 3);
+
+		REQUIRE_THROWS_AS(
+			write_patches_async(
+				saver,
+				make_const_array({1, 10, 10}),
+				location,
+				centres
+			),
+			std::invalid_argument
+		);
+	}
+}
+
+TEST_CASE(
+	"write_patches_async hands an empty batch over as an empty plan",
+	"[image_write]"
+)
+{
+	mock_image_saver saver;
+	const auto done = std::make_shared<counting_completion>(0);
+
+	REQUIRE_CALL(
+		saver,
+		save(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH( _2.get_region_count() == 0 )
+		.RETURN(done);
+
+	const auto completion = write_patches_async(
+		saver,
+		make_const_array({0, 10, 10}),
+		image_location("a.mrc"),
+		make_centres({}, 2)
+	);
+
+	CHECK( completion == done );
+}
+
+TEST_CASE(
+	"write_patches_async writes each patch where it would be read from",
+	"[image_write]"
+)
+{
+	// A patch of ten centred at fifty starts at forty-five, as a read of it
+	// does, and the parts of patches past the image are clipped away rather
+	// than refused.
+	mock_image_saver saver;
+
+	REQUIRE_CALL(
+		saver,
+		save(trompeloeil::_, trompeloeil::_, trompeloeil::_)
+	)
+		.LR_WITH(
+			_3 == clipping_image_transfer_sanitizer::get_shared() &&
+			extents_of(_1) == std::vector<std::size_t>{2, 10, 10} &&
+			_2.get_region_count() == 2 &&
+			_2.get_file(_2.get_region_file(0)) == "a.mrcs" &&
+			to_vector(_2.get_shape().get_extents()) ==
+				std::vector<std::size_t>{10, 10} &&
+			to_vector(_2.get_file_offset(0)) ==
+				std::vector<std::size_t>{3, 45, 45} &&
+			to_vector(_2.get_array_offset(0)) ==
+				std::vector<std::size_t>{0, 0, 0} &&
+			to_vector(_2.get_file_offset(1)) ==
+				std::vector<std::size_t>{3, 0, 0} &&
+			to_vector(_2.get_array_offset(1)) ==
+				std::vector<std::size_t>{1, 3, 3}
+		)
+		.RETURN(std::make_shared<counting_completion>(0));
+
+	write_patches_async(
+		saver,
+		make_const_array({2, 10, 10}),
+		image_location("a.mrcs", 3),
+		make_centres({{50, 50}, {2, 2}}, 2)
+	);
 }

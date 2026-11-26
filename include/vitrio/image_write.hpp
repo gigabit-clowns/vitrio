@@ -22,6 +22,7 @@ class file_transfer_pool;
 class image_descriptor;
 class image_location;
 class image_saver;
+class index_table;
 
 /**
  * @brief Write a whole array out as one image or volume.
@@ -143,6 +144,53 @@ std::shared_ptr<completion> write_batch_async(
 	const image_saver &saver,
 	const_array source,
 	span<const image_location> locations
+);
+
+/**
+ * @brief Write a batch of equally sized patches into one image,
+ * asynchronously.
+ *
+ * The mirror of @ref read_patches_async. Every patch goes into the image
+ * @p location names, which is either the image
+ * @ref image_location::get_index_in_stack indexes within the file or the
+ * whole file when it carries no index in a stack. The file has to be
+ * declared with its final shape beforehand, on the provider @p saver writes
+ * through, so an image can be written a batch of patches at a time.
+ *
+ * @par Centres
+ * A patch spans from @c centre-extent/2 along each axis, as in
+ * @ref read_patches_async, so a patch read around a centre is written back
+ * to where it was read from.
+ *
+ * @par Borders
+ * The part of a patch that reaches past the edge of the image is not
+ * written, so the patches around centres near an edge can be written whole.
+ * See @ref clipping_image_transfer_sanitizer.
+ *
+ * Patches of one call must not overlap: which of two writes to the same
+ * sample lands is not defined. What no patch covers keeps what the format
+ * leaves there.
+ *
+ * @param saver Where the writes are dispatched. Needs to outlive this call
+ * and no longer, the work outliving it carrying what it needs.
+ * @param source The patches. Its leading extent is the batch size and its
+ * remaining extents are the shape of one patch.
+ * @param location The image every patch is written into.
+ * @param centres Centre of each patch, of the rank of one patch and as many
+ * as the batch size.
+ * @return std::shared_ptr<completion> The completion, never null.
+ * @throws std::invalid_argument If @p source has no extents, if @p centres
+ * does not hold one centre per slot of @p source, or if the centres do not
+ * have the rank of one patch.
+ *
+ * @see read_patches_async
+ */
+VITRIO_API
+std::shared_ptr<completion> write_patches_async(
+	const image_saver &saver,
+	const_array source,
+	const image_location &location,
+	const index_table &centres
 );
 
 } // namespace vitrio

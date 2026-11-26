@@ -22,6 +22,7 @@ images may come from any number of files.
 .. autofunction:: vitrio.read_batch_async
 .. autofunction:: vitrio.read_patches_async
 .. autofunction:: vitrio.write_batch_async
+.. autofunction:: vitrio.write_patches_async
 
 .. autoclass:: vitrio.Completion
    :members:
