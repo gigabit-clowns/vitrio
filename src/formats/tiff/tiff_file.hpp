@@ -5,6 +5,7 @@
 #include "tiff_compression.hpp"
 #include "tiff_file_mode.hpp"
 #include "tiff_page_layout.hpp"
+#include "tiff_page_tags.hpp"
 
 #include <vitrio/byte.hpp>
 #include <vitrio/span.hpp>
@@ -173,10 +174,23 @@ public:
 	bool find_unsigned_tag(std::uint32_t tag, std::uint64_t &value);
 
 	/**
+	 * @brief Get what the selected page states of itself beyond how it
+	 * holds its samples.
+	 *
+	 * A resolution is given to a centimetre whichever unit the page states
+	 * it in, and is none where the page states it in no unit of length.
+	 *
+	 * @return tiff_page_tags The tags of the page.
+	 */
+	tiff_page_tags get_page_tags();
+
+	/**
 	 * @brief Append a page to a file being created.
 	 *
 	 * @param layout How the page holds its samples. Must be cut into strips.
 	 * @param compression How the samples are encoded.
+	 * @param tags What the page states of itself beyond that. What of them
+	 * states nothing is not written.
 	 * @param samples The samples of the page, row after row, in the byte
 	 * order of the host. Their size must be that of a page of @p layout.
 	 * They are taken as writable because libtiff is handed them as such:
@@ -192,6 +206,7 @@ public:
 	void write_page(
 		const tiff_page_layout &layout,
 		tiff_compression compression,
+		const tiff_page_tags &tags,
 		span<byte> samples
 	);
 

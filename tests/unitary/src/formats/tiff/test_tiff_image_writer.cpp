@@ -6,7 +6,9 @@
 
 #include <formats/tiff/tiff_image_writer.hpp>
 
+#include <formats/tiff/tiff_file.hpp>
 #include <formats/tiff/tiff_image_reader.hpp>
+#include <formats/tiff/tiff_page_tags.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -115,6 +117,87 @@ TEST_CASE( "a TIFF writer reports the descriptor it was created over",
 	const tiff_image_writer writer(path.get(), descriptor);
 
 	REQUIRE( writer.get_descriptor() == descriptor );
+}
+
+TEST_CASE( "a TIFF writer writes the tags it is given on its pages",
+	"[tiff_image_writer]" )
+{
+	const scoped_path path("tiff_image_writer_tags.tif");
+	const auto values = counting<std::uint8_t>(60);
+	const auto source = make_host_array<std::uint8_t>(
+		stack_extents, numerical_type::uint8, values);
+
+	tiff_page_tags tags;
+	tags.set_x_resolution(1.0e8);
+	tags.set_y_resolution(2.0e8);
+	tags.set_image_description("a stack");
+	tags.set_software("something");
+	tags.set_date_time("2026:11:26 12:00:00");
+
+	{
+		tiff_image_writer writer(
+			path.get(), describe(stack_extents, numerical_type::uint8), tags);
+		writer.write(const_array_ref(source), whole_of(stack_extents));
+	}
+
+	tiff_file file(path.get(), tiff_file_mode::read);
+	REQUIRE( file.get_page_count() == 3 );
+
+	SECTION( "every page states the resolutions" )
+	{
+		for (std::size_t page = 0; page < 3; ++page)
+		{
+			file.select_page(page);
+			const auto read = file.get_page_tags();
+
+			CHECK( read.get_x_resolution() == 1.0e8 );
+			CHECK( read.get_y_resolution() == 2.0e8 );
+		}
+	}
+
+	SECTION( "the first page states the texts" )
+	{
+		const auto read = file.get_page_tags();
+
+		REQUIRE( read.get_image_description() == "a stack" );
+		REQUIRE( read.get_software() == "something" );
+		REQUIRE( read.get_date_time() == "2026:11:26 12:00:00" );
+	}
+
+	SECTION( "and the pages after it do not repeat them" )
+	{
+		for (std::size_t page = 1; page < 3; ++page)
+		{
+			file.select_page(page);
+			const auto read = file.get_page_tags();
+
+			CHECK( read.get_image_description().empty() );
+			CHECK( read.get_software().empty() );
+			CHECK( read.get_date_time().empty() );
+		}
+	}
+}
+
+TEST_CASE( "a TIFF writer given no tags writes pages that state none",
+	"[tiff_image_writer]" )
+{
+	const scoped_path path("tiff_image_writer_no_tags.tif");
+	const auto values = counting<std::uint8_t>(20);
+	const auto source = make_host_array<std::uint8_t>(
+		page_extents, numerical_type::uint8, values);
+
+	{
+		tiff_image_writer writer(
+			path.get(), describe(page_extents, numerical_type::uint8));
+		writer.write(const_array_ref(source), whole_of(page_extents));
+	}
+
+	tiff_file file(path.get(), tiff_file_mode::read);
+	const auto read = file.get_page_tags();
+
+	REQUIRE( read.get_x_resolution() == 0.0 );
+	REQUIRE( read.get_y_resolution() == 0.0 );
+	REQUIRE( read.get_image_description().empty() );
 }
 
 TEST_CASE( "a TIFF writer writes a file that reads back as it was written",

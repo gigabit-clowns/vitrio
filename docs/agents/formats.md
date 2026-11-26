@@ -47,6 +47,18 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   nothing along the axis it stacks them on. The labels are one text,
   `mrc.labels`, a label a line, and a file is created with those it is
   given followed by that of the library, unless it is the last already.
+- **Metadata of TIFF.** A page states how many of its pixels there are to
+  a length, in a unit of its own, and `tiff_page_tags` has it to a
+  centimetre whichever that is: a resolution with no unit stated is one to
+  an inch, and one in no unit of length states nothing. The distance
+  between the samples is a centimetre over it. It is written to a
+  centimetre, since a resolution is a quotient of two integers of 32
+  bits: one to a centimetre holds a pixel down to 0.024 Å, and one to an
+  inch only down to 0.06 Å. `tiff.image_description`, `tiff.software` and
+  `tiff.date_time` are the texts of the tags they are named after. A file
+  states what its first page does: every page is written with the
+  resolutions and the first alone with the texts, so that a stack does
+  not hold a long description once a page.
 - **Detector events.** A detector that counts electrons records events, not
   images. A `detector_event_timeline` holds the events of a stretch of time,
   in groups of one timestamp each, and `detector_event_position_view` views

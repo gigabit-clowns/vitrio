@@ -645,6 +645,12 @@ def read_metadata(
 
 	- `mrc.labels`, a `str`: the labels of an MRC file, one a line, in
 	  which software records what it did to the file.
+	- `tiff.image_description`, `tiff.software` and `tiff.date_time`, each
+	  a `str`: what a TIFF file says it shows, the software it says made
+	  it, and when, as `YYYY:MM:DD HH:MM:SS`.
+
+	A text is read as UTF-8, and what of it is not becomes the replacement
+	character.
 
 	The file is not opened for reading its values, and the GIL is
 	released while it is read.

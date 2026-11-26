@@ -35,7 +35,8 @@ image_metadata import_image_metadata(nanobind::handle mapping);
  * @param metadata The metadata.
  * @return nanobind::dict Its values under its labels, in the order of the
  * labels: an @c int for an integer, a @c float for a real and a @c str for
- * a text.
+ * a text. A text is read as UTF-8, and what of it is not becomes the
+ * replacement character.
  */
 nanobind::dict export_image_metadata(const image_metadata &metadata);
 

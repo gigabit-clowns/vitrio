@@ -264,5 +264,61 @@ def test_a_map_whose_columns_run_along_z_states_its_voxel_size():
 	assert read['pixel_size_y'] == pytest.approx(4.71 / 12, rel=TOLERANCE)
 	assert read['pixel_size_z'] == pytest.approx(33.03 / 72, rel=TOLERANCE)
 
+def test_a_tiff_file_states_what_it_is_written_with(tmp_path):
+	path = tmp_path / 'image.tif'
+	metadata = {
+		'pixel_size_x': 0.83,
+		'pixel_size_y': 0.84,
+		'tiff.image_description': 'a micrograph',
+		'tiff.software': 'something',
+		'tiff.date_time': '2026:11:26 12:00:00',
+	}
+	__write_tiff(__setup_array((4, 6)), path, metadata)
+	read = vio.read_metadata(path)
+	assert read == {
+		'pixel_size_x': pytest.approx(0.83, rel=TOLERANCE),
+		'pixel_size_y': pytest.approx(0.84, rel=TOLERANCE),
+		'tiff.image_description': 'a micrograph',
+		'tiff.software': 'something',
+		'tiff.date_time': '2026:11:26 12:00:00',
+	}
+
+def test_a_tiff_file_written_with_no_metadata_states_nothing(tmp_path):
+	path = tmp_path / 'image.tif'
+	__write_tiff(__setup_array((4, 6)), path, None)
+	assert vio.read_metadata(path) == {}
+
+def test_the_pixel_size_of_an_mrc_file_goes_into_a_tiff_file(tmp_path):
+	source = tmp_path / 'image.mrc'
+	converted = tmp_path / 'image.tif'
+	image = __setup_array((4, 6))
+	vio.write_single(
+		image, source, metadata={'pixel_size_x': 0.5, 'pixel_size_y': 0.25}
+	)
+	__write_tiff(image, converted, vio.read_metadata(source))
+	assert vio.read_metadata(converted) == {
+		'pixel_size_x': pytest.approx(0.5, rel=TOLERANCE),
+		'pixel_size_y': pytest.approx(0.25, rel=TOLERANCE),
+	}
+
+def test_a_text_that_is_not_utf8_is_read_with_what_is_not_replaced(tmp_path):
+	path = tmp_path / 'image.tif'
+	__write_tiff(
+		__setup_array((4, 6)), path,
+		{'tiff.image_description': 'a micrograph at 1 A'}
+	)
+	raw = path.read_bytes()
+	assert raw.count(b'a micrograph at 1 A') == 1
+	# The ångström sign of Latin-1, which is no UTF-8.
+	path.write_bytes(raw.replace(b'at 1 A', b'at 1 \xc5'))
+	read = vio.read_metadata(path)
+	assert read['tiff.image_description'] == 'a micrograph at 1 \ufffd'
+
+def __write_tiff(array, path, metadata):
+	try:
+		vio.write_single(array, path, metadata=metadata)
+	except RuntimeError:
+		pytest.skip('this build writes no TIFF files')
+
 def __setup_array(shape):
 	return np.arange(np.prod(shape), dtype=np.float32).reshape(shape)

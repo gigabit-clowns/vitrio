@@ -73,6 +73,25 @@ image_metadata_value import_value(nb::handle value)
 	);
 }
 
+// A text of a file is whatever bytes the file holds, and Python has a text
+// as characters. It is read as UTF-8, which the texts of most files are,
+// and what is not UTF-8 in it becomes the replacement character rather
+// than a failure to read everything else the file states.
+nb::object export_text(const std::string &text)
+{
+	auto result = nb::steal(PyUnicode_DecodeUTF8(
+		text.data(),
+		static_cast<Py_ssize_t>(text.size()),
+		"replace"
+	));
+	if (!result.is_valid())
+	{
+		throw nb::python_error();
+	}
+
+	return result;
+}
+
 nb::object export_value(const image_metadata_value &value)
 {
 	switch (value.get_type())
@@ -82,7 +101,7 @@ nb::object export_value(const image_metadata_value &value)
 	case image_metadata_value_type::real:
 		return nb::float_(value.get_real());
 	default: // image_metadata_value_type::text
-		return nb::str(value.get_text().data(), value.get_text().size());
+		return export_text(value.get_text());
 	}
 }
 
@@ -123,8 +142,7 @@ nb::dict export_image_metadata(const image_metadata &metadata)
 	nb::dict result;
 	for (const auto &entry : metadata.get_entries())
 	{
-		result[nb::str(entry.first.data(), entry.first.size())] =
-			export_value(entry.second);
+		result[export_text(entry.first)] = export_value(entry.second);
 	}
 
 	return result;

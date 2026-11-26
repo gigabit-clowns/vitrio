@@ -4,6 +4,7 @@
 
 #include "tiff_extensions.hpp"
 #include "tiff_image_writer.hpp"
+#include "tiff_metadata.hpp"
 #include "tiff_sample_type.hpp"
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
@@ -44,7 +45,7 @@ tiff_file_write_format::get_suitability(const image_file_probe &probe) const
 std::shared_ptr<image_writer> tiff_file_write_format::open(
 	const image_file_probe &probe,
 	const image_descriptor &descriptor,
-	const image_metadata &/*metadata*/,
+	const image_metadata &metadata,
 	const file_transfer_pool &/*transfers*/
 ) const
 {
@@ -85,7 +86,11 @@ std::shared_ptr<image_writer> tiff_file_write_format::open(
 		);
 	}
 
-	return std::make_shared<tiff_image_writer>(probe.get_path(), descriptor);
+	return std::make_shared<tiff_image_writer>(
+		probe.get_path(),
+		descriptor,
+		make_page_tags(metadata)
+	);
 }
 
 VITRIO_REGISTER_IMAGE_FILE_WRITE_FORMAT(
