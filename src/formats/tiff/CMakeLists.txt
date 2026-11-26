@@ -9,8 +9,10 @@ target_sources(
 		tiff_file_write_format.cpp
 		tiff_image_reader.cpp
 		tiff_image_writer.cpp
+		tiff_metadata.cpp
 		tiff_page_decoder.cpp
 		tiff_page_layout.cpp
+		tiff_page_tags.cpp
 		tiff_sample_type.cpp
 		tiff_signature.cpp
 )

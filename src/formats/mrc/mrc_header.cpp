@@ -514,6 +514,11 @@ void mrc_header::add_label(const std::string &label)
 	m_labels.push_back(label);
 }
 
+bool is_label(const std::string &label) noexcept
+{
+	return label.size() <= size::label && is_printable_ascii(label);
+}
+
 bool has_map_identifier(span<const byte> bytes) noexcept
 {
 	if (bytes.size() < offset::map + map_id_match_size)

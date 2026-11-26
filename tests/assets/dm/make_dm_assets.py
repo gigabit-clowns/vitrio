@@ -104,17 +104,24 @@ def encode_file(root, version, order):
 	# Files end with eight zero bytes.
 	return header + group + bytes(8)
 
-def image_entry(name, data_type, extents, values):
-	"""An entry of the image list. extents run slowest axis first."""
+# An axis that is not calibrated: a step of one, of no units.
+UNCALIBRATED = (1.0, '')
+
+def image_entry(name, data_type, extents, values, calibrations=None):
+	"""An entry of the image list. extents run slowest axis first, and
+	calibrations, a scale and its units for each axis, fastest axis first,
+	as the file states them."""
 	code, encoding = DATA_TYPES[data_type]
 	dimensions = [('', Scalar(UINT32, e)) for e in reversed(extents)]
+	if calibrations is None:
+		calibrations = [UNCALIBRATED] * len(extents)
 	calibration = [
 		('', Group([
 			('Origin', Scalar(FLOAT32, 0.0)),
-			('Scale', Scalar(FLOAT32, 1.0)),
-			('Units', String('')),
+			('Scale', Scalar(FLOAT32, scale)),
+			('Units', String(units)),
 		]))
-		for _ in extents
+		for scale, units in calibrations
 	]
 	return ('', Group([
 		('ImageData', Group([
@@ -153,7 +160,7 @@ def find_data_offset(raw, values, order, encoding):
 	return offset
 
 def make_file(name, version, order, data_type, extents, values, thumbnail,
-	element_size, aligned):
+	element_size, aligned, calibrations=None):
 	"""Pad the root group before the image list until the values are
 	aligned as asked."""
 	_, encoding = DATA_TYPES[data_type]
@@ -161,7 +168,8 @@ def make_file(name, version, order, data_type, extents, values, thumbnail,
 		entries = []
 		if thumbnail:
 			entries.append(thumbnail_entry())
-		entries.append(image_entry(name, data_type, extents, values))
+		entries.append(
+			image_entry(name, data_type, extents, values, calibrations))
 		root = [
 			('ApplicationBounds', Array(INT32, [0, 0, 1024, 1280])),
 			('Padding', Array(UINT8, [0] * padding)),
@@ -194,11 +202,16 @@ def main(directory):
 			counting(72, lambda p: 100 * (p // 24) - p % 24), True, 2, True),
 		('image_float32_big_endian.dm3', 3, '>', 'float32', [4, 5],
 			counting(20, lambda p: p * 0.25 - 4.0), False, 4, False),
+		# Calibrated: its columns 0.083 nm apart and its rows 0.166 nm.
+		('image_float32_calibrated.dm4', 4, '<', 'float32', [6, 8],
+			counting(48, lambda p: p * 0.25 - 4.0), True, 4, True,
+			[(0.083, 'nm'), (0.166, 'nm')]),
 	]
 	for (name, version, order, data_type, extents, values, thumbnail,
-		element_size, aligned) in files:
+		element_size, aligned, *calibrations) in files:
 		raw, offset = make_file(os.path.splitext(name)[0], version, order,
-			data_type, extents, values, thumbnail, element_size, aligned)
+			data_type, extents, values, thumbnail, element_size, aligned,
+			*calibrations)
 		with open(os.path.join(directory, name), 'wb') as output:
 			output.write(raw)
 		print('{}: {:,} bytes, values at {}'.format(name, len(raw), offset))

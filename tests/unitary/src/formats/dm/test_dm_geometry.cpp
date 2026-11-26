@@ -153,6 +153,25 @@ TEST_CASE( "the image of a file is the first that is not a thumbnail",
 	}
 }
 
+TEST_CASE( "the group of the image of a file is found among its tags",
+	"[dm_geometry]" )
+{
+	const auto raw = make_listed_file(
+		{make_byte_image(3), make_byte_image(4), make_byte_image(5)},
+		{0}
+	);
+	const auto bytes =
+		make_span(reinterpret_cast<const byte*>(raw.data()), raw.size());
+	const auto header = parse_header(bytes);
+	const auto root = parse_tags(bytes, header);
+
+	const auto &image = find_image(root, bytes, header.get_byte_order());
+
+	// The first of the list is a thumbnail, so it is the second.
+	REQUIRE( &image == &root.find_child("ImageList")->get_child(1) );
+	REQUIRE( image.find_child("ImageData") != nullptr );
+}
+
 TEST_CASE( "a stack takes its last extent as its first axis",
 	"[dm_geometry]" )
 {

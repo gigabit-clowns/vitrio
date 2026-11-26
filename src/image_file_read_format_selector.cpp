@@ -59,30 +59,45 @@ public:
 		const file_transfer_pool &transfers
 	) const
 	{
+		return require_format(probe, "open").open(probe, transfers);
+	}
+
+	image_metadata read_metadata(const image_file_probe &probe) const
+	{
+		return require_format(probe, "read_metadata").read_metadata(probe);
+	}
+
+private:
+	// The format an operation of the selector goes through, which is
+	// chosen the same way for each of them and missed the same way too.
+	const image_file_read_format& require_format(
+		const image_file_probe &probe,
+		const char *operation
+	) const
+	{
 		const auto *format = get_most_suitable_format(probe);
 		if (!format)
 		{
+			const auto context =
+				probe.get_path() + ": image_file_read_format_selector::" +
+				operation + ": ";
+
 			if (!probe.exists())
 			{
 				throw image_file_error(
-					probe.get_path() +
-					": image_file_read_format_selector::open: No registered "
-					"format claims the path, and no readable file exists "
-					"there."
+					context + "No registered format claims the path, and "
+					"no readable file exists there."
 				);
 			}
 
 			throw unsupported_operation_error(
-				probe.get_path() +
-				": image_file_read_format_selector::open: No registered "
-				"format can read the file."
+				context + "No registered format can read the file."
 			);
 		}
 
-		return format->open(probe, transfers);
+		return *format;
 	}
 
-private:
 	mutable std::mutex m_mutex;
 	std::vector<std::unique_ptr<image_file_read_format>> m_formats;
 };
@@ -133,6 +148,12 @@ std::shared_ptr<image_reader> image_file_read_format_selector::open(
 ) const
 {
 	return m_implementation->open(image_file_probe(path), transfers);
+}
+
+image_metadata
+image_file_read_format_selector::read_metadata(const std::string &path) const
+{
+	return m_implementation->read_metadata(image_file_probe(path));
 }
 
 const image_file_read_format*

@@ -13,6 +13,7 @@
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -190,6 +191,65 @@ TEST_CASE( "the MRC read format opens a file as its header states it",
 			reinterpret_cast<const float*>(destination.get_data());
 
 		REQUIRE( std::vector<float>(data, data + values.size()) == values );
+	}
+}
+
+TEST_CASE( "the MRC read format reads the metadata its header states",
+	"[mrc_file_read_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const scoped_path path("read_format_metadata.mrc");
+	const mrc_file_read_format format;
+
+	SECTION( "the pixel sizes of a volume" )
+	{
+		auto raw = make_file(4, 3, 5, 1, 2, counting(60));
+		put_cell(raw, 4, 3, 5, 2.0F, 3.0F, 7.5F);
+		write_file(path.get(), raw);
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 0.5 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 1.0 );
+		REQUIRE( get_field(metadata, pixel_size_z) == 1.5 );
+	}
+
+	SECTION( "the pixel sizes of a stack of images, which has no z" )
+	{
+		auto raw = make_file(4, 3, 5, 0, 2, counting(60));
+		put_cell(raw, 4, 3, 1, 2.0F, 3.0F, 7.5F);
+		write_file(path.get(), raw);
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 0.5 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 1.0 );
+		REQUIRE( find_field(metadata, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "nothing of a header that states nothing" )
+	{
+		write_file(path.get(), make_file(4, 3, 2, 0, 2, counting(24)));
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( metadata.get_entries().empty() );
+	}
+
+	SECTION( "and refuses a header that contradicts the format" )
+	{
+		auto raw = make_file(4, 3, 2, 0, 2, counting(24));
+		put_int32(raw, 68, 1);
+		write_file(path.get(), raw);
+
+		REQUIRE_THROWS_AS(
+			format.read_metadata(image_file_probe(path.get())),
+			image_file_format_error
+		);
 	}
 }
 

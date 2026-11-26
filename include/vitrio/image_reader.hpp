@@ -13,7 +13,6 @@ namespace vitrio
 class array;
 class completion_notifier;
 class image_descriptor;
-class image_metadata;
 
 /**
  * @brief Abstract read-only view of one image file.
@@ -62,14 +61,6 @@ public:
 	 * owned by this reader.
 	 */
 	virtual const image_descriptor& get_descriptor() const noexcept = 0;
-
-	/**
-	 * @brief Get how the samples of the file map onto physical space.
-	 *
-	 * @return const image_metadata& The metadata. States nothing for a file
-	 * that does not carry it.
-	 */
-	virtual const image_metadata& get_metadata() const noexcept = 0;
 
 	/**
 	 * @brief Start reading a set of hyperrectangles of the file into one

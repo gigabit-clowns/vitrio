@@ -19,7 +19,6 @@
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -80,7 +79,6 @@ std::vector<std::uint8_t> read_back(
 		std::make_shared<const zarr_array_layout>(
 			read_zarr_node(store.get_directory())),
 		image_descriptor(make_span(shape), 2, numerical_type::uint8),
-		image_metadata(),
 		std::move(transfers),
 		std::make_shared<zarr_chunk_buffers>(1UL << 20),
 		false

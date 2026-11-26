@@ -6,9 +6,9 @@
 #include "mrc_extensions.hpp"
 #include "mrc_geometry.hpp"
 #include "mrc_header.hpp"
+#include "mrc_metadata.hpp"
 
 #include <vitrio/image_file_probe.hpp>
-#include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <formats/raw/open_raw_image_reader.hpp>
@@ -53,8 +53,16 @@ std::shared_ptr<image_reader> mrc_file_read_format::open(
 			header,
 			get_single_section(probe.get_extension())
 		),
-		image_metadata(),
 		transfers
+	);
+}
+
+image_metadata
+mrc_file_read_format::read_metadata(const image_file_probe &probe) const
+{
+	return derive_metadata(
+		parse_header(probe.get_leading_bytes()),
+		get_single_section(probe.get_extension())
 	);
 }
 

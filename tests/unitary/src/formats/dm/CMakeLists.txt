@@ -10,6 +10,7 @@ target_sources(
 		test_dm_geometry.cpp
 		test_dm_header.cpp
 		test_dm_image_location.cpp
+		test_dm_metadata.cpp
 		test_dm_tag.cpp
 		test_dm_tag_parser.cpp
 		test_dm_tag_values.cpp

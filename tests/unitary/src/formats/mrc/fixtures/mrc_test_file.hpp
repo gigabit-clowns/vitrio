@@ -33,6 +33,35 @@ inline void put_int32(
 }
 
 /**
+ * @brief State the cell of a header, in the byte order of the host.
+ *
+ * @param raw The bytes of the file.
+ * @param sampling_x How many times the cell is sampled along X.
+ * @param sampling_y How many times the cell is sampled along Y.
+ * @param sampling_z How many times the cell is sampled along Z.
+ * @param size_x The size of the cell along X, in angstroms.
+ * @param size_y The size of the cell along Y, in angstroms.
+ * @param size_z The size of the cell along Z, in angstroms.
+ */
+inline void put_cell(
+	std::vector<char> &raw,
+	std::int32_t sampling_x,
+	std::int32_t sampling_y,
+	std::int32_t sampling_z,
+	float size_x,
+	float size_y,
+	float size_z
+)
+{
+	put_int32(raw, 28, sampling_x);
+	put_int32(raw, 32, sampling_y);
+	put_int32(raw, 36, sampling_z);
+
+	const float size[] = {size_x, size_y, size_z};
+	std::memcpy(raw.data() + 40, size, sizeof(size));
+}
+
+/**
  * @brief Lay out a little-endian MRC file of 32-bit float values.
  *
  * Laid out for a host of that byte order, which is what every machine the

@@ -51,6 +51,9 @@ public:
 		const file_transfer_pool &transfers
 	) const override;
 
+	image_metadata
+	read_metadata(const image_file_probe &probe) const override;
+
 private:
 	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 };

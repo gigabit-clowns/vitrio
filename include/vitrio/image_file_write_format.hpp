@@ -72,8 +72,9 @@ public:
 	 * @param probe The file to create.
 	 * @param descriptor What the file holds. Its data type is what the file
 	 * stores rather than what a write will supply, since a write converts.
-	 * @param metadata How its samples map onto physical space. A format
-	 * writes what of it it can carry and ignores the rest.
+	 * @param metadata What the file states beyond its shape and data type.
+	 * A format writes what of it it can carry and leaves out the rest, so
+	 * nothing in it makes the creation fail.
 	 * @param transfers The threads that carry out the transfers of the
 	 * writer.
 	 * @return std::shared_ptr<image_writer> The opened writer, never null.

@@ -14,6 +14,7 @@
 #include "fixtures/dm_test_file.hpp"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 using namespace vitrio;
@@ -118,6 +119,164 @@ TEST_CASE( "what is not a single integer is refused", "[dm_tag_values]" )
 				span<const byte>(),
 				byte_order::little_endian
 			),
+			image_file_format_error
+		);
+	}
+}
+
+namespace
+{
+
+// A datum at the start of a file of nothing else but its value.
+dm_tag make_datum(
+	const std::vector<std::uint64_t> &encoding,
+	const std::vector<char> &raw
+)
+{
+	return dm_tag("Value", encoding, 0, raw.size());
+}
+
+span<const byte> as_file(const std::vector<char> &raw)
+{
+	return make_span(reinterpret_cast<const byte*>(raw.data()), raw.size());
+}
+
+byte_order order_of(bool little_endian)
+{
+	return little_endian ? byte_order::little_endian : byte_order::big_endian;
+}
+
+} // anonymous namespace
+
+TEST_CASE( "a real of either width is read in the byte order of the file",
+	"[dm_tag_values]" )
+{
+	const bool little_endian = GENERATE(true, false);
+
+	SECTION( "of 32 bits" )
+	{
+		const auto raw = payload_of(std::vector<float>{-0.375F}, little_endian);
+		const auto tag = make_datum({encoding::float32}, raw);
+
+		REQUIRE( holds_real(tag) );
+		REQUIRE(
+			read_real(tag, as_file(raw), order_of(little_endian)) == -0.375 );
+	}
+
+	SECTION( "of 64 bits" )
+	{
+		const auto raw = payload_of(std::vector<double>{0.1}, little_endian);
+		const auto tag = make_datum({encoding::float64}, raw);
+
+		REQUIRE( holds_real(tag) );
+		REQUIRE( read_real(tag, as_file(raw), order_of(little_endian)) == 0.1 );
+	}
+}
+
+TEST_CASE( "what is not a single real is not read as one", "[dm_tag_values]" )
+{
+	SECTION( "an integer" )
+	{
+		const auto raw = payload_of(std::vector<std::int32_t>{2}, true);
+		const auto tag = make_datum({encoding::int32}, raw);
+
+		REQUIRE_FALSE( holds_real(tag) );
+		REQUIRE_THROWS_AS(
+			read_real(tag, as_file(raw), byte_order::little_endian),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "an array of reals" )
+	{
+		const auto raw = payload_of(std::vector<float>{1.0F, 2.0F}, true);
+		const auto tag =
+			make_datum({encoding::array, encoding::float32, 2}, raw);
+
+		REQUIRE_FALSE( holds_real(tag) );
+		REQUIRE_THROWS_AS(
+			read_real(tag, as_file(raw), byte_order::little_endian),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "a group" )
+	{
+		const dm_tag group("Group");
+
+		REQUIRE_FALSE( holds_real(group) );
+		REQUIRE_THROWS_AS(
+			read_real(group, span<const byte>(), byte_order::little_endian),
+			image_file_format_error
+		);
+	}
+}
+
+TEST_CASE( "a text is read in the byte order of the file", "[dm_tag_values]" )
+{
+	const bool little_endian = GENERATE(true, false);
+
+	SECTION( "its characters, as the file holds them" )
+	{
+		// A micro sign and a letter: what a file calibrated in micrometres
+		// states as its units.
+		const std::vector<std::uint16_t> characters = {0x00B5, 'm'};
+		const auto raw = payload_of(characters, little_endian);
+		const auto tag =
+			make_datum({encoding::array, encoding::uint16, 2}, raw);
+
+		REQUIRE( holds_text(tag) );
+		REQUIRE(
+			read_text(tag, as_file(raw), order_of(little_endian)) ==
+			u"\u00B5m"
+		);
+	}
+
+	SECTION( "a text of no characters" )
+	{
+		const std::vector<char> raw;
+		const auto tag =
+			make_datum({encoding::array, encoding::uint16, 0}, raw);
+
+		REQUIRE( holds_text(tag) );
+		REQUIRE(
+			read_text(tag, as_file(raw), order_of(little_endian)).empty() );
+	}
+}
+
+TEST_CASE( "what is not a text is not read as one", "[dm_tag_values]" )
+{
+	SECTION( "an array of bytes" )
+	{
+		const auto raw = payload_of(std::vector<std::uint8_t>{'n', 'm'}, true);
+		const auto tag = make_datum({encoding::array, encoding::uint8, 2}, raw);
+
+		REQUIRE_FALSE( holds_text(tag) );
+		REQUIRE_THROWS_AS(
+			read_text(tag, as_file(raw), byte_order::little_endian),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "a single character" )
+	{
+		const auto raw = payload_of(std::vector<std::uint16_t>{'n'}, true);
+		const auto tag = make_datum({encoding::uint16}, raw);
+
+		REQUIRE_FALSE( holds_text(tag) );
+		REQUIRE_THROWS_AS(
+			read_text(tag, as_file(raw), byte_order::little_endian),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "a group" )
+	{
+		const dm_tag group("Group");
+
+		REQUIRE_FALSE( holds_text(group) );
+		REQUIRE_THROWS_AS(
+			read_text(group, span<const byte>(), byte_order::little_endian),
 			image_file_format_error
 		);
 	}

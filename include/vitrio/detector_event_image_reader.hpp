@@ -64,8 +64,6 @@ public:
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
-	const image_metadata& get_metadata() const noexcept override;
-
 	/**
 	 * @copydoc synchronous_image_reader::read
 	 *

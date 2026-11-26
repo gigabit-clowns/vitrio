@@ -28,6 +28,8 @@ namespace tiff
 namespace
 {
 
+constexpr double centimetres_per_inch = 2.54;
+
 std::string format_message(const char *format, va_list arguments)
 {
 	std::array<char, 512> text = {};
@@ -421,9 +423,55 @@ bool tiff_file::find_unsigned_tag(std::uint32_t tag, std::uint64_t &value)
 	}
 }
 
+tiff_page_tags tiff_file::get_page_tags()
+{
+	tiff_page_tags tags;
+
+	// A page that states a resolution and no unit states it to an inch.
+	std::uint16_t unit = RESUNIT_INCH;
+	TIFFGetFieldDefaulted(m_handle, TIFFTAG_RESOLUTIONUNIT, &unit);
+
+	double to_centimetre = 0.0;
+	if (unit == RESUNIT_CENTIMETER)
+	{
+		to_centimetre = 1.0;
+	}
+	else if (unit == RESUNIT_INCH)
+	{
+		to_centimetre = 1.0 / centimetres_per_inch;
+	}
+
+	float resolution = 0.0F;
+	if (TIFFGetField(m_handle, TIFFTAG_XRESOLUTION, &resolution) != 0)
+	{
+		tags.set_x_resolution(resolution * to_centimetre);
+	}
+	if (TIFFGetField(m_handle, TIFFTAG_YRESOLUTION, &resolution) != 0)
+	{
+		tags.set_y_resolution(resolution * to_centimetre);
+	}
+
+	const char *text = nullptr;
+	if (TIFFGetField(m_handle, TIFFTAG_IMAGEDESCRIPTION, &text) != 0 && text)
+	{
+		tags.set_image_description(text);
+	}
+	if (TIFFGetField(m_handle, TIFFTAG_SOFTWARE, &text) != 0 && text)
+	{
+		tags.set_software(text);
+	}
+	if (TIFFGetField(m_handle, TIFFTAG_DATETIME, &text) != 0 && text)
+	{
+		tags.set_date_time(text);
+	}
+
+	return tags;
+}
+
 void tiff_file::write_page(
 	const tiff_page_layout &layout,
 	tiff_compression compression,
+	const tiff_page_tags &tags,
 	span<byte> samples
 )
 {
@@ -472,6 +520,44 @@ void tiff_file::write_page(
 			to_libtiff_compression(compression)) != 0 &&
 		TIFFSetField(m_handle, TIFFTAG_ROWSPERSTRIP,
 			static_cast<std::uint32_t>(layout.get_block_height())) != 0;
+
+	// What the tags do not state is not written, so that the page does
+	// not state it either.
+	const auto x_resolution = tags.get_x_resolution();
+	const auto y_resolution = tags.get_y_resolution();
+	if (x_resolution > 0.0 || y_resolution > 0.0)
+	{
+		written = written && TIFFSetField(
+			m_handle, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER) != 0;
+	}
+	if (x_resolution > 0.0)
+	{
+		written = written && TIFFSetField(
+			m_handle, TIFFTAG_XRESOLUTION, x_resolution) != 0;
+	}
+	if (y_resolution > 0.0)
+	{
+		written = written && TIFFSetField(
+			m_handle, TIFFTAG_YRESOLUTION, y_resolution) != 0;
+	}
+	if (!tags.get_image_description().empty())
+	{
+		written = written && TIFFSetField(
+			m_handle,
+			TIFFTAG_IMAGEDESCRIPTION,
+			tags.get_image_description().c_str()
+		) != 0;
+	}
+	if (!tags.get_software().empty())
+	{
+		written = written && TIFFSetField(
+			m_handle, TIFFTAG_SOFTWARE, tags.get_software().c_str()) != 0;
+	}
+	if (!tags.get_date_time().empty())
+	{
+		written = written && TIFFSetField(
+			m_handle, TIFFTAG_DATETIME, tags.get_date_time().c_str()) != 0;
+	}
 
 	const auto block_count = layout.get_block_count();
 	std::size_t offset = 0;

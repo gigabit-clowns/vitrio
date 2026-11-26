@@ -2,7 +2,9 @@
 
 #include "tiff_file_read_format.hpp"
 
+#include "tiff_file.hpp"
 #include "tiff_image_reader.hpp"
+#include "tiff_metadata.hpp"
 #include "tiff_signature.hpp"
 
 #include <vitrio/image_file_probe.hpp>
@@ -38,6 +40,15 @@ std::shared_ptr<image_reader> tiff_file_read_format::open(
 {
 	// The reader decodes on the thread that reads, as libtiff does.
 	return std::make_shared<tiff_image_reader>(probe.get_path());
+}
+
+image_metadata
+tiff_file_read_format::read_metadata(const image_file_probe &probe) const
+{
+	// What a file states is what its first page does, which is the one a
+	// file opens at.
+	tiff_file file(probe.get_path(), tiff_file_mode::read);
+	return derive_metadata(file.get_page_tags());
 }
 
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(

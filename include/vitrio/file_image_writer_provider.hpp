@@ -82,7 +82,7 @@ public:
 	 * @param key Key of the file to create, which is handed to the format
 	 * selector as its path.
 	 * @param descriptor What the file holds.
-	 * @param metadata How its samples map onto physical space.
+	 * @param metadata What it states beyond its shape and data type.
 	 * @throws std::logic_error If that key is already declared.
 	 */
 	void declare(

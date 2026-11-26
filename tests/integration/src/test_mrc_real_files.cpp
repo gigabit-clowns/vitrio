@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
+#include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/assets.hpp>
@@ -101,6 +104,17 @@ std::vector<float> values_along_space_of(const std::string &path)
 	}
 
 	return ordered;
+}
+
+// The distance between the samples along an axis of space, counted from
+// zero, as the specification states it: the size of the cell along it over
+// the sampling of the cell along it.
+double pixel_size_of(const std::vector<char> &raw, std::size_t space_axis)
+{
+	float size = 0.0F;
+	std::memcpy(&size, raw.data() + 40 + 4 * space_axis, sizeof(size));
+
+	return static_cast<double>(size) / field(raw, 28 + 4 * space_axis);
 }
 
 std::size_t element_count(span<const std::size_t> extents)
@@ -221,5 +235,74 @@ TEST_CASE(
 
 		REQUIRE( expected.size() == count );
 		REQUIRE( get_values<float>(destination) == expected );
+	}
+}
+
+TEST_CASE(
+	"MRC files this project did not write state their metadata",
+	"[mrc][image_file_format_selector]"
+)
+{
+	using namespace image_metadata_fields;
+	using Catch::Matchers::WithinRel;
+
+	image_file_read_format_selector selector;
+	selector.register_builtin_formats();
+
+	SECTION( "a volume whose columns, rows and sections are X, Y and Z" )
+	{
+		const auto path = get_mrc_asset_path("EMD-3197.map");
+		const auto raw = read_bytes(path);
+
+		const auto metadata = selector.read_metadata(path);
+
+		// A cell of 228 angstroms sampled 20 times along each axis.
+		REQUIRE_THAT( get_field(metadata, pixel_size_x), WithinRel(11.4) );
+		REQUIRE_THAT( get_field(metadata, pixel_size_y), WithinRel(11.4) );
+		REQUIRE_THAT( get_field(metadata, pixel_size_z), WithinRel(11.4) );
+		REQUIRE( get_field(metadata, pixel_size_x) == pixel_size_of(raw, 0) );
+		REQUIRE( get_field(metadata, pixel_size_y) == pixel_size_of(raw, 1) );
+		REQUIRE( get_field(metadata, pixel_size_z) == pixel_size_of(raw, 2) );
+	}
+
+	SECTION( "a volume whose columns, rows and sections are Z, X and Y" )
+	{
+		// EMD-3001 has a cell of 17.93, 4.71 and 33.03 angstroms along X, Y
+		// and Z, sampled 40, 12 and 72 times, and columns that run along Z.
+		// A reader that took the sampling for that of the columns, the rows
+		// and the sections would divide each size by the wrong count.
+		const auto path = get_mrc_asset_path("EMD-3001.map");
+		const auto raw = read_bytes(path);
+
+		const auto metadata = selector.read_metadata(path);
+
+		REQUIRE_THAT(
+			get_field(metadata, pixel_size_x), WithinRel(0.44825, 1.0e-6) );
+		REQUIRE_THAT(
+			get_field(metadata, pixel_size_y), WithinRel(0.3925, 1.0e-6) );
+		REQUIRE_THAT(
+			get_field(metadata, pixel_size_z), WithinRel(0.45875, 1.0e-6) );
+		REQUIRE( get_field(metadata, pixel_size_x) == pixel_size_of(raw, 0) );
+		REQUIRE( get_field(metadata, pixel_size_y) == pixel_size_of(raw, 1) );
+		REQUIRE( get_field(metadata, pixel_size_z) == pixel_size_of(raw, 2) );
+	}
+
+	SECTION( "the label the EMDB wrote" )
+	{
+		const auto metadata =
+			selector.read_metadata(get_mrc_asset_path("EMD-3001.map"));
+
+		REQUIRE(
+			metadata.get("mrc.labels").get_text() ==
+			"::::EMDATABANK.org::::EMD-3001::::"
+		);
+	}
+
+	SECTION( "and nothing else" )
+	{
+		const auto metadata =
+			selector.read_metadata(get_mrc_asset_path("EMD-3197.map"));
+
+		REQUIRE( metadata.get_entries().size() == 4 );
 	}
 }

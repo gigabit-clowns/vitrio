@@ -18,7 +18,6 @@
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -59,7 +58,6 @@ std::unique_ptr<zarr_image_reader> open_tomogram(
 		layout,
 		image_descriptor(
 			make_span(extents{5, 6, 7}), 3, numerical_type::float32),
-		image_metadata(),
 		std::move(transfers),
 		std::move(buffers),
 		asynchronous

@@ -64,14 +64,12 @@ std::size_t measure_file(const std::string &path)
 queued_image_reader::queued_image_reader(
 	const std::string &path,
 	raw_image_layout layout,
-	image_metadata metadata,
 	std::shared_ptr<file_transfer_executor> transfers
 )
 	: m_path(path)
 	, m_file(open_file(path))
 	, m_file_size(measure_file(path))
 	, m_layout(std::move(layout))
-	, m_metadata(std::move(metadata))
 	, m_transfers(std::move(transfers))
 {
 	VITRIO_ASSERT(m_transfers != nullptr);
@@ -92,11 +90,6 @@ queued_image_reader::~queued_image_reader() = default;
 const image_descriptor& queued_image_reader::get_descriptor() const noexcept
 {
 	return m_layout.get_descriptor();
-}
-
-const image_metadata& queued_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void queued_image_reader::read_async(

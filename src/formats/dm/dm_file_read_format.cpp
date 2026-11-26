@@ -5,11 +5,11 @@
 #include "dm_extensions.hpp"
 #include "dm_geometry.hpp"
 #include "dm_header.hpp"
+#include "dm_metadata.hpp"
 #include "dm_tag_parser.hpp"
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_file_probe.hpp>
-#include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <formats/raw/mapped/image_file_access.hpp>
@@ -18,6 +18,7 @@
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace vitrio
@@ -40,6 +41,22 @@ dm_image_location locate_file_image(const std::string &path)
 	const auto root = parse_tags(file, header);
 
 	return locate_image(root, file, header.get_byte_order());
+}
+
+// What the image of a file states, which is the image that is opened.
+image_metadata read_file_metadata(const std::string &path)
+{
+	const image_file_mapping mapping(path, image_file_access::read_only);
+	const auto file = make_span<const byte>(
+		mapping.get_data(),
+		mapping.get_size()
+	);
+
+	const auto header = parse_header(file);
+	const auto root = parse_tags(file, header);
+	const auto order = header.get_byte_order();
+
+	return derive_metadata(find_image(root, file, order), file, order);
 }
 
 std::vector<std::ptrdiff_t>
@@ -96,9 +113,14 @@ std::shared_ptr<image_reader> dm_file_read_format::open(
 			location.get_data_offset(),
 			location.get_byte_order()
 		),
-		image_metadata(),
 		transfers
 	);
+}
+
+image_metadata
+dm_file_read_format::read_metadata(const image_file_probe &probe) const
+{
+	return read_file_metadata(probe.get_path());
 }
 
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(dm, vitrio::dm::dm_file_read_format);

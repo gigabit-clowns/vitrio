@@ -9,6 +9,9 @@
 
 #include <vitrio/image_descriptor.hpp>
 
+#include <cstdint>
+#include <vector>
+
 namespace vitrio
 {
 namespace mrc
@@ -52,6 +55,31 @@ raw_image_layout derive_file_layout(
 );
 
 /**
+ * @brief Resolve the axes of space the axes of one image or volume of a
+ * file run along.
+ *
+ * In the order @ref derive_file_layout puts those axes in, which is that of
+ * the trailing extents of its descriptor: the axis of space each runs
+ * along descends, so the last runs along the lowest of them. A volume runs
+ * along all three, and an image along the two its rows and its columns
+ * name. A header that names no axis at all is resolved as though it named
+ * them in order.
+ *
+ * @param header The header of the file.
+ * @param single_section What the file holds when the header states a single
+ * section in the image space group.
+ * @return std::vector<std::int32_t> The axis of space of each axis of one
+ * image or volume, counted from one: two of them for a file of images and
+ * three for one of volumes.
+ * @throws image_file_format_error If the axis correspondence of the header
+ * names anything but the three axes of space, one each, without being unset.
+ */
+std::vector<std::int32_t> derive_core_space_axes(
+	const mrc_header &header,
+	mrc_single_section single_section = mrc_single_section::image
+);
+
+/**
  * @brief Build the header of a file of a given shape.
  *
  * The inverse of @ref derive_file_layout: it decides the space group and the
@@ -62,8 +90,8 @@ raw_image_layout derive_file_layout(
  * up to how it is read.
  *
  * Every field the format does not derive from the shape is left at what a
- * newly created file carries, save for a label naming the library that
- * built it.
+ * newly created file carries. Its cell is among them: it has no size, so
+ * the header states no distance between its samples, and it has no label.
  *
  * @param descriptor What the file holds.
  * @return mrc_header The header, in the byte order of the host.
@@ -71,6 +99,17 @@ raw_image_layout derive_file_layout(
  * mode holds its data type.
  */
 mrc_header make_header(const image_descriptor &descriptor);
+
+/**
+ * @brief Record in a header that this library wrote its file.
+ *
+ * Appends a label that names the library and its version, after the labels
+ * the header already has. A header with no room for one more is left as it
+ * is, and so is one whose last label is that label already.
+ *
+ * @param header The header to sign.
+ */
+void sign_header(mrc_header &header);
 
 } // namespace mrc
 } // namespace vitrio

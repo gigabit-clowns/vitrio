@@ -8,6 +8,7 @@ target_sources(
 		mrc_file_write_format.cpp
 		mrc_geometry.cpp
 		mrc_header.cpp
+		mrc_metadata.cpp
 		mrc_mode.cpp
 )
 

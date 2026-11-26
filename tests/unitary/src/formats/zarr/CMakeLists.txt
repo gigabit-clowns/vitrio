@@ -22,6 +22,7 @@ target_sources(
 		test_zarr_image_reader.cpp
 		test_zarr_image_writer.cpp
 		test_zarr_json.cpp
+		test_zarr_metadata.cpp
 		test_zarr_multiscale.cpp
 		test_zarr_node.cpp
 		test_zarr_read_operation.cpp

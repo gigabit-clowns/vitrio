@@ -2,6 +2,7 @@
 
 #include "file_image_writer_provider.hpp"
 
+#include "image_metadata.hpp"
 #include "utf8_string.hpp"
 
 #include <vitrio/concurrency/completion.hpp>
@@ -30,10 +31,15 @@ namespace
 void declare(
 	file_image_writer_provider &self,
 	const std::filesystem::path &key,
-	const image_descriptor &descriptor
+	const image_descriptor &descriptor,
+	nb::object metadata
 )
 {
-	self.declare(to_utf8_string(key), descriptor, image_metadata());
+	self.declare(
+		to_utf8_string(key),
+		descriptor,
+		import_image_metadata(metadata)
+	);
 }
 
 void close(file_image_writer_provider &self, const std::filesystem::path &key)
@@ -91,6 +97,7 @@ void bind_file_image_writer_provider(nb::module_ &m)
 		)
 		.def(
 			"declare", &declare, nb::arg("key"), nb::arg("descriptor"),
+			nb::arg("metadata") = nb::none(),
 			"Make a file writable.\n"
 			"\n"
 			"Nothing is created until the file is first written to.\n"
@@ -98,9 +105,18 @@ void bind_file_image_writer_provider(nb::module_ &m)
 			"Args:\n"
 			"    key: The path of the file.\n"
 			"    descriptor: The `ImageDescriptor` the file is created with.\n"
+			"    metadata: A mapping of what the file states beyond its "
+			"shape and data type, as `vitrio.read_metadata` returns it. "
+			"Its format writes what of it it can carry and leaves out the "
+			"rest. Defaults to nothing.\n"
 			"\n"
 			"Raises:\n"
-			"    RuntimeError: If the file is still declared. Close it first."
+			"    TypeError: If `metadata` is no mapping, if a label of it is "
+			"no `str`, or if a value of it is not an `int`, a `float` or a "
+			"`str`.\n"
+			"    ValueError: If the file is still declared: close it first. "
+			"Also if a label of `metadata` has no prefix and is no standard "
+			"field, or if a standard field is given a value of another type."
 		)
 		.def(
 			"close", &close, nb::arg("key"),

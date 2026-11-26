@@ -44,6 +44,9 @@ public:
 		const image_file_probe &probe,
 		const file_transfer_pool &transfers
 	) const override;
+
+	image_metadata
+	read_metadata(const image_file_probe &probe) const override;
 };
 
 } // namespace mrc

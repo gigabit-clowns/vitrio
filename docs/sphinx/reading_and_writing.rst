@@ -13,6 +13,14 @@ Whole files
 .. autofunction:: vitrio.write_stack
 .. autofunction:: vitrio.write
 
+Metadata
+--------
+
+What a file states beyond its shape and data type, such as its pixel size,
+is read apart from its values, and given when a file is written.
+
+.. autofunction:: vitrio.read_metadata
+
 Batches and patches
 -------------------
 

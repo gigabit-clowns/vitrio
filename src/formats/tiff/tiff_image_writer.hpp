@@ -58,13 +58,21 @@ public:
 	 *
 	 * @param path Path to the file to create.
 	 * @param descriptor What the file holds.
+	 * @param tags What its pages state of themselves beyond how they hold
+	 * their samples. Every page states the resolutions, and the first
+	 * alone the texts, which is where they are read from and keeps a file
+	 * of many pages from holding as many copies of a long one.
 	 * @throws std::invalid_argument If @p descriptor is not of rank two or
 	 * three, if it is not of core rank two, or if it has an extent of zero.
 	 * @throws unsupported_operation_error If no sample holds the data type
 	 * of @p descriptor.
 	 * @throws image_file_error If the file could not be created.
 	 */
-	tiff_image_writer(const std::string &path, image_descriptor descriptor);
+	tiff_image_writer(
+		const std::string &path,
+		image_descriptor descriptor,
+		tiff_page_tags tags = tiff_page_tags()
+	);
 
 	~tiff_image_writer() override;
 
@@ -81,6 +89,8 @@ private:
 	image_descriptor m_descriptor;
 	std::mutex m_mutex;
 	tiff_file m_file;
+	tiff_page_tags m_first_page_tags;
+	tiff_page_tags m_page_tags;
 	std::size_t m_page_count;
 	std::size_t m_next_page;
 	std::vector<byte> m_page;

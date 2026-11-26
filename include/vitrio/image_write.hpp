@@ -37,7 +37,7 @@ class index_table;
  * @param transfers The threads that carry out the writes of the file.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
- * @param metadata How its samples map onto physical space.
+ * @param metadata What it states beyond its shape and data type.
  * @throws std::invalid_argument If @p arr has no extents, or if neither
  * @p data_type nor @p arr names a data type.
  *
@@ -66,7 +66,7 @@ void write_single(
  * @param transfers The threads that carry out the writes of the file.
  * @param data_type Data type of the file, the values of @p arr being
  * converted to it, or unknown to keep the one @p arr carries.
- * @param metadata How its samples map onto physical space.
+ * @param metadata What it states beyond its shape and data type.
  * @throws std::invalid_argument If @p arr has fewer than two extents, or if
  * neither @p data_type nor @p arr names a data type.
  */
@@ -94,7 +94,7 @@ void write_stack(
  * @param formats The formats the file may be created with.
  * @param transfers The threads that carry out the writes of the file.
  * @param descriptor What the file holds.
- * @param metadata How its samples map onto physical space.
+ * @param metadata What it states beyond its shape and data type.
  * @throws std::invalid_argument If the extents of @p arr are not those of
  * @p descriptor.
  */

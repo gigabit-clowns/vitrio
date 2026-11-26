@@ -97,6 +97,14 @@ A read of an MRC file compressed with gzip, such as the `.map.gz` of a map
 in the EMDB, inflates it from its start, so such a file is best read once,
 whole.
 
+What a file states beyond its values is its metadata. Of an MRC file, the
+pixel size along each axis and its labels are read, and written when the
+file is created. Of a TIFF file, the pixel size its resolution states, its
+description, its software and its date are, and of an image of OME-Zarr,
+the pixel size its scale states. Of a DigitalMicrograph file, the pixel
+size its calibration states is read. A file created with no pixel size
+states none.
+
 More formats will follow.
 
 ## Installing
@@ -132,6 +140,16 @@ pixels = np.asarray(micrograph)           # the same memory, not a copy
 tensor = torch.from_dlpack(micrograph)    # and again
 
 vio.write_single(pixels, "copy.tif")
+```
+
+What a file states beyond its values, such as its pixel size, is read apart
+from them, as a dict, and given when a file is written.
+
+```python
+metadata = vio.read_metadata("map.mrc")
+pixel_size = metadata.get("pixel_size_x")    # in ångströms, or None
+
+vio.write_single(volume, "copy.mrc", metadata=metadata)
 ```
 
 Reading many images is done in batches, on a thread pool, and the `_async`

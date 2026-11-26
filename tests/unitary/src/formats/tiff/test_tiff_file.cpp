@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_exception.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <formats/tiff/tiff_file.hpp>
@@ -21,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -61,6 +63,7 @@ void write_page_of(
 	file.write_page(
 		layout,
 		compression,
+		tiff_page_tags(),
 		as_bytes(make_span(samples))
 	);
 }
@@ -762,6 +765,233 @@ TEST_CASE( "a TIFF file reports the strips of a page it can not decode",
 			file.get_rows_per_strip(),
 			image_file_format_error
 		);
+	}
+}
+
+TEST_CASE( "a TIFF file reads what a page states of itself",
+	"[tiff_file]" )
+{
+	using Catch::Matchers::WithinRel;
+
+	const scoped_path path("tiff_file_page_tags.tif");
+
+	// One page of a strip, with whatever tags a case adds to it.
+	const auto write = [&path] (const std::function<void(TIFF*)> &add_tags)
+	{
+		auto *file = TIFFOpen(path.get().c_str(), "w");
+		set_page_tags<std::uint8_t>(
+			file, 4, 3, SAMPLEFORMAT_UINT, COMPRESSION_NONE);
+		TIFFSetField(file, TIFFTAG_ROWSPERSTRIP, 3);
+		add_tags(file);
+
+		auto samples = counting<std::uint8_t>(12);
+		TIFFWriteEncodedStrip(file, 0, samples.data(), 12);
+		TIFFClose(file);
+	};
+
+	const auto read = [&path]
+	{
+		tiff_file file(path.get(), tiff_file_mode::read);
+		return file.get_page_tags();
+	};
+
+	SECTION( "nothing of a page that states nothing" )
+	{
+		write([] (TIFF*) {});
+
+		const auto tags = read();
+
+		REQUIRE( tags.get_x_resolution() == 0.0 );
+		REQUIRE( tags.get_y_resolution() == 0.0 );
+		REQUIRE( tags.get_image_description().empty() );
+		REQUIRE( tags.get_software().empty() );
+		REQUIRE( tags.get_date_time().empty() );
+	}
+
+	SECTION( "a resolution to a centimetre, as it is" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER);
+			TIFFSetField(file, TIFFTAG_XRESOLUTION, 1.0e8);
+			TIFFSetField(file, TIFFTAG_YRESOLUTION, 2.0e8);
+		});
+
+		const auto tags = read();
+
+		REQUIRE( tags.get_x_resolution() == 1.0e8 );
+		REQUIRE( tags.get_y_resolution() == 2.0e8 );
+	}
+
+	SECTION( "a resolution to an inch, to a centimetre" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+			TIFFSetField(file, TIFFTAG_XRESOLUTION, 2.54e8);
+			TIFFSetField(file, TIFFTAG_YRESOLUTION, 254.0);
+		});
+
+		const auto tags = read();
+
+		REQUIRE_THAT( tags.get_x_resolution(), WithinRel(1.0e8, 1.0e-6) );
+		REQUIRE_THAT( tags.get_y_resolution(), WithinRel(100.0, 1.0e-6) );
+	}
+
+	// The format has a resolution with no unit stated as one to an inch.
+	SECTION( "a resolution with no unit, as one to an inch" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_XRESOLUTION, 254.0);
+		});
+
+		const auto tags = read();
+
+		REQUIRE_THAT( tags.get_x_resolution(), WithinRel(100.0, 1.0e-6) );
+		REQUIRE( tags.get_y_resolution() == 0.0 );
+	}
+
+	SECTION( "no resolution where it is stated in no unit of length" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_RESOLUTIONUNIT, RESUNIT_NONE);
+			TIFFSetField(file, TIFFTAG_XRESOLUTION, 1.0);
+			TIFFSetField(file, TIFFTAG_YRESOLUTION, 1.0);
+		});
+
+		const auto tags = read();
+
+		REQUIRE( tags.get_x_resolution() == 0.0 );
+		REQUIRE( tags.get_y_resolution() == 0.0 );
+	}
+
+	SECTION( "its texts" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_IMAGEDESCRIPTION, "a micrograph");
+			TIFFSetField(file, TIFFTAG_SOFTWARE, "something");
+			TIFFSetField(file, TIFFTAG_DATETIME, "2026:11:26 12:00:00");
+		});
+
+		const auto tags = read();
+
+		REQUIRE( tags.get_image_description() == "a micrograph" );
+		REQUIRE( tags.get_software() == "something" );
+		REQUIRE( tags.get_date_time() == "2026:11:26 12:00:00" );
+	}
+}
+
+TEST_CASE( "a TIFF page is written with the tags it is given",
+	"[tiff_file]" )
+{
+	const scoped_path path("tiff_file_written_tags.tif");
+	const auto layout =
+		tiff_page_layout::make_striped(4, 3, numerical_type::uint8, 3);
+
+	const auto write = [&path, &layout] (const tiff_page_tags &tags)
+	{
+		auto samples = counting<std::uint8_t>(12);
+		tiff_file file(path.get(), tiff_file_mode::create);
+		file.write_page(
+			layout,
+			tiff_compression::none,
+			tags,
+			as_bytes(make_span(samples))
+		);
+	};
+
+	// What the file states is read through libtiff itself.
+	SECTION( "its resolutions, to a centimetre" )
+	{
+		tiff_page_tags tags;
+		tags.set_x_resolution(1.0e8);
+		tags.set_y_resolution(2.0e8);
+		write(tags);
+
+		auto *file = TIFFOpen(path.get().c_str(), "r");
+		std::uint16_t unit = 0;
+		float x_resolution = 0.0F;
+		float y_resolution = 0.0F;
+		REQUIRE( TIFFGetField(file, TIFFTAG_RESOLUTIONUNIT, &unit) == 1 );
+		REQUIRE( TIFFGetField(file, TIFFTAG_XRESOLUTION, &x_resolution) == 1 );
+		REQUIRE( TIFFGetField(file, TIFFTAG_YRESOLUTION, &y_resolution) == 1 );
+		TIFFClose(file);
+
+		REQUIRE( unit == RESUNIT_CENTIMETER );
+		REQUIRE( x_resolution == 1.0e8F );
+		REQUIRE( y_resolution == 2.0e8F );
+	}
+
+	SECTION( "its texts" )
+	{
+		tiff_page_tags tags;
+		tags.set_image_description("a micrograph");
+		tags.set_software("something");
+		tags.set_date_time("2026:11:26 12:00:00");
+		write(tags);
+
+		auto *file = TIFFOpen(path.get().c_str(), "r");
+		const char *description = nullptr;
+		const char *software = nullptr;
+		const char *date_time = nullptr;
+		REQUIRE(
+			TIFFGetField(file, TIFFTAG_IMAGEDESCRIPTION, &description) == 1 );
+		REQUIRE( TIFFGetField(file, TIFFTAG_SOFTWARE, &software) == 1 );
+		REQUIRE( TIFFGetField(file, TIFFTAG_DATETIME, &date_time) == 1 );
+		const std::string read_description(description);
+		const std::string read_software(software);
+		const std::string read_date_time(date_time);
+		TIFFClose(file);
+
+		REQUIRE( read_description == "a micrograph" );
+		REQUIRE( read_software == "something" );
+		REQUIRE( read_date_time == "2026:11:26 12:00:00" );
+	}
+
+	SECTION( "and none of those that state nothing" )
+	{
+		write(tiff_page_tags());
+
+		auto *file = TIFFOpen(path.get().c_str(), "r");
+		std::uint16_t unit = 0;
+		float resolution = 0.0F;
+		const char *text = nullptr;
+		const auto has_unit =
+			TIFFGetField(file, TIFFTAG_RESOLUTIONUNIT, &unit);
+		const auto has_x_resolution =
+			TIFFGetField(file, TIFFTAG_XRESOLUTION, &resolution);
+		const auto has_y_resolution =
+			TIFFGetField(file, TIFFTAG_YRESOLUTION, &resolution);
+		const auto has_description =
+			TIFFGetField(file, TIFFTAG_IMAGEDESCRIPTION, &text);
+		const auto has_software =
+			TIFFGetField(file, TIFFTAG_SOFTWARE, &text);
+		const auto has_date_time =
+			TIFFGetField(file, TIFFTAG_DATETIME, &text);
+		TIFFClose(file);
+
+		REQUIRE( has_unit == 0 );
+		REQUIRE( has_x_resolution == 0 );
+		REQUIRE( has_y_resolution == 0 );
+		REQUIRE( has_description == 0 );
+		REQUIRE( has_software == 0 );
+		REQUIRE( has_date_time == 0 );
+	}
+
+	SECTION( "one resolution alone, with its unit" )
+	{
+		tiff_page_tags tags;
+		tags.set_y_resolution(2.0e8);
+		write(tags);
+
+		tiff_file file(path.get(), tiff_file_mode::read);
+		const auto read = file.get_page_tags();
+
+		REQUIRE( read.get_x_resolution() == 0.0 );
+		REQUIRE( read.get_y_resolution() == 2.0e8 );
 	}
 }
 

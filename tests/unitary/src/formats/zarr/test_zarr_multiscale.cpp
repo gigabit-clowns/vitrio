@@ -64,6 +64,28 @@ TEST_CASE( "parse_multiscale reads the first image of OME-Zarr",
 		REQUIRE( image->datasets[0].scale.empty() );
 	}
 
+	SECTION( "the scale it states for every level, apart from theirs" )
+	{
+		const auto image = parse_multiscale(json::parse(R"({"multiscales": [{
+			"axes": [{"name": "y", "type": "space"},
+				{"name": "x", "type": "space"}],
+			"datasets": [{"path": "0", "coordinateTransformations": [
+				{"type": "scale", "scale": [2, 2]}]}],
+			"coordinateTransformations": [
+				{"type": "translation", "translation": [1, 1]},
+				{"type": "scale", "scale": [0.5, 0.25]}]
+		}]})"), "test");
+		REQUIRE( image->scale == std::vector<double>{0.5, 0.25} );
+		REQUIRE( image->datasets[0].scale == std::vector<double>{2, 2} );
+	}
+
+	SECTION( "no scale for every level where it states none" )
+	{
+		const auto image =
+			parse_multiscale(json::parse(portal_tomogram), "test");
+		REQUIRE( image->scale.empty() );
+	}
+
 	SECTION( "axes named alone, as before 0.4" )
 	{
 		const auto image = parse_multiscale(json::parse(R"({"multiscales":

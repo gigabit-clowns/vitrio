@@ -7,7 +7,6 @@
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
@@ -40,7 +39,6 @@ public:
 	 *
 	 * @param path Path to the file.
 	 * @param layout Where and how the file holds its values.
-	 * @param metadata What the file states beyond its shape and data type.
 	 * @param transfers What carries out the reads. Never null.
 	 * @throws image_file_error If the file can not be opened.
 	 * @throws image_file_format_error If the file is shorter than @p layout
@@ -49,15 +47,12 @@ public:
 	queued_image_reader(
 		const std::string &path,
 		raw_image_layout layout,
-		image_metadata metadata,
 		std::shared_ptr<file_transfer_executor> transfers
 	);
 
 	~queued_image_reader() override;
 
 	const image_descriptor& get_descriptor() const noexcept override;
-
-	const image_metadata& get_metadata() const noexcept override;
 
 	void read_async(
 		array destination,
@@ -75,7 +70,6 @@ private:
 	std::size_t m_file_size;
 
 	raw_image_layout m_layout;
-	image_metadata m_metadata;
 	std::shared_ptr<file_transfer_executor> m_transfers;
 };
 

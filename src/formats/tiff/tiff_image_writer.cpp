@@ -143,15 +143,27 @@ bool covers_whole_pages(
 		);
 }
 
+// What every page after the first states of what the first one does.
+tiff_page_tags without_texts(const tiff_page_tags &tags)
+{
+	tiff_page_tags result;
+	result.set_x_resolution(tags.get_x_resolution());
+	result.set_y_resolution(tags.get_y_resolution());
+	return result;
+}
+
 } // anonymous namespace
 
 tiff_image_writer::tiff_image_writer(
 	const std::string &path,
-	image_descriptor descriptor
+	image_descriptor descriptor,
+	tiff_page_tags tags
 )
 	: m_descriptor(std::move(descriptor))
 	, m_mutex()
 	, m_file(path, get_file_mode(checked(m_descriptor)))
+	, m_first_page_tags(std::move(tags))
+	, m_page_tags(without_texts(m_first_page_tags))
 	, m_page_count(get_page_count(m_descriptor))
 	, m_next_page(0)
 	, m_page(get_page_size(m_descriptor))
@@ -259,6 +271,7 @@ void tiff_image_writer::write(
 		m_file.write_page(
 			page_layout,
 			compression,
+			m_next_page == 0 ? m_first_page_tags : m_page_tags,
 			make_span(m_page.data(), m_page.size())
 		);
 		++m_next_page;

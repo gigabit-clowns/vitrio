@@ -6,9 +6,11 @@
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/numerical_type.hpp>
+#include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_reader.hpp>
 
 #include <vitrio/tests/file_transfer_pools.hpp>
@@ -21,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -169,5 +172,89 @@ TEST_CASE( "the TIFF read format opens a file as its pages state it",
 			probe,
 			*make_file_transfer_pool()
 		), image_file_format_error );
+	}
+}
+
+TEST_CASE( "the TIFF read format reads the metadata its first page states",
+	"[tiff_file_read_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const scoped_path path("tiff_file_read_format_metadata.tif");
+	const tiff_file_read_format format;
+
+	// A file of two pages, the first with whatever tags a case adds to it
+	// and the second with a resolution of its own.
+	const auto write = [&path] (const std::function<void(TIFF*)> &add_tags)
+	{
+		auto *file = TIFFOpen(path.get().c_str(), "w");
+		for (int page = 0; page < 2; ++page)
+		{
+			set_page_tags<std::uint8_t>(
+				file, 4, 3, SAMPLEFORMAT_UINT, COMPRESSION_NONE);
+			TIFFSetField(file, TIFFTAG_ROWSPERSTRIP, 3);
+			if (page == 0)
+			{
+				add_tags(file);
+			}
+			else
+			{
+				TIFFSetField(
+					file, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER);
+				TIFFSetField(file, TIFFTAG_XRESOLUTION, 5.0e7);
+			}
+
+			auto samples = counting<std::uint8_t>(12);
+			TIFFWriteEncodedStrip(file, 0, samples.data(), 12);
+			TIFFWriteDirectory(file);
+		}
+		TIFFClose(file);
+	};
+
+	SECTION( "its pixel sizes and its texts" )
+	{
+		write([] (TIFF *file)
+		{
+			TIFFSetField(file, TIFFTAG_RESOLUTIONUNIT, RESUNIT_CENTIMETER);
+			TIFFSetField(file, TIFFTAG_XRESOLUTION, 1.0e8);
+			TIFFSetField(file, TIFFTAG_YRESOLUTION, 2.0e8);
+			TIFFSetField(file, TIFFTAG_IMAGEDESCRIPTION, "a stack");
+			TIFFSetField(file, TIFFTAG_SOFTWARE, "something");
+			TIFFSetField(file, TIFFTAG_DATETIME, "2026:11:26 12:00:00");
+		});
+
+		const auto metadata =
+			format.read_metadata(image_file_probe(path.get()));
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 1.0 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 0.5 );
+		REQUIRE( find_field(metadata, pixel_size_z) == nullptr );
+		REQUIRE(
+			metadata.get("tiff.image_description").get_text() == "a stack" );
+		REQUIRE( metadata.get("tiff.software").get_text() == "something" );
+		REQUIRE(
+			metadata.get("tiff.date_time").get_text() ==
+			"2026:11:26 12:00:00"
+		);
+		REQUIRE( metadata.get_entries().size() == 5 );
+	}
+
+	SECTION( "nothing of a first page that states nothing, whatever the "
+		"pages after it state" )
+	{
+		write([] (TIFF*) {});
+
+		REQUIRE(
+			format.read_metadata(
+				image_file_probe(path.get())).get_entries().empty()
+		);
+	}
+
+	SECTION( "of a file that is not there, that it can not be reached" )
+	{
+		REQUIRE_THROWS_AS(
+			format.read_metadata(image_file_probe(path.get())),
+			image_file_error
+		);
 	}
 }

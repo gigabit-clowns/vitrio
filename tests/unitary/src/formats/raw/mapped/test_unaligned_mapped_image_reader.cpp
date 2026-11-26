@@ -15,7 +15,6 @@
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -112,8 +111,7 @@ std::unique_ptr<const unaligned_mapped_image_reader> open_reader(
 			path,
 			make_descriptor(extents),
 			preamble_size,
-			order,
-			image_metadata()
+			order
 		)
 	);
 }

@@ -39,6 +39,9 @@ target_sources(
 		test_image_location.cpp
 		test_image_location_grouping.cpp
 		test_image_metadata.cpp
+		test_image_metadata_field.cpp
+		test_image_metadata_fields.cpp
+		test_image_metadata_value.cpp
 		test_image_plan_builders.cpp
 		test_image_read.cpp
 		test_image_reader_provider.cpp
@@ -58,6 +61,7 @@ target_sources(
 		test_scratch_image_reader.cpp
 		test_scratch_image_reader_provider.cpp
 		test_span.cpp
+		test_standard_image_metadata_field.cpp
 		test_strict_image_transfer_sanitizer.cpp
 		test_synchronous_image_reader.cpp
 		test_synchronous_image_writer.cpp

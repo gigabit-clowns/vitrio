@@ -13,6 +13,7 @@
 #include <logger.hpp>
 
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -25,6 +26,12 @@ namespace mrc
 
 namespace
 {
+
+// The axes of space the columns, the rows and the sections of a file run
+// along when its header names them in order, which is how a file is written.
+constexpr std::int32_t column_space_axis = 1;
+constexpr std::int32_t row_space_axis = 2;
+constexpr std::int32_t section_space_axis = 3;
 
 std::size_t to_extent(std::int32_t count) noexcept
 {
@@ -119,8 +126,10 @@ derive_stored_strides(const std::vector<std::size_t> &extents)
 	return strides;
 }
 
+// The axes of space of one image or volume in the order the file stores
+// them, the one its columns run along last.
 std::vector<std::int32_t>
-derive_core_space_axes(const mrc_header &header, std::size_t core_rank)
+get_stored_core_space_axes(const mrc_header &header, std::size_t core_rank)
 {
 	VITRIO_ASSERT( core_rank == 3 || core_rank == 2 );
 
@@ -136,6 +145,27 @@ derive_core_space_axes(const mrc_header &header, std::size_t core_rank)
 	axes.push_back(header.get_column_axis());
 
 	return axes;
+}
+
+// Whether a header states which axis of space its columns, its rows and its
+// sections each run along. One that states them wrongly is refused, and one
+// that states none is what a writer that left the fields alone leaves.
+bool states_axes(const mrc_header &header)
+{
+	if (has_axis_permutation(header))
+	{
+		return true;
+	}
+
+	if (!has_unset_axes(header))
+	{
+		throw image_file_format_error(
+			"mrc: The axis correspondence of the file names anything but "
+			"the three axes of space, one each."
+		);
+	}
+
+	return false;
 }
 
 std::vector<std::size_t> make_stored_order(std::size_t rank)
@@ -157,16 +187,8 @@ std::vector<std::size_t> derive_axis_order(
 	const auto rank = derive_stored_extents(header, single_section).size();
 	const auto core_rank = derive_core_rank(header, single_section);
 
-	if (!has_axis_permutation(header))
+	if (!states_axes(header))
 	{
-		if (!has_unset_axes(header))
-		{
-			throw image_file_format_error(
-				"mrc::derive_file_layout: The axis correspondence of the file "
-				"names anything but the three axes of space, one each."
-			);
-		}
-
 		VITRIO_LOG_WARN(
 			"An MRC file does not state which axes of space its columns, its "
 			"rows and its sections run along. It is read as though they ran "
@@ -176,7 +198,7 @@ std::vector<std::size_t> derive_axis_order(
 		return make_stored_order(rank);
 	}
 
-	const auto core_axes = derive_core_space_axes(header, core_rank);
+	const auto core_axes = get_stored_core_space_axes(header, core_rank);
 	const auto leading = rank - core_rank;
 
 	auto order = make_stored_order(leading);
@@ -264,6 +286,35 @@ raw_image_layout derive_file_layout(
 	);
 }
 
+std::vector<std::int32_t> derive_core_space_axes(
+	const mrc_header &header,
+	mrc_single_section single_section
+)
+{
+	const auto core_rank = derive_core_rank(header, single_section);
+
+	std::vector<std::int32_t> axes;
+	if (states_axes(header))
+	{
+		axes = get_stored_core_space_axes(header, core_rank);
+	}
+	else
+	{
+		// Named in order, which is what derive_axis_order reads a header
+		// that names none as.
+		axes = {row_space_axis, column_space_axis};
+		if (core_rank == 3)
+		{
+			axes.insert(axes.begin(), section_space_axis);
+		}
+	}
+
+	// derive_axis_order puts the axis along the highest axis of space first.
+	std::sort(axes.begin(), axes.end(), std::greater<std::int32_t>());
+
+	return axes;
+}
+
 mrc_header make_header(const image_descriptor &descriptor)
 {
 	const auto extents = descriptor.get_extents();
@@ -327,15 +378,12 @@ mrc_header make_header(const image_descriptor &descriptor)
 		);
 	}
 
-	header.set_cell_size({{
-		static_cast<float>(header.get_column_count()),
-		static_cast<float>(header.get_row_count()),
-		static_cast<float>(header.get_section_sampling())
-	}});
+	// The cell is left without a size, which states no distance between the
+	// samples: one of the extents would state one of an angstrom.
 	header.set_cell_angles({{90.0F, 90.0F, 90.0F}});
-	header.set_column_axis(1);
-	header.set_row_axis(2);
-	header.set_section_axis(3);
+	header.set_column_axis(column_space_axis);
+	header.set_row_axis(row_space_axis);
+	header.set_section_axis(section_space_axis);
 	header.set_version(written_version);
 
 	// The sentinels the format reserves for statistics that were not
@@ -346,10 +394,24 @@ mrc_header make_header(const image_descriptor &descriptor)
 	header.set_data_mean(-2.0F);
 	header.set_data_rms(-1.0F);
 
-	// Sign the header
-	header.add_label(make_signature());
-
 	return header;
+}
+
+void sign_header(mrc_header &header)
+{
+	const auto labels = header.get_labels();
+	if (labels.size() >= label_count)
+	{
+		return;
+	}
+
+	const auto signature = make_signature();
+	if (!labels.empty() && labels.back() == signature)
+	{
+		return;
+	}
+
+	header.add_label(signature);
 }
 
 } // namespace mrc

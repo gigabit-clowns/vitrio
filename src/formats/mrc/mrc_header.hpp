@@ -169,6 +169,15 @@ private:
 };
 
 /**
+ * @brief Check whether a text can be a label of an MRC file.
+ *
+ * @param label The text.
+ * @return bool true if @p label is printable ASCII and fits in
+ * @ref size::label bytes, which is what @ref mrc_header::add_label takes.
+ */
+bool is_label(const std::string &label) noexcept;
+
+/**
  * @brief Check whether a block of bytes starts an MRC file.
  *
  * Matches the leading bytes of @ref map_id at @ref offset::map, which is what

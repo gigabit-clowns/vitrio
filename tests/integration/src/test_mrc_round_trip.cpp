@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <vitrio/array/array_ref.hpp>
 #include <vitrio/array/const_array_ref.hpp>
@@ -9,6 +10,7 @@
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/file_transfer_pools.hpp>
@@ -168,5 +170,119 @@ TEST_CASE(
 
 		REQUIRE( read == std::vector<double>(
 			values.begin(), values.end()) );
+	}
+}
+
+TEST_CASE(
+	"the metadata an MRC file is created with is what it states",
+	"[mrc][image_file_format_selector]"
+)
+{
+	using namespace image_metadata_fields;
+	using Catch::Matchers::WithinRel;
+
+	image_file_write_format_selector writers;
+	writers.register_builtin_formats();
+	image_file_read_format_selector readers;
+	readers.register_builtin_formats();
+
+	const scoped_path path("round_trip_metadata.mrc");
+	const std::vector<std::size_t> extents = {5, 3, 4};
+
+	const auto create = [&writers, &path, &extents] (
+		std::size_t core_rank,
+		const image_metadata &metadata
+	)
+	{
+		const auto writer = writers.open(
+			path.get(),
+			image_descriptor(
+				make_span(extents), core_rank, numerical_type::float32),
+			metadata,
+			*test::make_file_transfer_pool()
+		);
+		flush_now(*writer);
+	};
+
+	// The cell of a file is of single precision, so a pixel size comes
+	// back as near as that holds it.
+	const auto tolerance = 1.0e-6;
+
+	SECTION( "the pixel sizes of a volume" )
+	{
+		image_metadata metadata;
+		set_field(metadata, pixel_size_x, 0.83);
+		set_field(metadata, pixel_size_y, 0.84);
+		set_field(metadata, pixel_size_z, 1.06);
+		create(3, metadata);
+
+		const auto read = readers.read_metadata(path.get());
+
+		REQUIRE_THAT(
+			get_field(read, pixel_size_x), WithinRel(0.83, tolerance) );
+		REQUIRE_THAT(
+			get_field(read, pixel_size_y), WithinRel(0.84, tolerance) );
+		REQUIRE_THAT(
+			get_field(read, pixel_size_z), WithinRel(1.06, tolerance) );
+	}
+
+	SECTION( "the pixel sizes of a stack of images, which has no z" )
+	{
+		image_metadata metadata;
+		set_field(metadata, pixel_size_x, 0.83);
+		set_field(metadata, pixel_size_y, 0.83);
+		set_field(metadata, pixel_size_z, 1.06);
+		create(2, metadata);
+
+		const auto read = readers.read_metadata(path.get());
+
+		REQUIRE_THAT(
+			get_field(read, pixel_size_x), WithinRel(0.83, tolerance) );
+		REQUIRE_THAT(
+			get_field(read, pixel_size_y), WithinRel(0.83, tolerance) );
+		REQUIRE( find_field(read, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "a file created with none states no pixel size" )
+	{
+		create(3, image_metadata());
+
+		const auto read = readers.read_metadata(path.get());
+
+		REQUIRE( find_field(read, pixel_size_x) == nullptr );
+		REQUIRE( find_field(read, pixel_size_y) == nullptr );
+		REQUIRE( find_field(read, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "its labels, followed by that of this library" )
+	{
+		image_metadata metadata;
+		metadata.set("mrc.labels", "Created by something else");
+		create(3, metadata);
+
+		const auto labels =
+			readers.read_metadata(path.get()).get("mrc.labels").get_text();
+
+		const std::string given = "Created by something else\n";
+		REQUIRE( labels.compare(0, given.size(), given) == 0 );
+		REQUIRE(
+			labels.compare(given.size(), 17, "Created by vitrio") == 0 );
+		REQUIRE( labels.find('\n', given.size()) == std::string::npos );
+	}
+
+	SECTION( "a file written again with what it states states the same" )
+	{
+		image_metadata metadata;
+		set_field(metadata, pixel_size_x, 0.83);
+		set_field(metadata, pixel_size_y, 0.84);
+		set_field(metadata, pixel_size_z, 1.06);
+		create(3, metadata);
+		const auto first = readers.read_metadata(path.get());
+
+		create(3, first);
+
+		// The label of the library is not appended a second time, and the
+		// cell was already as near the pixel sizes as it holds them.
+		REQUIRE( readers.read_metadata(path.get()) == first );
 	}
 }

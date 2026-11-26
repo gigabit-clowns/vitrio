@@ -98,14 +98,12 @@ unaligned_mapped_image_reader::unaligned_mapped_image_reader(
 	const std::string &path,
 	image_descriptor descriptor,
 	std::size_t data_offset,
-	byte_order order,
-	image_metadata metadata
+	byte_order order
 )
 	: m_mapping(path, image_file_access::read_only)
 	, m_descriptor(check_rank(std::move(descriptor)))
 	, m_data_offset(data_offset)
 	, m_byte_order(order)
-	, m_metadata(std::move(metadata))
 	, m_row_size(0)
 	, m_page_size(0)
 {
@@ -125,12 +123,6 @@ const image_descriptor&
 unaligned_mapped_image_reader::get_descriptor() const noexcept
 {
 	return m_descriptor;
-}
-
-const image_metadata&
-unaligned_mapped_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void unaligned_mapped_image_reader::read(

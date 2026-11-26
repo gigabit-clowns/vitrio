@@ -92,13 +92,20 @@ zarr_axis parse_axis(const nlohmann::json &axis, const std::string &where)
 	};
 }
 
+// The scale among the transformations of a level, or of an image, which
+// states those of every level.
 std::vector<double> parse_scale(
-	const nlohmann::json &dataset,
+	const nlohmann::json &holder,
 	const std::string &where
 )
 {
-	const auto transformations = dataset.find("coordinateTransformations");
-	if (transformations == dataset.end() || !transformations->is_array())
+	if (!holder.is_object())
+	{
+		return std::vector<double>();
+	}
+
+	const auto transformations = holder.find("coordinateTransformations");
+	if (transformations == holder.end() || !transformations->is_array())
 	{
 		return std::vector<double>();
 	}
@@ -164,6 +171,8 @@ boost::optional<zarr_multiscale> parse_multiscale(
 			result.axes.push_back(parse_axis(axis, where));
 		}
 	}
+
+	result.scale = parse_scale(image, where);
 
 	const auto &datasets = get_member(image, "datasets", where);
 	if (!datasets.is_array() || datasets.empty())

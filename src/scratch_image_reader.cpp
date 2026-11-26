@@ -235,11 +235,6 @@ const image_descriptor& scratch_image_reader::get_descriptor() const noexcept
 	return m_file->get_descriptor();
 }
 
-const image_metadata& scratch_image_reader::get_metadata() const noexcept
-{
-	return m_file->get_metadata();
-}
-
 void scratch_image_reader::read_async(
 	array destination,
 	image_transfer_plan regions,

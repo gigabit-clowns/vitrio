@@ -91,32 +91,6 @@ std::set<std::int64_t> find_thumbnails(
 	return thumbnails;
 }
 
-const dm_tag& find_image(
-	const dm_tag &root,
-	span<const byte> file,
-	byte_order order
-)
-{
-	const auto &images = find_group(root, "ImageList");
-	const auto thumbnails = find_thumbnails(root, file, order);
-
-	const auto count = images.get_child_count();
-	for (std::size_t position = 0; position < count; ++position)
-	{
-		const auto &image = images.get_child(position);
-		const auto is_thumbnail =
-			thumbnails.count(static_cast<std::int64_t>(position)) > 0;
-		if (image.is_group() && !is_thumbnail)
-		{
-			return image;
-		}
-	}
-
-	throw image_file_format_error(
-		"dm::locate_image: The file holds no image but thumbnails."
-	);
-}
-
 // The extents of the image, slowest axis first, from those the file states
 // fastest axis first.
 std::vector<std::size_t> read_extents(
@@ -182,6 +156,32 @@ bool fills_datum(
 }
 
 } // anonymous namespace
+
+const dm_tag& find_image(
+	const dm_tag &root,
+	span<const byte> file,
+	byte_order order
+)
+{
+	const auto &images = find_group(root, "ImageList");
+	const auto thumbnails = find_thumbnails(root, file, order);
+
+	const auto count = images.get_child_count();
+	for (std::size_t position = 0; position < count; ++position)
+	{
+		const auto &image = images.get_child(position);
+		const auto is_thumbnail =
+			thumbnails.count(static_cast<std::int64_t>(position)) > 0;
+		if (image.is_group() && !is_thumbnail)
+		{
+			return image;
+		}
+	}
+
+	throw image_file_format_error(
+		"dm::locate_image: The file holds no image but thumbnails."
+	);
+}
 
 dm_image_location locate_image(
 	const dm_tag &root,

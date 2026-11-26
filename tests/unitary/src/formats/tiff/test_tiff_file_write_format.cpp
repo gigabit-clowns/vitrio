@@ -6,6 +6,7 @@
 
 #include <formats/tiff/tiff_file_write_format.hpp>
 
+#include <formats/tiff/tiff_file.hpp>
 #include <formats/tiff/tiff_image_reader.hpp>
 
 #include <vitrio/array/array_ref.hpp>
@@ -16,6 +17,7 @@
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_writer.hpp>
 
 #include <vitrio/tests/file_transfer_pools.hpp>
@@ -277,5 +279,97 @@ TEST_CASE( "the TIFF write format refuses what a file can not hold",
 			),
 			image_file_error
 		);
+	}
+}
+
+TEST_CASE( "the TIFF write format writes the metadata it is given",
+	"[tiff_file_write_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const scoped_path path("tiff_file_write_format_metadata.tif");
+	const tiff_file_write_format format;
+	const std::vector<std::size_t> extents = {4, 5};
+	const auto source = make_host_array<std::uint8_t>(
+		extents, numerical_type::uint8, counting<std::uint8_t>(20));
+
+	const auto create = [&] (const image_metadata &metadata)
+	{
+		const auto writer = format.open(
+			image_file_probe(path.get()),
+			describe(extents, 2, numerical_type::uint8),
+			metadata,
+			*test::make_file_transfer_pool()
+		);
+		write_now(*writer, source, whole_of(extents));
+	};
+
+	const auto read_tags = [&path]
+	{
+		tiff_file file(path.get(), tiff_file_mode::read);
+		return file.get_page_tags();
+	};
+
+	SECTION( "its pixel sizes, as resolutions to a centimetre" )
+	{
+		image_metadata metadata;
+		set_field(metadata, pixel_size_x, 1.0);
+		set_field(metadata, pixel_size_y, 0.5);
+		create(metadata);
+
+		const auto tags = read_tags();
+
+		REQUIRE( tags.get_x_resolution() == 1.0e8 );
+		REQUIRE( tags.get_y_resolution() == 2.0e8 );
+	}
+
+	SECTION( "its texts" )
+	{
+		image_metadata metadata;
+		metadata.set("tiff.image_description", "a micrograph");
+		metadata.set("tiff.software", "something");
+		metadata.set("tiff.date_time", "2026:11:26 12:00:00");
+		create(metadata);
+
+		const auto tags = read_tags();
+
+		REQUIRE( tags.get_image_description() == "a micrograph" );
+		REQUIRE( tags.get_software() == "something" );
+		REQUIRE( tags.get_date_time() == "2026:11:26 12:00:00" );
+	}
+
+	SECTION( "this library as the software, where none is given" )
+	{
+		create(image_metadata());
+
+		REQUIRE( read_tags().get_software().compare(0, 7, "vitrio ") == 0 );
+	}
+
+	SECTION( "this library as the software, where what is given is none "
+		"a page holds" )
+	{
+		image_metadata metadata;
+		metadata.set("tiff.software", 3);
+		create(metadata);
+
+		REQUIRE( read_tags().get_software().compare(0, 7, "vitrio ") == 0 );
+	}
+
+	SECTION( "and nothing of what a page can not hold" )
+	{
+		image_metadata metadata;
+		set_field(metadata, pixel_size_x, -1.0);
+		set_field(metadata, pixel_size_z, 1.5);
+		metadata.set("tiff.date_time", "yesterday");
+		metadata.set("mrc.labels", "Created by something else");
+
+		REQUIRE_NOTHROW( create(metadata) );
+
+		const auto tags = read_tags();
+
+		REQUIRE( tags.get_x_resolution() == 0.0 );
+		REQUIRE( tags.get_y_resolution() == 0.0 );
+		REQUIRE( tags.get_image_description().empty() );
+		REQUIRE( tags.get_date_time().empty() );
 	}
 }

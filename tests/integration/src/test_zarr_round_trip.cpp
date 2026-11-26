@@ -11,6 +11,7 @@
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_location.hpp>
 #include <vitrio/image_metadata.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -186,5 +187,66 @@ TEST_CASE( "a ZARR store written through the selectors reads back",
 		REQUIRE( get_values<std::int8_t>(vitrio::read(
 			image_location(store.get()), *readers)) ==
 			std::vector<std::int8_t>(6, -1) );
+	}
+}
+
+TEST_CASE( "the pixel sizes a ZARR store is created with are what it states",
+	"[zarr][image_file_format_selector]" )
+{
+	using namespace image_metadata_fields;
+
+	image_file_write_format_selector writers;
+	writers.register_builtin_formats();
+	const auto readers = image_file_read_format_selector::get_shared();
+
+	image_metadata metadata;
+	set_field(metadata, pixel_size_x, 0.83);
+	set_field(metadata, pixel_size_y, 0.84);
+	set_field(metadata, pixel_size_z, 1.06);
+
+	const auto create = [&writers] (
+		const std::string &path,
+		const image_descriptor &descriptor,
+		const image_metadata &given
+	)
+	{
+		const auto writer = writers.open(
+			path, descriptor, given, *make_file_transfer_pool());
+		flush_now(*writer);
+	};
+
+	// A scale is a number of a JSON document, which holds a double as it
+	// is: nothing is rounded on the way.
+	SECTION( "of a volume" )
+	{
+		const scoped_store store("round_trip_metadata_volume.zarr");
+		const extents shape = {6, 8, 10};
+		create(store.get(), image_descriptor(
+			make_span(shape), 3, numerical_type::float32), metadata);
+
+		REQUIRE( readers->read_metadata(store.get()) == metadata );
+	}
+
+	SECTION( "of a stack of images, which has no z" )
+	{
+		const scoped_store store("round_trip_metadata_stack.zarr");
+		const extents shape = {6, 8, 10};
+		create(store.get(), image_descriptor(
+			make_span(shape), 2, numerical_type::float32), metadata);
+
+		auto expected = metadata;
+		expected.erase("pixel_size_z");
+
+		REQUIRE( readers->read_metadata(store.get()) == expected );
+	}
+
+	SECTION( "a store created with none states none" )
+	{
+		const scoped_store store("round_trip_metadata_none.zarr");
+		const extents shape = {6, 8, 10};
+		create(store.get(), image_descriptor(
+			make_span(shape), 3, numerical_type::float32), image_metadata());
+
+		REQUIRE( readers->read_metadata(store.get()).get_entries().empty() );
 	}
 }

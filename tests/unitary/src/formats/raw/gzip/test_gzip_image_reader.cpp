@@ -14,7 +14,6 @@
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -223,8 +222,7 @@ TEST_CASE(
 	// The file is not there: nothing is read of it yet.
 	const gzip_image_reader reader(
 		path.get(),
-		make_layout(extents, 2, 16),
-		image_metadata()
+		make_layout(extents, 2, 16)
 	);
 
 	REQUIRE( reader.get_descriptor() ==
@@ -250,7 +248,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		REQUIRE( read_all(reader, extents) == values );
 	}
@@ -259,7 +257,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 3));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 3), image_metadata());
+			path.get(), make_layout(extents, 2, 3));
 
 		REQUIRE( read_all(reader, extents) == values );
 	}
@@ -268,7 +266,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		auto destination = make_host_array(extents);
 		const std::vector<std::size_t> region = {3, 4};
@@ -298,7 +296,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		const std::vector<std::size_t> both = {2, 3, 4};
 		auto destination = make_host_array(both);
@@ -331,7 +329,7 @@ TEST_CASE(
 		write_bytes(path.get(), encoded);
 
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		REQUIRE( read_all(reader, extents) == values );
 	}
@@ -350,7 +348,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		const std::vector<std::size_t> region = {3, 2};
 		auto destination = make_host_array(region);
@@ -370,7 +368,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 3));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 3), image_metadata());
+			path.get(), make_layout(extents, 2, 3));
 
 		const std::vector<std::size_t> region = {2, 5};
 		const std::vector<std::size_t> both = {2, 2, 5};
@@ -397,7 +395,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(values, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		auto destination = make_host_array(extents, numerical_type::float64);
 		reader.read(array_ref(destination), whole_of(extents));
@@ -411,8 +409,7 @@ TEST_CASE(
 		write_gzip(path.get(), lay_out(values, 5, true));
 		const gzip_image_reader reader(
 			path.get(),
-			make_layout(extents, 2, 5, other_byte_order()),
-			image_metadata()
+			make_layout(extents, 2, 5, other_byte_order())
 		);
 
 		REQUIRE( read_all(reader, extents) == values );
@@ -426,7 +423,7 @@ TEST_CASE(
 		const auto many = counting(4 * 64 * 64);
 		write_gzip(path.get(), lay_out(many, 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(volume, 3, 16), image_metadata());
+			path.get(), make_layout(volume, 3, 16));
 
 		const std::vector<std::size_t> slice = {4, 1, 64};
 		auto destination = make_host_array(slice);
@@ -461,8 +458,7 @@ TEST_CASE(
 				std::vector<std::ptrdiff_t>{1, 6},
 				16,
 				get_system_byte_order()
-			),
-			image_metadata()
+			)
 		);
 
 		std::vector<float> expected;
@@ -492,7 +488,7 @@ TEST_CASE(
 	write_gzip(path.get(), raw);
 
 	const gzip_image_reader reader(
-		path.get(), make_layout(extents, 2, 16), image_metadata());
+		path.get(), make_layout(extents, 2, 16));
 
 	const std::vector<std::size_t> region = {64, 64};
 	auto destination = make_host_array(region);
@@ -536,7 +532,7 @@ TEST_CASE(
 	{
 		write_bytes(path.get(), lay_out(counting(6), 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		auto destination = make_host_array(extents);
 		REQUIRE_THROWS_AS(
@@ -548,7 +544,7 @@ TEST_CASE(
 	SECTION( "an empty plan reads nothing, not even the file" )
 	{
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		auto destination = make_host_array(extents);
 		const image_transfer_plan regions(
@@ -560,7 +556,7 @@ TEST_CASE(
 	{
 		write_gzip(path.get(), lay_out(counting(6), 16));
 		const gzip_image_reader reader(
-			path.get(), make_layout(extents, 2, 16), image_metadata());
+			path.get(), make_layout(extents, 2, 16));
 
 		auto destination = make_host_array(extents);
 		image_transfer_plan regions(image_transfer_shape(extents, 2, 2));
@@ -586,7 +582,7 @@ TEST_CASE(
 	write_gzip(path.get(), lay_out(values, 16));
 
 	const gzip_image_reader reader(
-		path.get(), make_layout(extents, 2, 16), image_metadata());
+		path.get(), make_layout(extents, 2, 16));
 
 	std::vector<std::vector<float>> results(4);
 	std::vector<std::thread> threads;

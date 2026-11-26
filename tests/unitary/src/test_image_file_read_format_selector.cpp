@@ -7,9 +7,11 @@
 #include <vitrio/image_file_read_format_selector.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
+#include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_file_probe.hpp>
 #include <vitrio/image_file_read_format.hpp>
+#include <vitrio/image_metadata.hpp>
 #include <vitrio/tests/assets.hpp>
 #include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/scoped_path.hpp>
@@ -66,6 +68,29 @@ TEST_CASE( "an empty read format selector recognizes nothing",
 
 		REQUIRE_THROWS_MATCHES(
 			selector.open(path.get(), *transfers),
+			unsupported_operation_error,
+			names(path.get())
+		);
+	}
+
+	SECTION( "reading the metadata of a path no file is at reports it "
+		"missing" )
+	{
+		REQUIRE_THROWS_MATCHES(
+			selector.read_metadata("absent.mrc"),
+			image_file_error,
+			names("absent.mrc")
+		);
+	}
+
+	SECTION( "reading the metadata of a file that is there reports it "
+		"unsupported" )
+	{
+		const scoped_path path("read_format_selector_unclaimed_metadata.bin");
+		std::ofstream(path.get().c_str(), std::ios::binary).put('\0');
+
+		REQUIRE_THROWS_MATCHES(
+			selector.read_metadata(path.get()),
 			unsupported_operation_error,
 			names(path.get())
 		);
@@ -134,6 +159,57 @@ TEST_CASE_METHOD(
 			.RETURN(reader);
 
 		REQUIRE( selector.open("absent.mrc", *transfers) == reader );
+	}
+
+	SECTION( "the chosen format reads the metadata, and opens nothing" )
+	{
+		auto &only = add_format(image_file_format_suitability::normal);
+		image_metadata metadata;
+		metadata.set("pixel_size_x", 0.83);
+		metadata.set("mock.label", "stated by the format");
+
+		// No call of open is expected, so one would fail the case.
+		REQUIRE_CALL(only, read_metadata(ANY(const image_file_probe&)))
+			.WITH( _1.get_path() == "absent.mrc" )
+			.RETURN(metadata);
+
+		REQUIRE( selector.read_metadata("absent.mrc") == metadata );
+	}
+
+	SECTION( "the metadata is read by the format of the highest priority" )
+	{
+		add_format(image_file_format_suitability::fallback);
+		auto &optimal = add_format(image_file_format_suitability::optimal);
+		add_format(image_file_format_suitability::normal);
+
+		REQUIRE_CALL(optimal, read_metadata(ANY(const image_file_probe&)))
+			.RETURN(image_metadata());
+
+		REQUIRE( selector.read_metadata("absent.mrc") == image_metadata() );
+	}
+
+	SECTION( "what the format fails with reaches the caller" )
+	{
+		auto &only = add_format(image_file_format_suitability::normal);
+
+		REQUIRE_CALL(only, read_metadata(ANY(const image_file_probe&)))
+			.THROW(image_file_format_error("absent.mrc: truncated"));
+
+		REQUIRE_THROWS_AS(
+			selector.read_metadata("absent.mrc"),
+			image_file_format_error
+		);
+	}
+
+	SECTION( "every format declining leaves no metadata to read" )
+	{
+		add_format(image_file_format_suitability::unsupported);
+
+		REQUIRE_THROWS_MATCHES(
+			selector.read_metadata("absent.mrc"),
+			image_file_error,
+			names("absent.mrc")
+		);
 	}
 }
 

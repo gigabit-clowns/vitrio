@@ -5,7 +5,8 @@
 
 The format of each file is the one its suffix names, so converting is
 reading one and writing the other. What the file holds, an image, a stack
-or a volume, is kept.
+or a volume, is kept, and so is what it states that the other format can
+carry, such as its pixel size.
 
 	convert.py micrograph.mrc micrograph.tif
 	convert.py stack.mrcs half.mrcs --data-type float16
@@ -48,7 +49,14 @@ def main(argv: Sequence[str] | None = None) -> None:
 		source.extents, source.core_rank, data_type
 	)
 
-	vio.write(vio.read(arguments.source), arguments.destination, destination)
+	# What the source states beyond that goes with it. The format of the
+	# destination writes what of it it can carry and leaves out the rest.
+	vio.write(
+		vio.read(arguments.source),
+		arguments.destination,
+		destination,
+		metadata=vio.read_metadata(arguments.source)
+	)
 
 if __name__ == '__main__':
 	main()

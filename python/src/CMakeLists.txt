@@ -31,6 +31,7 @@ target_sources(
 		image_file_read_format_selector.cpp
 		image_file_write_format_selector.cpp
 		image_loader.cpp
+		image_metadata.cpp
 		image_location.cpp
 		image_location_grouping.cpp
 		image_read.cpp

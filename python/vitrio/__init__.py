@@ -17,6 +17,10 @@ both ways. No memory is copied in either direction.
 An asynchronous read or write returns a `Completion`, which keeps the array
 it works on alive. Destroying a completion that is not ready waits for it.
 
+What a file states beyond its shape and data type, such as its pixel size,
+is a dict of values under labels: `read_metadata` returns one, and a write
+takes one as `metadata`.
+
 `vitrio.data` feeds images and their metadata to a model in batches. It
 needs numpy, so it is imported the first time `vio.data` is asked for, or
 by `import vitrio.data`.
@@ -88,6 +92,7 @@ from ._functions import (
 	query_descriptor as query_descriptor,
 	read as read,
 	read_events as read_events,
+	read_metadata as read_metadata,
 	read_patches_async as read_patches_async,
 	reader_provider as reader_provider,
 	saver as saver,
@@ -146,6 +151,7 @@ __all__ = [
 	'read',
 	'read_batch_async',
 	'read_events',
+	'read_metadata',
 	'read_patches_async',
 	'reader_provider',
 	'saver',

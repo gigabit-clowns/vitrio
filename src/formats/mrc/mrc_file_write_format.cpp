@@ -6,11 +6,13 @@
 #include "mrc_extensions.hpp"
 #include "mrc_geometry.hpp"
 #include "mrc_header.hpp"
+#include "mrc_metadata.hpp"
 
 #include <vitrio/byte.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <formats/raw/open_raw_image_writer.hpp>
@@ -38,17 +40,19 @@ mrc_file_write_format::get_suitability(const image_file_probe &probe) const
 std::shared_ptr<image_writer> mrc_file_write_format::open(
 	const image_file_probe &probe,
 	const image_descriptor &descriptor,
-	const image_metadata &/*metadata*/,
+	const image_metadata &metadata,
 	const file_transfer_pool &transfers
 ) const
 {
-	// Nothing of the metadata reaches the file: image_metadata states
-	// nothing yet.
-	const auto header = make_header(descriptor);
-	const auto layout = derive_file_layout(
-		header,
-		get_single_section(probe.get_extension())
-	);
+	const auto single_section = get_single_section(probe.get_extension());
+
+	// The labels the metadata states come first and that of this library
+	// last, as the latest to have written the file.
+	auto header = make_header(descriptor);
+	apply_metadata(metadata, single_section, header);
+	sign_header(header);
+
+	const auto layout = derive_file_layout(header, single_section);
 
 	// A file that would read back as another shape than it is created with
 	// would misplace every region written to it.

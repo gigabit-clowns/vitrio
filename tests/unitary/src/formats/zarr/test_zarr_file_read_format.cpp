@@ -11,6 +11,7 @@
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/image_metadata_fields.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -316,6 +317,70 @@ TEST_CASE( "zarr_file_read_format reads images of OME-Zarr",
 			unsupported_operation_error,
 			Catch::Matchers::MessageMatches(
 				Catch::Matchers::StartsWith(group.get() + ": "))
+		);
+	}
+}
+
+TEST_CASE( "zarr_file_read_format reads the metadata of images of OME-Zarr",
+	"[zarr_file_read_format]" )
+{
+	using namespace image_metadata_fields;
+
+	const zarr_file_read_format format;
+	const auto read = [&format] (const std::string &name)
+	{
+		return format.read_metadata(
+			image_file_probe(get_zarr_asset_path(name)));
+	};
+
+	SECTION( "a group states the pixel sizes of its finest level" )
+	{
+		const auto metadata = read("ome_v04_tomogram.zarr");
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 10.0 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 10.0 );
+		REQUIRE( get_field(metadata, pixel_size_z) == 10.0 );
+		REQUIRE( metadata.get_entries().size() == 3 );
+	}
+
+	// The axis its levels never scale is the one it stacks its images on,
+	// as open has it, so it has no z.
+	SECTION( "a tilt series states those of one image, and no z" )
+	{
+		const auto metadata = read("ome_v05_tilt_series.zarr");
+
+		REQUIRE( get_field(metadata, pixel_size_x) == 2.0 );
+		REQUIRE( get_field(metadata, pixel_size_y) == 2.0 );
+		REQUIRE( find_field(metadata, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "a level named on its own states its own" )
+	{
+		const auto volume = read("ome_v04_tomogram.zarr/2");
+		REQUIRE( get_field(volume, pixel_size_x) == 40.0 );
+		REQUIRE( get_field(volume, pixel_size_z) == 40.0 );
+
+		const auto stack = read("ome_v05_tilt_series.zarr/1");
+		REQUIRE( get_field(stack, pixel_size_x) == 4.0 );
+		REQUIRE( get_field(stack, pixel_size_y) == 4.0 );
+		REQUIRE( find_field(stack, pixel_size_z) == nullptr );
+	}
+
+	SECTION( "an array that is no level of an image states nothing" )
+	{
+		REQUIRE( read("v2_float32_blosc_lz4.zarr").get_entries().empty() );
+		REQUIRE( read("v3_uint16_sharded.zarr").get_entries().empty() );
+	}
+
+	SECTION( "a group that is no image is refused, as it is when opened" )
+	{
+		const scoped_directory group(
+			"test_zarr_format_plain_group_metadata.zarr");
+		write_store_file(group.get(), ".zgroup", R"({"zarr_format": 2})");
+
+		REQUIRE_THROWS_AS(
+			format.read_metadata(image_file_probe(group.get())),
+			unsupported_operation_error
 		);
 	}
 }
