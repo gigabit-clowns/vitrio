@@ -4,8 +4,6 @@
 
 #include <formats/raw/raw_image_layout.hpp>
 
-#include <vitrio/image_metadata.hpp>
-
 #include <memory>
 #include <string>
 
@@ -30,7 +28,6 @@ class file_transfer_pool;
  *
  * @param path Path to the file.
  * @param layout Where and how the file holds its values.
- * @param metadata What the file states beyond its shape and data type.
  * @param transfers The threads that carry out the reads of the file.
  * @return std::shared_ptr<image_reader> The reader. Never null.
  * @throws image_file_error If the file can not be opened or mapped.
@@ -41,7 +38,6 @@ class file_transfer_pool;
 std::shared_ptr<image_reader> open_raw_image_reader(
 	const std::string &path,
 	raw_image_layout layout,
-	image_metadata metadata,
 	const file_transfer_pool &transfers
 );
 

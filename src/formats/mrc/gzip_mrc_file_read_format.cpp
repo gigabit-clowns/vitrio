@@ -9,7 +9,6 @@
 
 #include <vitrio/byte.hpp>
 #include <vitrio/image_file_probe.hpp>
-#include <vitrio/image_metadata.hpp>
 
 #include <compression/gzip_file_stream.hpp>
 #include <compression/gzip_identification.hpp>
@@ -74,8 +73,7 @@ std::shared_ptr<image_reader> gzip_mrc_file_read_format::open(
 		derive_file_layout(
 			header,
 			get_single_section(get_gzip_inner_extension(probe.get_path()))
-		),
-		image_metadata()
+		)
 	);
 }
 

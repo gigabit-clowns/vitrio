@@ -15,7 +15,6 @@
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -142,7 +141,6 @@ public:
 			m_directory.get(),
 			m_layout,
 			image_descriptor(make_span(m_shape), 2, numerical_type::uint16),
-			image_metadata(),
 			make_file_transfer_pool()->get_implementation().get_executor(),
 			std::make_shared<zarr_chunk_buffers>(1UL << 20),
 			false

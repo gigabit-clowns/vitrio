@@ -7,7 +7,6 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
 #include <trompeloeil.hpp>
@@ -26,12 +25,6 @@ public:
 	MAKE_CONST_MOCK0(
 		get_descriptor,
 		const image_descriptor&(),
-		noexcept override
-	);
-
-	MAKE_CONST_MOCK0(
-		get_metadata,
-		const image_metadata&(),
 		noexcept override
 	);
 

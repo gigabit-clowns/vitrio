@@ -138,23 +138,16 @@ void read_staged(
 
 gzip_image_reader::gzip_image_reader(
 	std::string path,
-	raw_image_layout layout,
-	image_metadata metadata
+	raw_image_layout layout
 )
 	: m_path(std::move(path))
 	, m_layout(std::move(layout))
-	, m_metadata(std::move(metadata))
 {
 }
 
 const image_descriptor& gzip_image_reader::get_descriptor() const noexcept
 {
 	return m_layout.get_descriptor();
-}
-
-const image_metadata& gzip_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void gzip_image_reader::read(

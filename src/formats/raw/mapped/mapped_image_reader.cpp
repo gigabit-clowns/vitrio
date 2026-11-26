@@ -59,12 +59,10 @@ array_descriptor describe_values(const raw_image_layout &layout)
 
 mapped_image_reader::mapped_image_reader(
 	const std::string &path,
-	raw_image_layout layout,
-	image_metadata metadata
+	raw_image_layout layout
 )
 	: m_mapping(path, image_file_access::read_only)
 	, m_layout(check_aligned(std::move(layout), path))
-	, m_metadata(std::move(metadata))
 	, m_values(describe_values(m_layout))
 {
 	const auto required =
@@ -87,11 +85,6 @@ bool mapped_image_reader::supports(const raw_image_layout &layout) noexcept
 const image_descriptor& mapped_image_reader::get_descriptor() const noexcept
 {
 	return m_layout.get_descriptor();
-}
-
-const image_metadata& mapped_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void mapped_image_reader::read(

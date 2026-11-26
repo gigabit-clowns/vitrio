@@ -16,7 +16,6 @@
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 
@@ -177,8 +176,7 @@ TEST_CASE(
 
 	const mapped_image_reader reader(
 		path.get(),
-		make_layout(extents, 2),
-		image_metadata()
+		make_layout(extents, 2)
 	);
 
 	const image_descriptor expected(
@@ -205,8 +203,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		REQUIRE( read_all(reader, extents) == values );
@@ -220,8 +217,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		const std::vector<std::size_t> region = {3, 4};
@@ -250,8 +246,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		auto destination = make_host_array(extents);
@@ -290,8 +285,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		const std::vector<std::size_t> region = {3, 4};
@@ -328,8 +322,7 @@ TEST_CASE(
 				std::vector<std::ptrdiff_t>{1, 3},
 				preamble_size,
 				get_system_byte_order()
-			),
-			image_metadata()
+			)
 		);
 
 		std::vector<float> expected;
@@ -380,8 +373,7 @@ TEST_CASE(
 				contiguous_strides(extents),
 				preamble_size,
 				other
-			),
-			image_metadata()
+			)
 		);
 
 		REQUIRE( read_all(reader, extents) == values );
@@ -409,8 +401,7 @@ TEST_CASE(
 				contiguous_strides(extents),
 				preamble_size,
 				get_system_byte_order()
-			),
-			image_metadata()
+			)
 		);
 
 		REQUIRE( read_all(reader, extents) ==
@@ -432,8 +423,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		REQUIRE_THROWS_AS(
@@ -448,8 +438,7 @@ TEST_CASE(
 
 		const mapped_image_reader reader(
 			path.get(),
-			make_layout(extents, 2),
-			image_metadata()
+			make_layout(extents, 2)
 		);
 
 		auto destination = make_host_array(extents);
@@ -485,8 +474,7 @@ TEST_CASE(
 				contiguous_strides(extents),
 				preamble_size,
 				get_system_byte_order()
-			),
-			image_metadata()
+			)
 		);
 
 		auto destination = make_host_array(extents);
@@ -517,8 +505,7 @@ TEST_CASE(
 		REQUIRE_THROWS_MATCHES(
 			mapped_image_reader(
 				path.get(),
-				make_layout(extents, 2),
-				image_metadata()
+				make_layout(extents, 2)
 			),
 			image_file_format_error,
 			names_the_file
@@ -530,8 +517,7 @@ TEST_CASE(
 		REQUIRE_THROWS_MATCHES(
 			mapped_image_reader(
 				path.get(),
-				make_layout(extents, 2),
-				image_metadata()
+				make_layout(extents, 2)
 			),
 			image_file_error,
 			names_the_file
@@ -549,7 +535,7 @@ TEST_CASE(
 		);
 
 		REQUIRE_THROWS_MATCHES(
-			mapped_image_reader(path.get(), unaligned, image_metadata()),
+			mapped_image_reader(path.get(), unaligned),
 			image_file_format_error,
 			names_the_file
 		);

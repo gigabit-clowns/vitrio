@@ -15,7 +15,6 @@
 #include <vitrio/detector_event_timeline_descriptor.hpp>
 #include <vitrio/detector_event_timeline_reader.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/span.hpp>
 
@@ -132,7 +131,6 @@ public:
 			m_fractionation,
 			m_renderer->get_data_type()
 		))
-		, m_metadata()
 		, m_mutex()
 		, m_timeline(m_events->get_descriptor().get_rank())
 		, m_image(make_array(make_contiguous_array_descriptor(
@@ -151,11 +149,6 @@ public:
 	const image_descriptor& get_descriptor() const noexcept
 	{
 		return m_descriptor;
-	}
-
-	const image_metadata& get_metadata() const noexcept
-	{
-		return m_metadata;
 	}
 
 	void read(array_ref destination, const image_transfer_plan &regions)
@@ -242,7 +235,6 @@ private:
 	std::shared_ptr<const detector_event_renderer> m_renderer;
 	std::vector<std::size_t> m_image_extents;
 	image_descriptor m_descriptor;
-	image_metadata m_metadata;
 	std::mutex m_mutex;
 	detector_event_timeline m_timeline;
 	array m_image;
@@ -274,12 +266,6 @@ const image_descriptor&
 detector_event_image_reader::get_descriptor() const noexcept
 {
 	return m_implementation->get_descriptor();
-}
-
-const image_metadata&
-detector_event_image_reader::get_metadata() const noexcept
-{
-	return m_implementation->get_metadata();
 }
 
 void detector_event_image_reader::read(

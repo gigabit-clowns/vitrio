@@ -19,7 +19,6 @@
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/host_array.hpp>
@@ -142,7 +141,6 @@ TEST_CASE(
 	const queued_image_reader reader(
 		path.get(),
 		make_layout(extents),
-		image_metadata(),
 		transfers
 	);
 
@@ -165,7 +163,6 @@ TEST_CASE(
 	const queued_image_reader reader(
 		path.get(),
 		make_layout(extents),
-		image_metadata(),
 		transfers
 	);
 
@@ -282,7 +279,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents, numerical_type::float32, {1, 3}),
-			image_metadata(),
 			transfers
 		);
 
@@ -323,7 +319,6 @@ TEST_CASE(
 				preamble_size,
 				other
 			),
-			image_metadata(),
 			transfers
 		);
 
@@ -340,7 +335,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents, numerical_type::int16),
-			image_metadata(),
 			transfers
 		);
 
@@ -360,7 +354,6 @@ TEST_CASE(
 				{},
 				preamble_size + 2
 			),
-			image_metadata(),
 			transfers
 		);
 
@@ -384,7 +377,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents),
-			image_metadata(),
 			transfers
 		);
 
@@ -401,7 +393,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents),
-			image_metadata(),
 			transfers
 		);
 
@@ -425,7 +416,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents, numerical_type::complex_float32),
-			image_metadata(),
 			transfers
 		);
 
@@ -460,7 +450,6 @@ TEST_CASE(
 			queued_image_reader(
 				path.get(),
 				make_layout(extents),
-				image_metadata(),
 				transfers
 			),
 			image_file_format_error,
@@ -474,7 +463,6 @@ TEST_CASE(
 			queued_image_reader(
 				path.get(),
 				make_layout(extents),
-				image_metadata(),
 				transfers
 			),
 			image_file_error,
@@ -497,7 +485,6 @@ TEST_CASE(
 	const queued_image_reader reader(
 		path.get(),
 		make_layout(extents),
-		image_metadata(),
 		transfers
 	);
 
@@ -523,7 +510,6 @@ TEST_CASE(
 	const queued_image_reader reader(
 		path.get(),
 		make_layout(extents),
-		image_metadata(),
 		transfers
 	);
 
@@ -560,7 +546,6 @@ TEST_CASE(
 		const queued_image_reader reader(
 			path.get(),
 			make_layout(extents),
-			image_metadata(),
 			transfers
 		);
 		reader.read_async(destination.share(), whole_of(extents), done);

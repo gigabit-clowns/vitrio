@@ -25,7 +25,6 @@ zarr_image_reader::zarr_image_reader(
 	std::string directory,
 	std::shared_ptr<const zarr_array_layout> layout,
 	image_descriptor descriptor,
-	image_metadata metadata,
 	std::shared_ptr<file_transfer_executor> transfers,
 	std::shared_ptr<zarr_chunk_buffers> buffers,
 	bool asynchronous
@@ -33,7 +32,6 @@ zarr_image_reader::zarr_image_reader(
 	: m_directory(std::move(directory))
 	, m_layout(std::move(layout))
 	, m_descriptor(std::move(descriptor))
-	, m_metadata(std::move(metadata))
 	, m_transfers(std::move(transfers))
 	, m_buffers(std::move(buffers))
 	, m_asynchronous(asynchronous)
@@ -48,11 +46,6 @@ zarr_image_reader::~zarr_image_reader() = default;
 const image_descriptor& zarr_image_reader::get_descriptor() const noexcept
 {
 	return m_descriptor;
-}
-
-const image_metadata& zarr_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void zarr_image_reader::read_async(

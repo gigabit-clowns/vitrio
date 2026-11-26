@@ -10,7 +10,6 @@
 #include <vitrio/array/array.hpp>
 #include <vitrio/concurrency/completion_notifier.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 
@@ -39,7 +38,6 @@ public:
 	 * @param directory The directory of the array.
 	 * @param layout How it lays out its chunks. Must not be null.
 	 * @param descriptor What it holds, its extents those of @p layout.
-	 * @param metadata How its samples map onto physical space.
 	 * @param transfers What carries out the reads. Must not be null.
 	 * @param asynchronous Whether @p transfers goes through asynchronous
 	 * ports.
@@ -48,7 +46,6 @@ public:
 		std::string directory,
 		std::shared_ptr<const zarr_array_layout> layout,
 		image_descriptor descriptor,
-		image_metadata metadata,
 		std::shared_ptr<file_transfer_executor> transfers,
 		std::shared_ptr<zarr_chunk_buffers> buffers,
 		bool asynchronous
@@ -57,8 +54,6 @@ public:
 	~zarr_image_reader() override;
 
 	const image_descriptor& get_descriptor() const noexcept override;
-
-	const image_metadata& get_metadata() const noexcept override;
 
 	void read_async(
 		array destination,
@@ -70,7 +65,6 @@ private:
 	std::string m_directory;
 	std::shared_ptr<const zarr_array_layout> m_layout;
 	image_descriptor m_descriptor;
-	image_metadata m_metadata;
 	std::shared_ptr<file_transfer_executor> m_transfers;
 	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 	bool m_asynchronous;

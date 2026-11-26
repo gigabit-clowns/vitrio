@@ -7,7 +7,6 @@
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/synchronous_image_reader.hpp>
 
 #include <string>
@@ -39,15 +38,13 @@ public:
 	 * @param path Path to the file.
 	 * @param layout Where and how the file holds its values, which must be
 	 * aligned for their data type: a mapping addresses them where they lie.
-	 * @param metadata What the file states beyond its shape and data type.
 	 * @throws image_file_error If the file can not be mapped.
 	 * @throws image_file_format_error If the values of @p layout are not
 	 * aligned, or if the file is shorter than @p layout says it is.
 	 */
 	mapped_image_reader(
 		const std::string &path,
-		raw_image_layout layout,
-		image_metadata metadata
+		raw_image_layout layout
 	);
 
 	~mapped_image_reader() override = default;
@@ -63,8 +60,6 @@ public:
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
-	const image_metadata& get_metadata() const noexcept override;
-
 	void read(
 		array_ref destination,
 		const image_transfer_plan &regions
@@ -73,7 +68,6 @@ public:
 private:
 	image_file_mapping m_mapping;
 	raw_image_layout m_layout;
-	image_metadata m_metadata;
 
 	/// The values of the file, as an array over the mapping reads them.
 	array_descriptor m_values;

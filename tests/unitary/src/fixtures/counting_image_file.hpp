@@ -4,7 +4,6 @@
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/tests/host_array.hpp>
 
@@ -99,8 +98,7 @@ inline std::shared_ptr<const image_reader> open_counting_image_file(
 			std::move(strides),
 			0,
 			get_system_byte_order()
-		),
-		image_metadata()
+		)
 	);
 }
 

@@ -13,7 +13,6 @@
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/exceptions/image_file_format_error.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/tests/file_transfer_pools.hpp>
 #include <vitrio/tests/host_array.hpp>
@@ -90,7 +89,6 @@ read_all(const std::string &path, const raw_image_layout &layout)
 	const auto reader = open_raw_image_reader(
 		path,
 		layout,
-		image_metadata(),
 		*make_file_transfer_pool()
 	);
 	REQUIRE( reader != nullptr );
@@ -178,7 +176,6 @@ TEST_CASE(
 			open_raw_image_reader(
 				path.get(),
 				make_layout(16),
-				image_metadata(),
 				*make_file_transfer_pool()
 			),
 			image_file_format_error,
@@ -205,7 +202,6 @@ TEST_CASE(
 		open_raw_image_reader(
 			path.get(),
 			make_layout(18, {12, 1, 3}),
-			image_metadata(),
 			*make_file_transfer_pool()
 		),
 		image_file_format_error,

@@ -4,7 +4,6 @@
 
 #include <formats/raw/raw_image_layout.hpp>
 
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/synchronous_image_reader.hpp>
 
 #include <string>
@@ -41,19 +40,15 @@ public:
 	 *
 	 * @param path Path to the file.
 	 * @param layout Where and how its inflated bytes hold the values.
-	 * @param metadata What the file states beyond its shape and data type.
 	 */
 	gzip_image_reader(
 		std::string path,
-		raw_image_layout layout,
-		image_metadata metadata
+		raw_image_layout layout
 	);
 
 	~gzip_image_reader() override = default;
 
 	const image_descriptor& get_descriptor() const noexcept override;
-
-	const image_metadata& get_metadata() const noexcept override;
 
 	/**
 	 * @copydoc synchronous_image_reader::read
@@ -70,7 +65,6 @@ public:
 private:
 	std::string m_path;
 	raw_image_layout m_layout;
-	image_metadata m_metadata;
 };
 
 } // namespace vitrio

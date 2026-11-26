@@ -7,7 +7,6 @@
 #include <formats/raw/raw_image_layout.hpp>
 
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/synchronous_image_reader.hpp>
 
 #include <memory/byte_order.hpp>
@@ -47,7 +46,6 @@ public:
 	 * contiguously, the columns changing fastest.
 	 * @param data_offset Where the values begin in the file, in bytes.
 	 * @param order The byte order of the values.
-	 * @param metadata What the file states beyond its shape and data type.
 	 * @throws std::invalid_argument If @p descriptor is of neither rank two
 	 * nor three.
 	 * @throws image_file_error If the file can not be mapped.
@@ -58,8 +56,7 @@ public:
 		const std::string &path,
 		image_descriptor descriptor,
 		std::size_t data_offset,
-		byte_order order,
-		image_metadata metadata
+		byte_order order
 	);
 
 	~unaligned_mapped_image_reader() override = default;
@@ -76,8 +73,6 @@ public:
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
-	const image_metadata& get_metadata() const noexcept override;
-
 	void read(
 		array_ref destination,
 		const image_transfer_plan &regions
@@ -88,7 +83,6 @@ private:
 	image_descriptor m_descriptor;
 	std::size_t m_data_offset;
 	byte_order m_byte_order;
-	image_metadata m_metadata;
 	std::size_t m_row_size;
 	std::size_t m_page_size;
 };

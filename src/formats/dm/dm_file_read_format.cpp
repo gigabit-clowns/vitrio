@@ -9,7 +9,6 @@
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_file_probe.hpp>
-#include <vitrio/image_metadata.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
 #include <formats/raw/mapped/image_file_access.hpp>
@@ -96,7 +95,6 @@ std::shared_ptr<image_reader> dm_file_read_format::open(
 			location.get_data_offset(),
 			location.get_byte_order()
 		),
-		image_metadata(),
 		transfers
 	);
 }

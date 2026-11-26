@@ -14,7 +14,6 @@
 #include <vitrio/concurrency/counting_completion.hpp>
 #include <vitrio/concurrency/synchronous_executor.hpp>
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
 #include <vitrio/tests/transfers.hpp>
@@ -116,17 +115,14 @@ TEST_CASE(
 		2,
 		numerical_type::float32
 	);
-	const image_metadata metadata;
 	const auto entry = std::make_shared<mock_image_scratch_entry>();
 	const auto file = std::make_shared<mock_image_reader>();
 
 	ALLOW_CALL(*file, get_descriptor()).LR_RETURN(std::ref(descriptor));
-	ALLOW_CALL(*file, get_metadata()).LR_RETURN(std::ref(metadata));
 
 	const scratch_image_reader reader(entry, file, make_tasks(), 1UL << 20);
 
 	CHECK( &reader.get_descriptor() == &descriptor );
-	CHECK( &reader.get_metadata() == &metadata );
 }
 
 TEST_CASE(

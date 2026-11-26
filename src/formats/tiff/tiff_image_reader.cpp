@@ -52,18 +52,12 @@ tiff_image_reader::tiff_image_reader(const std::string &path)
 	: m_mutex()
 	, m_decoder(path)
 	, m_descriptor(make_descriptor(m_decoder))
-	, m_metadata()
 {
 }
 
 const image_descriptor& tiff_image_reader::get_descriptor() const noexcept
 {
 	return m_descriptor;
-}
-
-const image_metadata& tiff_image_reader::get_metadata() const noexcept
-{
-	return m_metadata;
 }
 
 void tiff_image_reader::read(

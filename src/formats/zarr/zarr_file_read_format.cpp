@@ -18,7 +18,6 @@
 #include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
-#include <vitrio/image_metadata.hpp>
 
 #include <logger.hpp>
 #include <tuning.hpp>
@@ -193,7 +192,6 @@ std::shared_ptr<image_reader> zarr_file_read_format::open(
 		layout,
 		image_descriptor(
 			shape, core_rank, layout->get_chunk_layout().get_data_type()),
-		image_metadata(),
 		transfers.get_implementation().get_executor(),
 		m_buffers,
 		asynchronous_file_transfer_port_opener::is_supported()

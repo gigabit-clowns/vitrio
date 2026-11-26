@@ -5,7 +5,6 @@
 #include "tiff_page_decoder.hpp"
 
 #include <vitrio/image_descriptor.hpp>
-#include <vitrio/image_metadata.hpp>
 #include <vitrio/synchronous_image_reader.hpp>
 
 #include <mutex>
@@ -50,8 +49,6 @@ public:
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
-	const image_metadata& get_metadata() const noexcept override;
-
 	void read(
 		array_ref destination,
 		const image_transfer_plan &regions
@@ -61,7 +58,6 @@ private:
 	mutable std::mutex m_mutex;
 	mutable tiff_page_decoder m_decoder;
 	image_descriptor m_descriptor;
-	image_metadata m_metadata;
 };
 
 } // namespace tiff

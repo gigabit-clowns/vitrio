@@ -22,7 +22,6 @@ namespace vitrio
 std::shared_ptr<image_reader> open_raw_image_reader(
 	const std::string &path,
 	raw_image_layout layout,
-	image_metadata metadata,
 	const file_transfer_pool &transfers
 )
 {
@@ -31,7 +30,6 @@ std::shared_ptr<image_reader> open_raw_image_reader(
 		return std::make_shared<queued_image_reader>(
 			path,
 			std::move(layout),
-			std::move(metadata),
 			transfers.get_implementation().get_executor()
 		);
 	}
@@ -40,8 +38,7 @@ std::shared_ptr<image_reader> open_raw_image_reader(
 	{
 		return std::make_shared<mapped_image_reader>(
 			path,
-			std::move(layout),
-			std::move(metadata)
+			std::move(layout)
 		);
 	}
 
@@ -51,8 +48,7 @@ std::shared_ptr<image_reader> open_raw_image_reader(
 			path,
 			layout.get_descriptor(),
 			layout.get_data_offset(),
-			layout.get_byte_order(),
-			std::move(metadata)
+			layout.get_byte_order()
 		);
 	}
 

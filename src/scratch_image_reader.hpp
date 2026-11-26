@@ -58,8 +58,6 @@ public:
 
 	const image_descriptor& get_descriptor() const noexcept override;
 
-	const image_metadata& get_metadata() const noexcept override;
-
 	void read_async(
 		array destination,
 		image_transfer_plan regions,
