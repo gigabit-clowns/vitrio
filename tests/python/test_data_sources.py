@@ -91,6 +91,24 @@ def test_an_index_into_a_file_that_is_not_a_stack_is_refused(tmp_path):
 	with pytest.raises(ValueError):
 		vio.data.ImageSource([vio.ImageLocation(path, 0)])
 
+def test_an_index_into_a_volume_names_a_section_of_it(tmp_path):
+	# A stack written as an array of three axes is stated as one volume,
+	# and its images are still read one by one.
+	path = tmp_path / 'stack.mrc'
+	volume = __setup_array((3, 4, 6))
+	vio.write_single(volume, path)
+	source = vio.data.ImageSource(__locations(path, [2, 0]))
+	assert source.shape == (4, 6)
+	out = np.zeros((2, 4, 6), np.float32)
+	__wait(source.read_async(vio.loader(), np.array([0, 1]), out))
+	assert np.array_equal(out, volume[[2, 0]])
+
+def test_an_index_past_the_sections_of_a_volume_is_refused(tmp_path):
+	path = tmp_path / 'stack.mrc'
+	vio.write_single(__setup_array((3, 4, 6)), path)
+	with pytest.raises(ValueError):
+		vio.data.ImageSource(__locations(path, [3]))
+
 def test_only_the_first_file_is_asked_when_told_not_to_check(
 	__written_stack
 ):
