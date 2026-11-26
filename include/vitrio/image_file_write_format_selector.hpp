@@ -85,7 +85,7 @@ public:
 	 *
 	 * @param path Path to the file to create.
 	 * @param descriptor What the file holds.
-	 * @param metadata How its samples map onto physical space.
+	 * @param metadata What it states beyond its shape and data type.
 	 * @param transfers The threads that carry out the transfers of the
 	 * writer.
 	 * @return std::shared_ptr<image_writer> The opened writer, never null.

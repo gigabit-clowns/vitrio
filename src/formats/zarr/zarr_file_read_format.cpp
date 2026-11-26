@@ -198,6 +198,13 @@ std::shared_ptr<image_reader> zarr_file_read_format::open(
 	);
 }
 
+image_metadata
+zarr_file_read_format::read_metadata(const image_file_probe &/*probe*/) const
+{
+	// Nothing of the file is read as metadata yet.
+	return image_metadata();
+}
+
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(
 	zarr,
 	vitrio::zarr::zarr_file_read_format

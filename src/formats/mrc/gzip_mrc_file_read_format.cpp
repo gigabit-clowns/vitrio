@@ -77,6 +77,14 @@ std::shared_ptr<image_reader> gzip_mrc_file_read_format::open(
 	);
 }
 
+image_metadata gzip_mrc_file_read_format::read_metadata(
+	const image_file_probe &/*probe*/
+) const
+{
+	// Nothing of the file is read as metadata yet.
+	return image_metadata();
+}
+
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(
 	gzip_mrc,
 	vitrio::mrc::gzip_mrc_file_read_format

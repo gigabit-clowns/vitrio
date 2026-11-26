@@ -40,6 +40,13 @@ std::shared_ptr<image_reader> tiff_file_read_format::open(
 	return std::make_shared<tiff_image_reader>(probe.get_path());
 }
 
+image_metadata
+tiff_file_read_format::read_metadata(const image_file_probe &/*probe*/) const
+{
+	// Nothing of the file is read as metadata yet.
+	return image_metadata();
+}
+
 VITRIO_REGISTER_IMAGE_FILE_READ_FORMAT(
 	tiff,
 	vitrio::tiff::tiff_file_read_format

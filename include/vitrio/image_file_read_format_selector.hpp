@@ -3,6 +3,7 @@
 #pragma once
 
 #include <vitrio/export.hpp>
+#include <vitrio/image_metadata.hpp>
 #include <vitrio/image_reader.hpp>
 #include <vitrio/platform.hpp>
 
@@ -18,7 +19,7 @@ class file_transfer_pool;
 
 /**
  * @brief Holds the image formats that can be read, selects the most suitable
- * of them for a file, and opens the file with it.
+ * of them for a file, and opens the file or reads its metadata with it.
  *
  * @ref register_builtin_formats adds the formats bundled with the library,
  * and @ref register_format adds any other. @ref get_shared is a selector
@@ -95,6 +96,25 @@ public:
 		const std::string &path,
 		const file_transfer_pool &transfers
 	) const;
+
+	/**
+	 * @brief Read what a file states beyond its shape and data type, with
+	 * the most suitable format.
+	 *
+	 * The format is chosen as @ref open chooses it, and no reader is made.
+	 * What the file does not state, or its format does not read, is absent
+	 * from the result.
+	 *
+	 * @param path Path to the file to read, or any other locator a
+	 * registered format claims.
+	 * @return image_metadata What the file states.
+	 * @throws image_file_error If no registered format claims the path and
+	 * no readable file exists there.
+	 * @throws unsupported_operation_error If no registered format recognizes
+	 * the file, which exists.
+	 * @throws image_file_format_error If the file is malformed or truncated.
+	 */
+	image_metadata read_metadata(const std::string &path) const;
 
 	/**
 	 * @brief Get the format that would open a file, without opening it.

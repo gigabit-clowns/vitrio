@@ -35,6 +35,12 @@ public:
 		),
 		override
 	);
+
+	MAKE_CONST_MOCK1(
+		read_metadata,
+		image_metadata(const image_file_probe &probe),
+		override
+	);
 };
 
 } // namespace vitrio

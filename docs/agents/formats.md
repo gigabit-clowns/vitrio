@@ -21,6 +21,20 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   - The two providers whose keys are paths, `file_image_reader_provider`
     and `file_image_writer_provider`, are each given a selector and hold no
     formats themselves.
+- **Metadata.** What a file states beyond its shape and data type is an
+  `image_metadata`, and it is the business of the file formats alone: no
+  reader and no writer has anything of it. A read format reads it when
+  asked, with `read_metadata`, which opens no reader, and the read selector
+  asks the format it would open the file with. A write format is given it
+  with the descriptor when the file is created, which is when every format
+  writes its header, and `file_image_writer_provider` only keeps what a
+  file was declared with until then. Both are best effort: a format reads and
+  writes what it can carry and leaves out the rest, so metadata never
+  makes a creation fail. A format derives the axes its metadata is about
+  with the code its `open` derives the descriptor with, so the two never
+  disagree on whether a file has a `z`. A header field is under one label
+  only, the standard field where there is one and otherwise a label
+  prefixed with the format, such as `mrc.labels`.
 - **Detector events.** A detector that counts electrons records events, not
   images. A `detector_event_timeline` holds the events of a stretch of time,
   in groups of one timestamp each, and `detector_event_position_view` views
