@@ -10,11 +10,15 @@
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 #include <vitrio/image_descriptor.hpp>
 #include <vitrio/image_file_probe.hpp>
+#include <vitrio/library_version.hpp>
 
 #include <formats/image_file_format_registration_macros.hpp>
 
 #include <algorithm>
 #include <cstddef>
+#include <sstream>
+#include <string>
+#include <utility>
 
 namespace vitrio
 {
@@ -26,6 +30,15 @@ namespace
 
 const std::size_t page_rank = 2;
 const std::size_t stack_rank = 3;
+
+// What a file says made it, where nothing else is said to have: the name
+// and the version of the software, as the Software tag is meant to hold.
+std::string make_signature()
+{
+	std::ostringstream text;
+	text << "vitrio " << get_library_version();
+	return text.str();
+}
 
 } // anonymous namespace
 
@@ -86,10 +99,18 @@ std::shared_ptr<image_writer> tiff_file_write_format::open(
 		);
 	}
 
+	// A file says this library made it, unless whoever creates it says
+	// what did.
+	auto tags = make_page_tags(metadata);
+	if (tags.get_software().empty())
+	{
+		tags.set_software(make_signature());
+	}
+
 	return std::make_shared<tiff_image_writer>(
 		probe.get_path(),
 		descriptor,
-		make_page_tags(metadata)
+		std::move(tags)
 	);
 }
 

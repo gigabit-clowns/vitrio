@@ -434,7 +434,6 @@ TEST_CASE(
 			get_field(read, pixel_size_x), WithinRel(0.83, tolerance) );
 		REQUIRE_THAT(
 			get_field(read, pixel_size_y), WithinRel(0.84, tolerance) );
-		REQUIRE( read.get_entries().size() == 2 );
 	}
 
 	SECTION( "the pixel sizes and the texts of a stack" )
@@ -462,11 +461,30 @@ TEST_CASE(
 			read.get("tiff.date_time").get_text() == "2026:11:26 12:00:00" );
 	}
 
-	SECTION( "a file created with none states nothing" )
+	SECTION( "a file created with none states the library that made it, "
+		"and nothing else" )
 	{
 		create({3, 4}, image_metadata());
 
-		REQUIRE( readers.read_metadata(path.get()).get_entries().empty() );
+		const auto read = readers.read_metadata(path.get());
+
+		REQUIRE( read.get_entries().size() == 1 );
+		REQUIRE(
+			read.get("tiff.software").get_text().compare(0, 7, "vitrio ") ==
+			0
+		);
+	}
+
+	SECTION( "a file created with a software of its own states that one" )
+	{
+		image_metadata metadata;
+		metadata.set("tiff.software", "something");
+		create({3, 4}, metadata);
+
+		REQUIRE(
+			readers.read_metadata(path.get()).get("tiff.software")
+				.get_text() == "something"
+		);
 	}
 
 	SECTION( "a file written again with what it states states the same" )
@@ -546,5 +564,6 @@ TEST_CASE(
 		get_field(converted, pixel_size_x), WithinRel(0.83, 1.0e-6) );
 	REQUIRE_THAT(
 		get_field(converted, pixel_size_y), WithinRel(0.83, 1.0e-6) );
-	REQUIRE( converted.get_entries().size() == 2 );
+	REQUIRE( converted.find("mrc.labels") == nullptr );
+	REQUIRE( converted.get_entries().size() == 3 );
 }

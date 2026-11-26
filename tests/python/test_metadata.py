@@ -283,10 +283,16 @@ def test_a_tiff_file_states_what_it_is_written_with(tmp_path):
 		'tiff.date_time': '2026:11:26 12:00:00',
 	}
 
-def test_a_tiff_file_written_with_no_metadata_states_nothing(tmp_path):
+def test_a_tiff_file_says_vitrio_made_it_unless_told_what_did(tmp_path):
 	path = tmp_path / 'image.tif'
 	__write_tiff(__setup_array((4, 6)), path, None)
-	assert vio.read_metadata(path) == {}
+	read = vio.read_metadata(path)
+	assert list(read) == ['tiff.software']
+	assert read['tiff.software'] == 'vitrio ' + vio.__version__
+	__write_tiff(
+		__setup_array((4, 6)), path, {'tiff.software': 'something'}
+	)
+	assert vio.read_metadata(path) == {'tiff.software': 'something'}
 
 def test_the_pixel_size_of_an_mrc_file_goes_into_a_tiff_file(tmp_path):
 	source = tmp_path / 'image.mrc'
@@ -299,6 +305,7 @@ def test_the_pixel_size_of_an_mrc_file_goes_into_a_tiff_file(tmp_path):
 	assert vio.read_metadata(converted) == {
 		'pixel_size_x': pytest.approx(0.5, rel=TOLERANCE),
 		'pixel_size_y': pytest.approx(0.25, rel=TOLERANCE),
+		'tiff.software': 'vitrio ' + vio.__version__,
 	}
 
 def test_a_text_that_is_not_utf8_is_read_with_what_is_not_replaced(tmp_path):

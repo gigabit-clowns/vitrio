@@ -338,6 +338,23 @@ TEST_CASE( "the TIFF write format writes the metadata it is given",
 		REQUIRE( tags.get_date_time() == "2026:11:26 12:00:00" );
 	}
 
+	SECTION( "this library as the software, where none is given" )
+	{
+		create(image_metadata());
+
+		REQUIRE( read_tags().get_software().compare(0, 7, "vitrio ") == 0 );
+	}
+
+	SECTION( "this library as the software, where what is given is none "
+		"a page holds" )
+	{
+		image_metadata metadata;
+		metadata.set("tiff.software", 3);
+		create(metadata);
+
+		REQUIRE( read_tags().get_software().compare(0, 7, "vitrio ") == 0 );
+	}
+
 	SECTION( "and nothing of what a page can not hold" )
 	{
 		image_metadata metadata;

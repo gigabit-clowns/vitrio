@@ -56,6 +56,8 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
   bits: one to a centimetre holds a pixel down to 0.024 Å, and one to an
   inch only down to 0.06 Å. `tiff.image_description`, `tiff.software` and
   `tiff.date_time` are the texts of the tags they are named after. A file
+  is created with the name and the version of the library as its
+  software, unless it is given one, as an MRC file is with a label. A file
   states what its first page does: every page is written with the
   resolutions and the first alone with the texts, so that a stack does
   not hold a long description once a page.
