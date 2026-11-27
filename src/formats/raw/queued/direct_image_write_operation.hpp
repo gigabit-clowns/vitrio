@@ -7,7 +7,7 @@
 
 #include <file_transfer/file_transfer_operation.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 
 #include <vitrio/array/const_array.hpp>
 
@@ -42,7 +42,7 @@ public:
 		std::shared_ptr<writable_image_file> file,
 		const raw_image_layout &layout,
 		const_array source,
-		const image_region_write_walk &walk
+		const region_write_walk &walk
 	);
 
 	~direct_image_write_operation() override;

@@ -45,7 +45,7 @@ std::size_t find_run_end(
 // element are not read.
 file_read_plan plan_reads(
 	const raw_image_layout &layout,
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	byte *array_data
 )
 {
@@ -98,7 +98,7 @@ direct_image_read_operation::direct_image_read_operation(
 	std::shared_ptr<const boost::interprocess::file_mapping> file,
 	const raw_image_layout &layout,
 	array destination,
-	const image_region_read_walk &walk
+	const region_read_walk &walk
 )
 	: m_path(std::move(path))
 	, m_file(std::move(file))

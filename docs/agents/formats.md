@@ -106,7 +106,7 @@ Keys, providers and the roles of the file formats, detector events, ZARR and fil
 - **ZARR.** A ZARR array is a directory, and every chunk a file of its own,
   or every shard of chunks, with an index of where each lies. The format
   opens no file until it reads: a read resolves its regions into the chunks
-  they reach with `image_chunk_regions`, and its operation opens and reads
+  they reach with `chunk_regions`, and its operation opens and reads
   each file, its index first for a shard, and decodes its chunks, a few
   files at a time within `VITRIO_DEFAULT_CHUNK_BYTE_BUDGET`. What a chunk
   is read into and decoded into are buffers of `zarr_chunk_buffers`, which

@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <formats/raw/planning/image_region_split.hpp>
+#include <formats/raw/planning/region_split.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_transfer_plan.hpp>
@@ -73,7 +73,7 @@ std::vector<std::size_t> array_offset(
 TEST_CASE(
 	"split_scattered_regions leaves regions whose values follow one another "
 	"whole, whatever their size",
-	"[image_region_split]"
+	"[region_split]"
 )
 {
 	// Two whole planes of the volume, 8 MiB together, above the budget.
@@ -95,7 +95,7 @@ TEST_CASE(
 TEST_CASE(
 	"split_scattered_regions keeps the rows of a patch of a micrograph "
 	"together, whose gaps a read bridges",
-	"[image_region_split]"
+	"[region_split]"
 )
 {
 	image_transfer_plan patches(
@@ -120,7 +120,7 @@ TEST_CASE(
 TEST_CASE(
 	"split_scattered_regions splits a patch into its rows where they lie "
 	"farther apart than a read bridges",
-	"[image_region_split]"
+	"[region_split]"
 )
 {
 	// Two patches of 4 by 128, landing in the slots of a batch.
@@ -158,7 +158,7 @@ TEST_CASE(
 TEST_CASE(
 	"split_scattered_regions splits a slice across the planes of a volume "
 	"into a part a plane",
-	"[image_region_split]"
+	"[region_split]"
 )
 {
 	SECTION( "a slice along y, a row of each plane" )
@@ -204,7 +204,7 @@ TEST_CASE(
 TEST_CASE(
 	"split_scattered_regions gathers the axes in the order the file lays "
 	"them out",
-	"[image_region_split]"
+	"[region_split]"
 )
 {
 	// A wide image whose first axis is its fastest, as a transposed layout

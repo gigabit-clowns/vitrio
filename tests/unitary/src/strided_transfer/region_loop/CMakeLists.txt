@@ -3,6 +3,6 @@
 target_sources(
 	vitrio-unitary-tests
 	PRIVATE
-		test_image_region_layout.cpp
-		test_image_region_loop.cpp
+		test_region_layout.cpp
+		test_region_loop.cpp
 )

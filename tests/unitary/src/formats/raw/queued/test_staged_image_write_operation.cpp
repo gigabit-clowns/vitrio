@@ -8,12 +8,12 @@
 #include "../../../mock/mock_file_transfer_scope.hpp"
 
 #include <formats/raw/create_image_file.hpp>
-#include <formats/raw/planning/image_region_runs.hpp>
+#include <formats/raw/planning/region_runs.hpp>
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/queued/writable_image_file.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 #include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
@@ -136,7 +136,7 @@ public:
 	)
 	{
 		const auto &origin = source.get_descriptor();
-		image_region_write_walk walk(
+		region_write_walk walk(
 			regions,
 			m_layout.get_descriptor().get_extents(),
 			m_layout.get_strides(),
@@ -153,7 +153,7 @@ public:
 			preamble + m_layout.get_data_size(),
 			image_transfer_policy(0, byte_budget, sizeof(float), 0)
 		);
-		const image_region_runs runs(
+		const region_runs runs(
 			regions,
 			m_layout.get_strides(),
 			numerical_type::float32

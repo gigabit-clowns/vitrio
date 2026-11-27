@@ -4,7 +4,7 @@
 #include "image_transfer_policy.hpp"
 
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 
 #include <vitrio/image_descriptor.hpp>
 
@@ -17,7 +17,7 @@ namespace vitrio
 {
 
 bool lie_as_they_land(
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	numerical_type array_type,
 	const raw_image_layout &layout
 ) noexcept
@@ -49,7 +49,7 @@ bool lie_as_they_land(
 
 image_transfer_schedule schedule_staged_read(
 	const image_transfer_plan &regions,
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	const raw_image_layout &layout,
 	std::size_t file_size,
 	std::size_t byte_budget

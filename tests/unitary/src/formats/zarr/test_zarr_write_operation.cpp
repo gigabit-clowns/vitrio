@@ -68,7 +68,7 @@ public:
 		return std::make_unique<zarr_write_operation>(
 			m_store,
 			source.share_const(),
-			image_chunk_regions(regions, make_span(shape), make_span(chunk))
+			chunk_regions(regions, make_span(shape), make_span(chunk))
 		);
 	}
 

@@ -2,10 +2,10 @@
 
 #include <vitrio/detector_event_image_reader.hpp>
 
-#include <strided_transfer/image_page_regions.hpp>
-#include <strided_transfer/image_region_bounds.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/page_regions.hpp>
+#include <strided_transfer/region_bounds.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/array_descriptor.hpp>
@@ -171,7 +171,7 @@ public:
 			return;
 		}
 
-		const image_page_regions fractions(regions);
+		const page_regions fractions(regions);
 
 		const std::array<std::ptrdiff_t, image_rank> image_strides = {{
 			static_cast<std::ptrdiff_t>(m_image_extents[1]),
@@ -185,7 +185,7 @@ public:
 		{
 			render(fractions.get_page(position));
 
-			const image_region_read_walk walk(
+			const region_read_walk walk(
 				fractions.get_regions(position),
 				make_span(m_image_extents),
 				make_span(image_strides),

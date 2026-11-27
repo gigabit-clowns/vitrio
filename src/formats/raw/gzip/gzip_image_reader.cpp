@@ -4,10 +4,10 @@
 
 #include <compression/gzip_file_stream.hpp>
 #include <formats/raw/planning/image_read_strategy.hpp>
-#include <formats/raw/planning/image_region_split.hpp>
+#include <formats/raw/planning/region_split.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -51,7 +51,7 @@ bool overlap(
 void read_direct(
 	gzip_file_stream &stream,
 	const raw_image_layout &layout,
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	byte *array_data
 )
 {
@@ -81,7 +81,7 @@ void read_staged(
 	gzip_file_stream &stream,
 	const raw_image_layout &layout,
 	const image_transfer_plan &regions,
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	byte *array_data,
 	numerical_type array_type
 )
@@ -171,7 +171,7 @@ void gzip_image_reader::read(
 	);
 
 	// Resolving the regions checks them against the file and the array.
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		parts,
 		m_layout.get_descriptor().get_extents(),
 		m_layout.get_strides(),

@@ -7,7 +7,7 @@
 
 #include <file_transfer/file_transfer_operation.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 
 #include <vitrio/array/array.hpp>
 
@@ -47,7 +47,7 @@ public:
 		std::shared_ptr<const boost::interprocess::file_mapping> file,
 		const raw_image_layout &layout,
 		array destination,
-		const image_region_read_walk &walk
+		const region_read_walk &walk
 	);
 	~direct_image_read_operation() override;
 

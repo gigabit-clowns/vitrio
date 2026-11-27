@@ -14,8 +14,8 @@
 #include <memory/align.hpp>
 #include <memory/aligned_alloc.hpp>
 #include <memory/byte_order.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 #include <system/page_size.hpp>
 
 #include <cstring>
@@ -139,7 +139,7 @@ public:
 			);
 			auto *destination_data = get_array_data(array_ref(destination));
 			const auto &target = destination.get_descriptor();
-			const image_region_read_walk walk(
+			const region_read_walk walk(
 				regions,
 				values.get_extents(),
 				values.get_strides(),

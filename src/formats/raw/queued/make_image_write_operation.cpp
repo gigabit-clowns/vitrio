@@ -5,10 +5,10 @@
 #include "direct_image_write_operation.hpp"
 #include "staged_image_write_operation.hpp"
 
-#include <formats/raw/planning/image_region_runs.hpp>
+#include <formats/raw/planning/region_runs.hpp>
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array_ref.hpp>
@@ -29,7 +29,7 @@ namespace
 // value after another on both sides, in the data type and byte order the
 // file takes.
 bool lie_as_they_land(
-	const image_region_write_walk &walk,
+	const region_write_walk &walk,
 	numerical_type array_type,
 	const raw_image_layout &layout
 ) noexcept
@@ -63,7 +63,7 @@ bool lie_as_they_land(
 // on the grid of the elements of the values.
 image_transfer_schedule schedule_stretches(
 	const image_transfer_plan &regions,
-	const image_region_write_walk &walk,
+	const region_write_walk &walk,
 	const raw_image_layout &layout,
 	std::size_t byte_budget
 )
@@ -102,7 +102,7 @@ std::unique_ptr<file_transfer_operation> make_image_write_operation(
 	get_array_data(const_array_ref(source));
 	const auto &origin = source.get_descriptor();
 
-	image_region_write_walk walk(
+	region_write_walk walk(
 		regions,
 		layout.get_descriptor().get_extents(),
 		layout.get_strides(),
@@ -129,7 +129,7 @@ std::unique_ptr<file_transfer_operation> make_image_write_operation(
 
 	const auto schedule =
 		schedule_stretches(regions, walk, layout, byte_budget);
-	const image_region_runs runs(
+	const region_runs runs(
 		regions,
 		layout.get_strides(),
 		layout.get_descriptor().get_data_type()

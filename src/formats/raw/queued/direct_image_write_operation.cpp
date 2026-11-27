@@ -45,7 +45,7 @@ std::size_t find_run_end(
 // no element are not written.
 file_write_plan plan_writes(
 	const raw_image_layout &layout,
-	const image_region_write_walk &walk,
+	const region_write_walk &walk,
 	const byte *array_data
 )
 {
@@ -97,7 +97,7 @@ direct_image_write_operation::direct_image_write_operation(
 	std::shared_ptr<writable_image_file> file,
 	const raw_image_layout &layout,
 	const_array source,
-	const image_region_write_walk &walk
+	const region_write_walk &walk
 )
 	: m_file(std::move(file))
 	, m_source(std::move(source))

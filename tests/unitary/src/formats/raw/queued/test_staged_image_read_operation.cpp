@@ -10,7 +10,7 @@
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 #include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
@@ -141,7 +141,7 @@ public:
 		);
 		const auto regions = images_of_stack();
 		const auto &target = m_destination.get_descriptor();
-		image_region_read_walk walk(
+		region_read_walk walk(
 			regions,
 			layout.get_descriptor().get_extents(),
 			layout.get_strides(),

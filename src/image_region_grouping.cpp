@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <image_region_grouping.hpp>
+#include <region_grouping.hpp>
 
 #include <assert.hpp>
 #include <vitrio/image_transaction_plan.hpp>
@@ -11,24 +11,24 @@
 namespace vitrio
 {
 
-image_region_grouping::image_region_grouping() noexcept = default;
+region_grouping::region_grouping() noexcept = default;
 
-image_region_grouping::image_region_grouping(
-	const image_region_grouping &other
+region_grouping::region_grouping(
+	const region_grouping &other
 ) = default;
-image_region_grouping::image_region_grouping(
-	image_region_grouping &&other
+region_grouping::region_grouping(
+	region_grouping &&other
 ) noexcept = default;
-image_region_grouping::~image_region_grouping() = default;
+region_grouping::~region_grouping() = default;
 
-image_region_grouping&
-image_region_grouping::operator=(const image_region_grouping &other) = default;
-image_region_grouping&
-image_region_grouping::operator=(
-	image_region_grouping &&other
+region_grouping&
+region_grouping::operator=(const region_grouping &other) = default;
+region_grouping&
+region_grouping::operator=(
+	region_grouping &&other
 ) noexcept = default;
 
-void image_region_grouping::build(const image_transaction_plan &plan)
+void region_grouping::build(const image_transaction_plan &plan)
 {
 	const auto files = plan.get_file_count();
 	const auto regions = plan.get_region_count();
@@ -52,30 +52,30 @@ void image_region_grouping::build(const image_transaction_plan &plan)
 	}
 }
 
-void image_region_grouping::clear() noexcept
+void region_grouping::clear() noexcept
 {
 	m_regions.clear();
 	m_first_position.assign(1, 0);
 }
 
-void image_region_grouping::reserve(std::size_t files, std::size_t regions)
+void region_grouping::reserve(std::size_t files, std::size_t regions)
 {
 	m_regions.reserve(regions);
 	m_first_position.reserve(files + 1);
 	m_cursors.reserve(files);
 }
 
-std::size_t image_region_grouping::get_region_count() const noexcept
+std::size_t region_grouping::get_region_count() const noexcept
 {
 	return m_regions.size();
 }
 
-std::size_t image_region_grouping::get_file_count() const noexcept
+std::size_t region_grouping::get_file_count() const noexcept
 {
 	return m_first_position.empty() ? 0 : m_first_position.size() - 1;
 }
 
-std::size_t image_region_grouping::get_addressed_file_count() const noexcept
+std::size_t region_grouping::get_addressed_file_count() const noexcept
 {
 	std::size_t addressed_file_count = 0;
 	const auto file_count = get_file_count();
@@ -91,14 +91,14 @@ std::size_t image_region_grouping::get_addressed_file_count() const noexcept
 }
 
 std::size_t
-image_region_grouping::get_first_position(std::size_t file_index) const noexcept
+region_grouping::get_first_position(std::size_t file_index) const noexcept
 {
 	VITRIO_ASSERT(file_index < get_file_count());
 	return m_first_position[file_index];
 }
 
 std::size_t
-image_region_grouping::get_file_region_count(
+region_grouping::get_file_region_count(
 	std::size_t file_index
 ) const noexcept
 {
@@ -107,14 +107,14 @@ image_region_grouping::get_file_region_count(
 }
 
 std::size_t
-image_region_grouping::get_region(std::size_t position) const noexcept
+region_grouping::get_region(std::size_t position) const noexcept
 {
 	VITRIO_ASSERT(position < m_regions.size());
 	return m_regions[position];
 }
 
 image_transfer_plan make_file_transfer_plan(
-	const image_region_grouping &grouping,
+	const region_grouping &grouping,
 	const image_transaction_plan &plan,
 	std::size_t file_index
 )

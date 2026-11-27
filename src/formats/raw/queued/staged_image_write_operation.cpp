@@ -2,7 +2,7 @@
 
 #include "staged_image_write_operation.hpp"
 
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/concurrency/task.hpp>
 #include <vitrio/const_memory_range.hpp>
@@ -69,9 +69,9 @@ staged_image_write_operation::staged_image_write_operation(
 	std::shared_ptr<writable_image_file> file,
 	const raw_image_layout &layout,
 	const_array source,
-	image_region_write_walk walk,
+	region_write_walk walk,
 	const image_transfer_schedule &schedule,
-	const image_region_runs &runs
+	const region_runs &runs
 )
 	: m_file(std::move(file))
 	, m_source(std::move(source))

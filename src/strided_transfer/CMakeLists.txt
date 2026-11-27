@@ -3,28 +3,28 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
-		image_chunk_regions.cpp
-		image_page_regions.cpp
-		image_region_bounds.cpp
-		image_region_offsets.cpp
-		image_region_read_walk.cpp
-		image_region_transfer.cpp
-		image_region_transfer_boolean.cpp
-		image_region_transfer_complex_float16.cpp
-		image_region_transfer_complex_float32.cpp
-		image_region_transfer_complex_float64.cpp
-		image_region_transfer_float16.cpp
-		image_region_transfer_float32.cpp
-		image_region_transfer_float64.cpp
-		image_region_transfer_int16.cpp
-		image_region_transfer_int32.cpp
-		image_region_transfer_int64.cpp
-		image_region_transfer_int8.cpp
-		image_region_transfer_uint16.cpp
-		image_region_transfer_uint32.cpp
-		image_region_transfer_uint64.cpp
-		image_region_transfer_uint8.cpp
-		image_region_write_walk.cpp
+		chunk_regions.cpp
+		page_regions.cpp
+		region_bounds.cpp
+		region_offsets.cpp
+		region_read_walk.cpp
+		region_transfer.cpp
+		region_transfer_boolean.cpp
+		region_transfer_complex_float16.cpp
+		region_transfer_complex_float32.cpp
+		region_transfer_complex_float64.cpp
+		region_transfer_float16.cpp
+		region_transfer_float32.cpp
+		region_transfer_float64.cpp
+		region_transfer_int16.cpp
+		region_transfer_int32.cpp
+		region_transfer_int64.cpp
+		region_transfer_int8.cpp
+		region_transfer_uint16.cpp
+		region_transfer_uint32.cpp
+		region_transfer_uint64.cpp
+		region_transfer_uint8.cpp
+		region_write_walk.cpp
 )
 
 add_subdirectory(region_loop)

@@ -36,20 +36,20 @@ class image_transfer_plan;
  * and keeps the capacity, so a grouping rebuilt after its first use
  * allocates nothing.
  */
-class image_region_grouping
+class region_grouping
 {
 public:
 	/**
 	 * @brief Construct a grouping over no region and no file.
 	 */
-	image_region_grouping() noexcept;
+	region_grouping() noexcept;
 
-	image_region_grouping(const image_region_grouping &other);
-	image_region_grouping(image_region_grouping &&other) noexcept;
-	~image_region_grouping();
+	region_grouping(const region_grouping &other);
+	region_grouping(region_grouping &&other) noexcept;
+	~region_grouping();
 
-	image_region_grouping& operator=(const image_region_grouping &other);
-	image_region_grouping& operator=(image_region_grouping &&other) noexcept;
+	region_grouping& operator=(const region_grouping &other);
+	region_grouping& operator=(region_grouping &&other) noexcept;
 
 	/**
 	 * @brief Order the regions of a plan by the file they address.
@@ -144,12 +144,12 @@ private:
  * @param plan The plan the shape and the regions come from. Must be
  * the one @p grouping was built from.
  * @param file_index Index of the file. Must be below
- * @ref image_region_grouping::get_file_count.
+ * @ref region_grouping::get_file_count.
  * @return image_transfer_plan The transfer plan for that file alone. Empty
  * for a file no region addresses.
  */
 image_transfer_plan make_file_transfer_plan(
-	const image_region_grouping &grouping,
+	const region_grouping &grouping,
 	const image_transaction_plan &plan,
 	std::size_t file_index
 );

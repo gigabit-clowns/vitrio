@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <image_region_grouping.hpp>
+#include <region_grouping.hpp>
 
 #include <vitrio/image_transaction_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -40,16 +40,16 @@ void add_element(
 
 } // anonymous namespace
 
-TEST_CASE( "an image_region_grouping starts empty", "[image_region_grouping]" )
+TEST_CASE( "an region_grouping starts empty", "[region_grouping]" )
 {
-	const image_region_grouping grouping;
+	const region_grouping grouping;
 
 	REQUIRE( grouping.get_region_count() == 0 );
 	REQUIRE( grouping.get_file_count() == 0 );
 }
 
-TEST_CASE( "an image_region_grouping gathers the regions of each file together",
-	"[image_region_grouping]" )
+TEST_CASE( "an region_grouping gathers the regions of each file together",
+	"[region_grouping]" )
 {
 	// A batch drawn at random from three stacks, in the order a sampler
 	// happened to produce it. This is the case the type exists for.
@@ -64,7 +64,7 @@ TEST_CASE( "an image_region_grouping gathers the regions of each file together",
 	add_element(plan, one, 2, 3);
 	add_element(plan, zero, 9, 4);
 
-	image_region_grouping grouping;
+	region_grouping grouping;
 	grouping.build(plan);
 
 	SECTION( "the plan itself is left in the order it was built in" )
@@ -157,14 +157,14 @@ TEST_CASE( "an image_region_grouping gathers the regions of each file together",
 }
 
 TEST_CASE( "a file no region addresses is grouped as empty",
-	"[image_region_grouping]" )
+	"[region_grouping]" )
 {
 	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
 	const auto zero = plan.add_file("stack_0.mrcs");
 	const auto empty = plan.add_file("stack_1.mrcs");
 	add_element(plan, zero, 0, 0);
 
-	image_region_grouping grouping;
+	region_grouping grouping;
 	grouping.build(plan);
 
 	REQUIRE( grouping.get_file_count() == 2 );
@@ -172,12 +172,12 @@ TEST_CASE( "a file no region addresses is grouped as empty",
 	REQUIRE( grouping.get_first_position(empty) == 1 );
 }
 
-TEST_CASE( "an empty plan groups into nothing", "[image_region_grouping]" )
+TEST_CASE( "an empty plan groups into nothing", "[region_grouping]" )
 {
 	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
 	plan.add_file("stack_0.mrcs");
 
-	image_region_grouping grouping;
+	region_grouping grouping;
 	grouping.build(plan);
 
 	REQUIRE( grouping.get_region_count() == 0 );
@@ -187,8 +187,8 @@ TEST_CASE( "an empty plan groups into nothing", "[image_region_grouping]" )
 }
 
 TEST_CASE(
-	"an image_region_grouping reused across transactions stops allocating",
-	"[image_region_grouping]"
+	"an region_grouping reused across transactions stops allocating",
+	"[region_grouping]"
 )
 {
 	const std::size_t count = 64;
@@ -196,7 +196,7 @@ TEST_CASE(
 	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
 	plan.reserve(2, count);
 
-	image_region_grouping grouping;
+	region_grouping grouping;
 	grouping.reserve(2, count);
 
 	const auto fill = [&] ()
@@ -227,20 +227,20 @@ TEST_CASE(
 }
 
 TEST_CASE(
-	"an image_region_grouping has value semantics",
-	"[image_region_grouping]"
+	"an region_grouping has value semantics",
+	"[region_grouping]"
 )
 {
 	image_transaction_plan plan(image_transfer_shape(plane_extents, 3, 3));
 	const auto file = plan.add_file("stack_0.mrcs");
 	add_element(plan, file, 2, 0);
 
-	image_region_grouping grouping;
+	region_grouping grouping;
 	grouping.build(plan);
 
 	SECTION( "a copy holds the same ordering" )
 	{
-		const image_region_grouping copy(grouping);
+		const region_grouping copy(grouping);
 
 		REQUIRE( copy.get_region_count() == 1 );
 		REQUIRE( copy.get_file_count() == 1 );
@@ -249,7 +249,7 @@ TEST_CASE(
 
 	SECTION( "a copy does not share storage with the one it copies" )
 	{
-		image_region_grouping copy(grouping);
+		region_grouping copy(grouping);
 		copy.clear();
 
 		REQUIRE( copy.get_region_count() == 0 );

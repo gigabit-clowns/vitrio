@@ -112,7 +112,7 @@ public:
 		const auto layout = std::make_shared<const zarr_array_layout>(
 			read_zarr_node(m_directory.get()));
 		const auto regions = whole_of({4, 4});
-		image_chunk_regions chunks(
+		chunk_regions chunks(
 			regions,
 			layout->get_shape(),
 			layout->get_chunk_layout().get_extents()
@@ -461,7 +461,7 @@ public:
 		const auto layout = std::make_shared<const zarr_array_layout>(
 			read_zarr_node(directory));
 		const auto regions = whole_of({6, 10});
-		image_chunk_regions chunks(
+		chunk_regions chunks(
 			regions,
 			layout->get_shape(),
 			layout->get_chunk_layout().get_extents()

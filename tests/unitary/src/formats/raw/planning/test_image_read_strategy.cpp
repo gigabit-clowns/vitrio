@@ -5,7 +5,7 @@
 #include <formats/raw/planning/image_read_strategy.hpp>
 
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 
 #include <vitrio/array/numerical_type.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -49,7 +49,7 @@ image_transfer_plan region_of(const std::vector<std::size_t> &extents)
 	return regions;
 }
 
-image_region_read_walk walk_of(
+region_read_walk walk_of(
 	const image_transfer_plan &regions,
 	const std::vector<std::size_t> &extents
 )
@@ -57,7 +57,7 @@ image_region_read_walk walk_of(
 	const std::vector<std::ptrdiff_t> strides = {
 		static_cast<std::ptrdiff_t>(extents[1]), 1
 	};
-	return image_region_read_walk(
+	return region_read_walk(
 		regions,
 		make_span(image),
 		make_span(image_strides),
