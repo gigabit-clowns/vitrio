@@ -423,6 +423,70 @@ TEST_CASE(
 }
 
 TEST_CASE(
+	"run_contiguous_regions hands the kernel every row of every region as one "
+	"run",
+	"[image_region_loop]"
+)
+{
+	// Two regions of 3 rows of 4, into rows of 8 of a destination that
+	// starts at an origin, out of a source with rows of 4.
+	std::vector<int> destination(64, -1);
+	const auto source = counting(24);
+	const std::ptrdiff_t destination_offsets[] = {8, 8 + 4 * 8};
+	const std::ptrdiff_t source_offsets[] = {0, 12};
+	const auto layout = make_layout({3, 4}, {8, 1}, {4, 1});
+
+	std::vector<std::size_t> runs;
+	std::size_t single_elements = 0;
+	run_contiguous_regions(
+		run_recording_kernel(runs, single_elements),
+		layout,
+		make_span(destination_offsets, 2),
+		make_span(source_offsets, 2),
+		destination.data() + 8,
+		8,
+		source.data(),
+		0
+	);
+
+	REQUIRE( runs == std::vector<std::size_t>(6, 4) );
+	REQUIRE( single_elements == 0 );
+
+	run_contiguous_regions(
+		copy_kernel(),
+		layout,
+		make_span(destination_offsets, 2),
+		make_span(source_offsets, 2),
+		destination.data() + 8,
+		8,
+		source.data(),
+		0
+	);
+
+	// Region 0 fills rows 1 to 3 and region 1 rows 5 to 7, four of eight.
+	for (std::size_t row = 0; row < 8; ++row)
+	{
+		for (std::size_t column = 0; column < 8; ++column)
+		{
+			const auto value = destination[8 * row + column];
+			if (column >= 4 || row == 0 || row == 4)
+			{
+				REQUIRE( value == -1 );
+			}
+			else
+			{
+				const auto region = row / 4;
+				const auto region_row = row % 4 - 1;
+				REQUIRE(
+					value ==
+					static_cast<int>(12 * region + 4 * region_row + column)
+				);
+			}
+		}
+	}
+}
+
+TEST_CASE(
 	"run_region_loop calls the kernel once for a single element",
 	"[image_region_loop]"
 )

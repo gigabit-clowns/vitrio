@@ -187,6 +187,18 @@ image_region_layout::get_axis(std::size_t index) const noexcept
 	return m_axes[index];
 }
 
+bool image_region_layout::is_inner_axis_contiguous() const noexcept
+{
+	if (m_axes.empty())
+	{
+		return true;
+	}
+
+	const auto &inner = m_axes.front();
+	return inner.get_destination_stride() == 1 &&
+		inner.get_source_stride() == 1;
+}
+
 std::size_t image_region_layout::compute_element_count() const noexcept
 {
 	std::size_t count = 1;

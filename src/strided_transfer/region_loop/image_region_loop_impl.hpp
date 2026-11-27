@@ -121,4 +121,32 @@ void run_regions(
 	std::ptrdiff_t source_origin
 );
 
+/**
+ * @brief Walk every region with one layout whose innermost axis is
+ * contiguous on both sides.
+ *
+ * It is @ref run_regions for the layouts that hand the kernel runs, and
+ * compiles the loop for two unit strides alone: a unit that compiles the
+ * walk for a kernel whose run operation is the point of it is spared the
+ * loops over strided elements, which it would walk no faster than any other.
+ *
+ * @pre @c layout.is_inner_axis_contiguous()
+ * @see run_regions for the arguments.
+ */
+template <
+	typename Kernel,
+	typename DestinationPointer,
+	typename SourcePointer
+>
+void run_contiguous_regions(
+	const Kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
+);
+
 #include "image_region_loop_impl.inl"

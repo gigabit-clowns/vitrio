@@ -12,7 +12,7 @@
 # target of an architecture, the one of the baseline, is not in it: Highway
 # must keep the target of the compiler flags among the ones it compiles.
 #
-# Highway gives a better target a lower bit, and so writes (HWY_X - 1) for
+# Highway gives a better target a lower bit, and so writes (HWY_X-1) for
 # every target better than X. The targets left out are the ones of the table
 # that were not asked for, and every target better than the best that was,
 # through that idiom: so a target a later release of Highway adds stays out
@@ -72,7 +72,7 @@ function(vitrio_simd_disabled_targets variable)
 	if(NOT best)
 		list(GET table 0 best)
 	endif()
-	list(APPEND disabled "(HWY_${best} - 1)")
+	list(APPEND disabled "(HWY_${best}-1)")
 	string(REPLACE ";" "|" expression "${disabled}")
 	set(${variable} "(${expression})" PARENT_SCOPE)
 endfunction()

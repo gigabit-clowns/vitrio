@@ -28,3 +28,7 @@ target_sources(
 )
 
 add_subdirectory(region_loop)
+
+if(VITRIO_ENABLE_SIMD)
+	add_subdirectory(simd)
+endif()

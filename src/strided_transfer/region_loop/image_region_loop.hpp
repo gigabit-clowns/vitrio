@@ -6,6 +6,8 @@
 
 #include <vitrio/span.hpp>
 
+#include <assert.hpp>
+
 #include <cstddef>
 #include <type_traits>
 
