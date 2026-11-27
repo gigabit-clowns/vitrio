@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <strided_transfer/image_region_layout.hpp>
+#include <strided_transfer/region_loop/image_region_layout.hpp>
 
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -304,4 +304,74 @@ TEST_CASE(
 	);
 
 	REQUIRE( layout.compute_element_count() == 0 );
+}
+
+TEST_CASE(
+	"an image_region_layout tells whether its innermost axis is contiguous on "
+	"both sides",
+	"[image_region_layout]"
+)
+{
+	const std::vector<std::size_t> extents = {3, 4};
+	const std::vector<std::ptrdiff_t> contiguous = {4, 1};
+	const std::vector<std::ptrdiff_t> padded = {8, 1};
+	const std::vector<std::ptrdiff_t> strided = {8, 2};
+	const std::vector<std::ptrdiff_t> transposed = {1, 3};
+	const auto regions = one_region(extents, 2, 2);
+
+	SECTION( "when both sides are, however the rows are spaced" )
+	{
+		const image_region_layout layout(
+			regions,
+			make_span(padded),
+			make_span(contiguous)
+		);
+
+		REQUIRE( layout.is_inner_axis_contiguous() );
+	}
+
+	SECTION( "but not when the source skips elements" )
+	{
+		const image_region_layout layout(
+			regions,
+			make_span(contiguous),
+			make_span(strided)
+		);
+
+		REQUIRE_FALSE( layout.is_inner_axis_contiguous() );
+	}
+
+	SECTION( "nor when the destination does" )
+	{
+		const image_region_layout layout(
+			regions,
+			make_span(strided),
+			make_span(contiguous)
+		);
+
+		REQUIRE_FALSE( layout.is_inner_axis_contiguous() );
+	}
+
+	SECTION( "nor when the source is walked in another order" )
+	{
+		const image_region_layout layout(
+			regions,
+			make_span(contiguous),
+			make_span(transposed)
+		);
+
+		REQUIRE_FALSE( layout.is_inner_axis_contiguous() );
+	}
+
+	SECTION( "and a single element is" )
+	{
+		const auto element = one_region({}, 0, 0);
+		const image_region_layout layout(
+			element,
+			make_span(std::vector<std::ptrdiff_t>()),
+			make_span(std::vector<std::ptrdiff_t>())
+		);
+
+		REQUIRE( layout.is_inner_axis_contiguous() );
+	}
 }

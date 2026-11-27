@@ -121,10 +121,11 @@ jobs:
   # not fail it: before 1.0 a release may break the ABI, and this tells
   # which kind of release the next one has to be.
   #
-  # Both are built against the packages of the distribution.
+  # Both are built against the packages of the distribution, which has to
+  # carry Highway 1.2.0: that is Ubuntu 26.04, named rather than latest.
   abi:
     name: ABI since the last release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CXX: g++
     steps:
@@ -139,7 +140,7 @@ jobs:
           sudo apt-get install --yes abigail-tools \
             libboost-filesystem-dev libboost-dev libspdlog-dev \
             libtiff-dev zlib1g-dev liburing-dev \
-            nlohmann-json3-dev libblosc-dev libzstd-dev
+            nlohmann-json3-dev libblosc-dev libzstd-dev libhwy-dev
 
       - name: Check out the last release beside this tree
         run: |
@@ -189,10 +190,11 @@ jobs:
   # The presets need CMake 3.24, so this is the one job that does without
   # them, and the one that holds cmake_minimum_required to its word. It is
   # also the one that finds every dependency installed, as a distribution
-  # builds vitrio.
+  # builds vitrio, which has to carry Highway 1.2.0: that is Ubuntu 26.04,
+  # named rather than latest.
   minimum-cmake:
     name: CMake 3.18
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CXX: g++
     steps:
@@ -206,7 +208,7 @@ jobs:
             libboost-filesystem-dev libboost-dev libspdlog-dev \
             libtiff-dev zlib1g-dev liburing-dev catch2 \
             libtrompeloeil-cpp-dev nlohmann-json3-dev libblosc-dev \
-            libzstd-dev
+            libzstd-dev libhwy-dev
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

@@ -125,6 +125,18 @@ public:
 	 */
 	std::size_t compute_element_count() const noexcept;
 
+	/**
+	 * @brief Whether consecutive elements of the innermost axis are
+	 * consecutive in memory on both sides.
+	 *
+	 * That is the axis a loop runs over as one run. A walk with no axes is
+	 * a single element, which counts as contiguous.
+	 *
+	 * @return bool True when the innermost axis has a stride of one on both
+	 * sides, or there is none.
+	 */
+	bool is_inner_axis_contiguous() const noexcept;
+
 private:
 	std::vector<axis> m_axes;
 

@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <strided_transfer/image_region_loop.hpp>
+#include <strided_transfer/region_loop/image_region_loop.hpp>
 
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -39,6 +39,18 @@ struct copy_kernel
 	{
 		*destination = *source;
 	}
+
+	void operator()(
+		int *destination,
+		const int *source,
+		std::size_t count
+	) const noexcept
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			destination[i] = source[i];
+		}
+	}
 };
 
 // Notes the destination of every call, in the order the calls are made.
@@ -55,8 +67,45 @@ public:
 		m_visited->push_back(destination);
 	}
 
+	void operator()(int *destination, const int *, std::size_t count) const
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			m_visited->push_back(destination + i);
+		}
+	}
+
 private:
 	std::vector<const int*> *m_visited;
+};
+
+// Notes the length of every run it is handed, and counts the elements it is
+// handed one by one.
+class run_recording_kernel
+{
+public:
+	explicit run_recording_kernel(
+		std::vector<std::size_t> &runs,
+		std::size_t &single_elements
+	) noexcept
+		: m_runs(&runs)
+		, m_single_elements(&single_elements)
+	{
+	}
+
+	void operator()(int *, const int *) const
+	{
+		++*m_single_elements;
+	}
+
+	void operator()(int *, const int *, std::size_t count) const
+	{
+		m_runs->push_back(count);
+	}
+
+private:
+	std::vector<std::size_t> *m_runs;
+	std::size_t *m_single_elements;
 };
 
 std::vector<int> counting(std::size_t count)
@@ -309,6 +358,130 @@ TEST_CASE(
 		for (std::size_t i = 0; i < visited.size(); ++i)
 		{
 			REQUIRE( visited[i] == destination.data() + i );
+		}
+	}
+}
+
+TEST_CASE(
+	"run_region_loop hands the kernel an innermost axis contiguous on both "
+	"sides as one run",
+	"[image_region_loop]"
+)
+{
+	std::vector<int> destination(48);
+	const auto source = counting(48);
+	std::vector<std::size_t> runs;
+	std::size_t single_elements = 0;
+	const run_recording_kernel kernel(runs, single_elements);
+
+	SECTION( "once per step of the axes outside it" )
+	{
+		const auto layout = make_layout({2, 3, 4}, {24, 8, 1}, {16, 4, 1});
+
+		run_dispatched_region_loop(
+			kernel,
+			layout,
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs == std::vector<std::size_t>(6, 4) );
+		REQUIRE( single_elements == 0 );
+	}
+
+	SECTION( "and element by element where a side is strided" )
+	{
+		const auto layout = make_layout({3, 4}, {16, 2}, {4, 1});
+
+		run_dispatched_region_loop(
+			kernel,
+			layout,
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs.empty() );
+		REQUIRE( single_elements == 12 );
+	}
+
+	SECTION( "but not a stride of one given at run time" )
+	{
+		const auto layout = make_layout({3, 4}, {4, 1}, {4, 1});
+
+		run_region_loop(
+			kernel,
+			layout,
+			std::ptrdiff_t(1),
+			std::ptrdiff_t(1),
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs.empty() );
+		REQUIRE( single_elements == 12 );
+	}
+}
+
+TEST_CASE(
+	"run_contiguous_regions hands the kernel every row of every region as one "
+	"run",
+	"[image_region_loop]"
+)
+{
+	// Two regions of 3 rows of 4, into rows of 8 of a destination that
+	// starts at an origin, out of a source with rows of 4.
+	std::vector<int> destination(64, -1);
+	const auto source = counting(24);
+	const std::ptrdiff_t destination_offsets[] = {8, 8 + 4 * 8};
+	const std::ptrdiff_t source_offsets[] = {0, 12};
+	const auto layout = make_layout({3, 4}, {8, 1}, {4, 1});
+
+	std::vector<std::size_t> runs;
+	std::size_t single_elements = 0;
+	run_contiguous_regions(
+		run_recording_kernel(runs, single_elements),
+		layout,
+		make_span(destination_offsets, 2),
+		make_span(source_offsets, 2),
+		destination.data() + 8,
+		8,
+		source.data(),
+		0
+	);
+
+	REQUIRE( runs == std::vector<std::size_t>(6, 4) );
+	REQUIRE( single_elements == 0 );
+
+	run_contiguous_regions(
+		copy_kernel(),
+		layout,
+		make_span(destination_offsets, 2),
+		make_span(source_offsets, 2),
+		destination.data() + 8,
+		8,
+		source.data(),
+		0
+	);
+
+	// Region 0 fills rows 1 to 3 and region 1 rows 5 to 7, four of eight.
+	for (std::size_t row = 0; row < 8; ++row)
+	{
+		for (std::size_t column = 0; column < 8; ++column)
+		{
+			const auto value = destination[8 * row + column];
+			if (column >= 4 || row == 0 || row == 4)
+			{
+				REQUIRE( value == -1 );
+			}
+			else
+			{
+				const auto region = row / 4;
+				const auto region_row = row % 4 - 1;
+				REQUIRE(
+					value ==
+					static_cast<int>(12 * region + 4 * region_row + column)
+				);
+			}
 		}
 	}
 }

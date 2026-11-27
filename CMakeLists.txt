@@ -56,6 +56,39 @@ offers it, which needs liburing"
 	ON
 	"CMAKE_SYSTEM_NAME STREQUAL Linux" OFF
 )
+option(
+	VITRIO_ENABLE_SIMD
+	"Convert half precision values with the vector units of the processor, \
+which needs Google Highway"
+	ON
+)
+set(
+	VITRIO_SIMD_DISPATCH DYNAMIC CACHE STRING
+	"DYNAMIC compiles the vector loops once per instruction set they are \
+asked for and picks one as the library runs; STATIC compiles them once, for \
+the instruction set the compiler flags allow"
+)
+set_property(CACHE VITRIO_SIMD_DISPATCH PROPERTY STRINGS DYNAMIC STATIC)
+if(NOT VITRIO_SIMD_DISPATCH MATCHES "^(DYNAMIC|STATIC)$")
+	message(
+		FATAL_ERROR
+		"VITRIO_SIMD_DISPATCH is ${VITRIO_SIMD_DISPATCH}; it is DYNAMIC or STATIC"
+	)
+endif()
+include(vitrio_simd_targets)
+vitrio_simd_default_targets(VITRIO_SIMD_DEFAULT_TARGETS)
+set(
+	VITRIO_SIMD_TARGETS "${VITRIO_SIMD_DEFAULT_TARGETS}" CACHE STRING
+	"The instruction sets the vector loops are compiled for beyond the one \
+the compiler flags allow, by Highway's names without HWY_, such as AVX2;AVX3. \
+Read only with VITRIO_SIMD_DISPATCH=DYNAMIC"
+)
+# Checked here, so that a name outside the table stops the configure before
+# anything is fetched.
+vitrio_simd_disabled_targets(
+	VITRIO_SIMD_DISABLED_TARGETS
+	${VITRIO_SIMD_TARGETS}
+)
 option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
 option(
 	VITRIO_PYTHON_STABLE_ABI
@@ -160,6 +193,13 @@ cmake_dependent_option(
 cmake_dependent_option(
 	VITRIO_USE_SYSTEM_BLOSC
 	"Find an installed c-blosc rather than fetching it"
+	OFF
+	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
+	ON
+)
+cmake_dependent_option(
+	VITRIO_USE_SYSTEM_HIGHWAY
+	"Find an installed Google Highway rather than fetching it"
 	OFF
 	"NOT VITRIO_USE_SYSTEM_DEPENDENCIES"
 	ON
@@ -278,6 +318,18 @@ elseif(VITRIO_ENABLE_IO_URING)
 	vitrio_fetch_liburing(
 		COMMIT d41bf9220ec39277ff235379e9089d9e0fd6c2a5
 	) # liburing-2.15
+endif()
+
+# Highway installs a CMake package, hwy, with the target hwy::hwy. The build
+# may be asked for any of a table of its targets, and 1.2.0 is the first
+# release that names every one of them.
+if(VITRIO_ENABLE_SIMD AND VITRIO_USE_SYSTEM_HIGHWAY)
+	find_package(hwy 1.2.0 REQUIRED CONFIG)
+elseif(VITRIO_ENABLE_SIMD)
+	include(vitrio_fetch_highway)
+	vitrio_fetch_highway(
+		COMMIT 2607d3b5b0113992fe84d3848859eae13b3b52c1
+	) # 1.4.0
 endif()
 
 # nanobind ships its CMake package inside its Python package, so the

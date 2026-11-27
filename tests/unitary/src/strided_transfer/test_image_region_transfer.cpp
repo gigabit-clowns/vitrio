@@ -716,6 +716,182 @@ TEST_CASE( "values are converted into the type asked for",
 	}
 }
 
+TEST_CASE( "half precision values and floats are converted as runs",
+	"[image_region_transfer]" )
+{
+	// An odd number of them, more than any vector holds, with the values
+	// that have a special case: zeros of both signs, subnormals, the largest
+	// finite one, infinities and a NaN.
+	const std::size_t count = 37;
+	std::vector<float16_t> halves(count);
+	halves[0] = float16_t::from_bits(0x0000U);
+	halves[1] = float16_t::from_bits(0x8000U);
+	halves[2] = float16_t::from_bits(0x0001U);
+	halves[3] = float16_t::from_bits(0x83FFU);
+	halves[4] = float16_t::from_bits(0x7BFFU);
+	halves[5] = float16_t::from_bits(0x7C00U);
+	halves[6] = float16_t::from_bits(0xFC00U);
+	halves[7] = float16_t::from_bits(0x7E00U);
+	for (std::size_t i = 8; i < count; ++i)
+	{
+		halves[i] = float16_t(static_cast<float>(i) * 0.75F - 10.0F);
+	}
+
+	const auto is_nan = [] (std::uint16_t bits)
+	{
+		return (bits & 0x7C00U) == 0x7C00U && (bits & 0x3FFU) != 0;
+	};
+
+	std::vector<float32_t> floats(count);
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		floats[i] = static_cast<float>(halves[i]);
+	}
+
+	const std::vector<std::size_t> extents = {count};
+	const auto strides = contiguous_strides(extents);
+	image_transfer_plan regions(image_transfer_shape(extents, 1, 1));
+	regions.add(make_span(std::vector<std::size_t>{0}),
+		make_span(std::vector<std::size_t>{0}));
+
+	const image_region_read_walk reader(
+		regions,
+		make_span(extents), make_span(strides),
+		make_span(extents), make_span(strides),
+		0
+	);
+	const image_region_write_walk writer(
+		regions,
+		make_span(extents), make_span(strides),
+		make_span(extents), make_span(strides),
+		0
+	);
+
+	const auto same_floats = [&] (const std::vector<float32_t> &array)
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			if (is_nan(halves[i].get_bits()))
+			{
+				if (!std::isnan(array[i]) ||
+					std::signbit(array[i]) != std::signbit(floats[i]))
+				{
+					return false;
+				}
+			}
+			else if (std::memcmp(&array[i], &floats[i], sizeof(float)) != 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+
+	const auto same_halves = [&] (const std::vector<float16_t> &file)
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			const auto bits = file[i].get_bits();
+			const auto expected = halves[i].get_bits();
+			if (is_nan(expected))
+			{
+				if (!is_nan(bits) || (bits >> 15) != (expected >> 15))
+				{
+					return false;
+				}
+			}
+			else if (bits != expected)
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+
+	// The file in either byte order.
+	const auto file_in = [&] (byte_order order)
+	{
+		std::vector<float16_t> file = halves;
+		if (order != get_system_byte_order())
+		{
+			std::transform(halves.begin(), halves.end(), file.begin(),
+				[] (const float16_t &value) { return reversed(value); });
+		}
+		return file;
+	};
+
+	SECTION( "read out of a file of half precision values" )
+	{
+		for (const auto order : {get_system_byte_order(), other_byte_order()})
+		{
+			const auto file = file_in(order);
+			std::vector<float32_t> array(count, 9.0F);
+
+			read_regions(
+				reader,
+				array.data(), numerical_type::float32,
+				as_file(file), numerical_type::float16,
+				order
+			);
+
+			REQUIRE( same_floats(array) );
+		}
+	}
+
+	SECTION( "written into a file of half precision values" )
+	{
+		for (const auto order : {get_system_byte_order(), other_byte_order()})
+		{
+			std::vector<float16_t> written(count);
+
+			write_regions(
+				writer,
+				floats.data(), numerical_type::float32,
+				as_file(written), numerical_type::float16,
+				order
+			);
+
+			// Back into the byte order of the system to compare.
+			if (order != get_system_byte_order())
+			{
+				std::transform(written.begin(), written.end(),
+					written.begin(),
+					[] (const float16_t &value) { return reversed(value); });
+			}
+			REQUIRE( same_halves(written) );
+		}
+	}
+
+	SECTION( "and one at a time into a strided array" )
+	{
+		// Every other element of an array twice as long.
+		const std::vector<std::size_t> array_extents = {2 * count};
+		const std::vector<std::ptrdiff_t> array_strides = {2};
+		const image_region_read_walk strided(
+			regions,
+			make_span(extents), make_span(strides),
+			make_span(array_extents), make_span(array_strides),
+			0
+		);
+		std::vector<float32_t> array(2 * count, 9.0F);
+
+		read_regions(
+			strided,
+			array.data(), numerical_type::float32,
+			as_file(halves), numerical_type::float16,
+			get_system_byte_order()
+		);
+
+		std::vector<float32_t> taken(count);
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			taken[i] = array[2 * i];
+			REQUIRE( array[2 * i + 1] == 9.0F );
+		}
+		REQUIRE( same_floats(taken) );
+	}
+}
+
 TEST_CASE( "a file holds a boolean as a byte, true unless it is zero",
 	"[image_region_transfer]" )
 {

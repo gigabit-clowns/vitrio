@@ -33,6 +33,7 @@ since the archive of a commit lacks its libraries, which are submodules.
 | spdlog 1.4 or newer | The library, privately and header only, for its log |
 | libtiff 4.5 or newer | The library, privately, for the TIFF and EER formats. Not needed with `-DVITRIO_ENABLE_TIFF=OFF` |
 | liburing 2.0 or newer | The library, privately and on Linux only, for the queue of file reads through io_uring. Not needed with `-DVITRIO_ENABLE_IO_URING=OFF`. It installs no CMake package, so it is found with pkg-config. It has no CMake build either: built, its own configure script is run into the build tree, which needs a POSIX shell and make |
+| Google Highway 1.2.0 or newer | The library, privately, for the half precision loops of the strided transfer, compiled once per instruction set. 1.2.0 is the first release that names every target the build may be asked for. Not needed with `-DVITRIO_ENABLE_SIMD=OFF` |
 | zlib | libtiff, for Deflate compression, the ZARR format, for its zlib and gzip codecs, and the MRC files compressed with gzip. Fetched before libtiff and c-blosc, it is the one a fetched libtiff and c-blosc find, which needs CMake 3.24. Not needed with `-DVITRIO_ENABLE_TIFF=OFF`, `-DVITRIO_ENABLE_ZARR=OFF` and `-DVITRIO_ENABLE_GZIP=OFF` together |
 | nlohmann/json 3.6 or newer | The library, privately and header only, for the metadata of ZARR. Not needed with `-DVITRIO_ENABLE_ZARR=OFF` |
 | zstd 1.4 or newer | The library, privately, for the zstd codec of ZARR, and c-blosc. Found through pkg-config. Not needed with `-DVITRIO_ENABLE_ZARR=OFF` |

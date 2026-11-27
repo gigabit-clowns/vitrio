@@ -20,13 +20,15 @@ package supports.
 
 Those jobs fetch the dependencies, except the one with CMake 3.18. That one
 finds them all installed from the packages of Ubuntu, as a distribution
-builds vitrio.
+builds vitrio, and so runs on the release of Ubuntu named in the workflow
+rather than on `ubuntu-latest`: Highway has to be 1.2.0 or newer, which
+Ubuntu carries from 25.04 on.
 
 One more job builds the last release beside the tree and has libabigail
 say what changed in the ABI between the two. A change does not fail it:
 before 1.0 a release may break the ABI, and the report tells which kind of
 release the next one has to be. Both are built against the packages of
-Ubuntu.
+Ubuntu, on the same named release.
 
 `.github/workflows/documentation.yml` builds the documentation of the C++ API
 and of the Python package, puts them side by side and publishes them to

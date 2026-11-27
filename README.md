@@ -306,6 +306,7 @@ static, inside its own library:
 - nlohmann/json, c-blosc, zstd and zlib, unless ZARR is turned off
 - zlib, unless reading MRC files compressed with gzip is turned off
 - liburing, on Linux, unless io_uring is turned off
+- Google Highway, unless the vector loops are turned off
 - Catch2 and trompeloeil, for the tests
 
 ```
@@ -319,12 +320,13 @@ To use the libraries installed on the system instead, turn
 `VITRIO_USE_SYSTEM_DEPENDENCIES` on. CMake then looks for each of them with
 `find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
 is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
-nlohmann/json 3.6, c-blosc 1.14, zstd 1.4 and Catch2 3 or newer. One of them
-alone is found rather than built by turning its own option on, such as
-`-DVITRIO_USE_SYSTEM_TIFF=ON`. The others are `VITRIO_USE_SYSTEM_BOOST`,
-`VITRIO_USE_SYSTEM_SPDLOG`, `VITRIO_USE_SYSTEM_ZLIB`,
-`VITRIO_USE_SYSTEM_LIBURING`, `VITRIO_USE_SYSTEM_NLOHMANN_JSON`,
-`VITRIO_USE_SYSTEM_BLOSC`, `VITRIO_USE_SYSTEM_ZSTD`,
+nlohmann/json 3.6, c-blosc 1.14, zstd 1.4, Highway 1.2.0 and Catch2 3 or
+newer. One of them alone is found rather than built by turning its own
+option on, such as `-DVITRIO_USE_SYSTEM_TIFF=ON`. The others are
+`VITRIO_USE_SYSTEM_BOOST`, `VITRIO_USE_SYSTEM_SPDLOG`,
+`VITRIO_USE_SYSTEM_ZLIB`, `VITRIO_USE_SYSTEM_LIBURING`,
+`VITRIO_USE_SYSTEM_NLOHMANN_JSON`, `VITRIO_USE_SYSTEM_BLOSC`,
+`VITRIO_USE_SYSTEM_ZSTD`, `VITRIO_USE_SYSTEM_HIGHWAY`,
 `VITRIO_USE_SYSTEM_CATCH2` and `VITRIO_USE_SYSTEM_TROMPELOEIL`.
 
 Without access to the network, give each library that is built the
@@ -341,6 +343,9 @@ A few options change what gets built:
 | `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
 | `-DVITRIO_ENABLE_GZIP=OFF` | Leave out reading MRC files compressed with gzip, and zlib with it when TIFF and ZARR are out too |
 | `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
+| `-DVITRIO_ENABLE_SIMD=OFF` | Convert half precision values with the loops the compiler vectorizes alone, and leave Highway out |
+| `-DVITRIO_SIMD_DISPATCH=STATIC` | Compile the vector loops once, for the instruction set the compiler flags allow, rather than once per instruction set with the choice made as the library runs |
+| `-DVITRIO_SIMD_TARGETS=AVX2` | The instruction sets the vector loops are compiled for beyond the baseline, by Highway's names; the default is `AVX2;AVX3` on x86 and nothing on aarch64, where NEON converts half precision values already |
 | `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
 | `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
 | `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen, and with `VITRIO_BUILD_PYTHON` the target `vitrio-python-docs`, which builds that of the Python package with Sphinx |

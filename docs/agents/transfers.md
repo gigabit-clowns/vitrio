@@ -67,3 +67,13 @@ How reads, writes, flushes and the loads of a scratch are started, reported and 
   - Work that waits for the tasks of an executor says so, and must not run
     on a thread of it. Creating an `indexed_image_scratch` opens its files
     that way, all at once.
+  - The values of a transfer are converted by `src/strided_transfer/`,
+    whose loop, in `region_loop/`, walks every region of a batch in one
+    layout and hands a kernel either one element or a run that is
+    contiguous on both sides. The kernels convert with `cast`, and a loop
+    the compiler vectorizes is what a run gets, except that half precision
+    values and floats in the native byte order go to `simd/`, through the
+    four overloads of `run_regions` in `image_region_transfer_impl.hpp`:
+    there the loop is compiled once per instruction set and chosen once per
+    call. A transfer in the other byte order, or with a strided side, keeps
+    the generic loop.

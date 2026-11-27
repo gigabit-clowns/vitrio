@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "image_region_layout.hpp"
+#include <strided_transfer/region_loop/image_region_layout.hpp>
 #include "image_region_offsets.hpp"
 
 

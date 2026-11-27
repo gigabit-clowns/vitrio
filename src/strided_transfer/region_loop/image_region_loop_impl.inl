@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#pragma once
-
-#include "image_region_loop.hpp"
-
-#include <cstddef>
-
-namespace vitrio
-{
+// This file is a body, as image_region_loop_impl.hpp, which includes it, is.
+//
+// A function of the body calls another with its name in parentheses. That
+// keeps the lookup to the namespace the body is compiled into: the namespace
+// of the arguments may hold another copy of the body, which the arguments
+// would otherwise bring in, and the two copies are alike to the compiler.
 
 template <typename Function>
 inline void dispatch_region_inner_strides(
@@ -43,6 +41,10 @@ inline void dispatch_region_inner_strides(
 	}
 }
 
+// Walks the innermost axis element by element where a side is strided.
+// Spelled out with an index, so that where the other side is contiguous its
+// stride of region_unit_stride multiplies away when the code is compiled, and
+// the compiler sees a loop over one plain array.
 template <
 	typename Kernel,
 	typename DestinationStride,
@@ -59,9 +61,6 @@ inline void run_region_inner_loop(
 	Source source
 )
 {
-	// Spelled out with an index, so that where both sides are contiguous the
-	// compiler sees a loop over two plain arrays: a stride of
-	// region_unit_stride multiplies away when the code is compiled.
 	const auto count = static_cast<std::ptrdiff_t>(extent);
 	for (std::ptrdiff_t i = 0; i < count; ++i)
 	{
@@ -70,6 +69,22 @@ inline void run_region_inner_loop(
 			source + i * source_stride
 		);
 	}
+}
+
+// Where both sides are contiguous the whole axis is one run, and the kernel
+// is handed it as such. This overload is the more specialized of the two, so
+// it is the one chosen for a pair of unit strides.
+template <typename Kernel, typename Destination, typename Source>
+inline void run_region_inner_loop(
+	const Kernel &kernel,
+	std::size_t extent,
+	region_unit_stride,
+	region_unit_stride,
+	Destination destination,
+	Source source
+)
+{
+	kernel(destination, source, extent);
 }
 
 // Walks one axis and, through itself, the axes inside it. The depth of the
@@ -94,7 +109,7 @@ inline void run_region_axis(
 	const auto &axis = layout.get_axis(index);
 	if (index == 0)
 	{
-		run_region_inner_loop(
+		(run_region_inner_loop)(
 			kernel,
 			axis.get_extent(),
 			inner_destination_stride,
@@ -108,7 +123,7 @@ inline void run_region_axis(
 	const auto extent = axis.get_extent();
 	for (std::size_t i = 0; i < extent; ++i)
 	{
-		run_region_axis(
+		(run_region_axis)(
 			kernel,
 			layout,
 			index - 1,
@@ -146,7 +161,7 @@ inline void run_region_loop(
 		return;
 	}
 
-	run_region_axis(
+	(run_region_axis)(
 		kernel,
 		layout,
 		axis_count - 1,
@@ -157,4 +172,69 @@ inline void run_region_loop(
 	);
 }
 
-} // namespace vitrio
+template <
+	typename Kernel,
+	typename DestinationPointer,
+	typename SourcePointer
+>
+inline void run_regions(
+	const Kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	(dispatch_region_inner_strides)(
+		layout,
+		[&] (auto destination_stride, auto source_stride)
+		{
+			for (std::size_t i = 0; i < destination_offsets.size(); ++i)
+			{
+				(run_region_loop)(
+					kernel,
+					layout,
+					destination_stride,
+					source_stride,
+					destination_data +
+						(destination_offsets[i] - destination_origin),
+					source_data + (source_offsets[i] - source_origin)
+				);
+			}
+		}
+	);
+}
+
+template <
+	typename Kernel,
+	typename DestinationPointer,
+	typename SourcePointer
+>
+inline void run_contiguous_regions(
+	const Kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	DestinationPointer destination_data,
+	std::ptrdiff_t destination_origin,
+	SourcePointer source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	VITRIO_ASSERT(layout.is_inner_axis_contiguous());
+
+	for (std::size_t i = 0; i < destination_offsets.size(); ++i)
+	{
+		(run_region_loop)(
+			kernel,
+			layout,
+			region_unit_stride(),
+			region_unit_stride(),
+			destination_data + (destination_offsets[i] - destination_origin),
+			source_data + (source_offsets[i] - source_origin)
+		);
+	}
+}

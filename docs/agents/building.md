@@ -46,6 +46,23 @@ so a wheel holds everything it needs. A wheel is built against the stable ABI
 of Python, and serves 3.12 and every later version; 3.10 and 3.11 get one
 each.
 
+The loops that convert half precision values with the vector units of the
+processor are compiled once per instruction set, SSE2 and the ones of
+`VITRIO_SIMD_TARGETS`, `AVX2;AVX3` by default on x86, and the one for the
+processor is chosen as the library runs. That is `VITRIO_SIMD_DISPATCH=DYNAMIC`,
+which wheels and packages keep, since they run on processors they were not
+built on. `STATIC` compiles them once, for the instruction set the compiler
+flags allow, so a build for one machine, with `-march=native`, carries no
+other. The names of the targets are Highway's without `HWY_`; the list of
+each architecture is in `cmake/modules/vitrio_simd_targets.cmake`, and a name
+outside it stops the configure with the list. On aarch64 the list is empty by
+default: NEON, the baseline, converts half precision values already. On MSVC
+Highway leaves AVX3 and above out, as it does not trust the compiler with
+them, so Windows gets SSE2 and AVX2 whatever the list says. The tests force
+each compiled instruction set in turn, so one machine covers them all.
+`-DVITRIO_ENABLE_SIMD=OFF` leaves Highway out, and the compiler vectorizes
+those loops as it does every other.
+
 `-DVITRIO_BUILD_EXAMPLES=ON` builds the C++ examples of `examples/cpp`, each a
 target of its own and a test that runs it. They are off by default.
 

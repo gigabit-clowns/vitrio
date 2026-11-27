@@ -14,7 +14,8 @@ namespace vitrio
  * It does no arithmetic of its own: it is what a file holds, converted to
  * a float to be computed with and from a float or a double to be stored.
  * Both conversions are bit arithmetic with no branch, so that a loop of
- * them is one a compiler vectorizes.
+ * them is one a compiler vectorizes, and they are what every other
+ * conversion of half precision in the library is held to.
  */
 class float16_t
 {

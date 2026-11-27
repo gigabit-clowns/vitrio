@@ -6,7 +6,6 @@ target_sources(
 		image_chunk_regions.cpp
 		image_page_regions.cpp
 		image_region_bounds.cpp
-		image_region_layout.cpp
 		image_region_offsets.cpp
 		image_region_read_walk.cpp
 		image_region_transfer.cpp
@@ -27,3 +26,9 @@ target_sources(
 		image_region_transfer_uint8.cpp
 		image_region_write_walk.cpp
 )
+
+add_subdirectory(region_loop)
+
+if(VITRIO_ENABLE_SIMD)
+	add_subdirectory(simd)
+endif()

@@ -4,13 +4,17 @@
 
 #include "image_region_transfer.hpp"
 
-#include "image_region_loop.hpp"
+#include <strided_transfer/region_loop/image_region_loop.hpp>
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
 #include <array/cast.hpp>
 #include <array/numerical_type_dispatch.hpp>
 #include <memory/byte_order.hpp>
+
+#if defined(VITRIO_ENABLE_SIMD)
+#include <strided_transfer/simd/float16_region_transfer.hpp>
+#endif
 
 #include <complex>
 #include <type_traits>
@@ -19,14 +23,35 @@ namespace vitrio
 {
 
 /**
- * @brief Read one element of a file into an array.
+ * @brief Apply a kernel element by element over a run that is contiguous on
+ * both sides.
+ *
+ * It is what the run operation of a kernel does unless the kernel has a
+ * better way, and the loop a compiler vectorizes: conversion goes through
+ * @ref cast, which is inline down to the conversions of @ref float16_t, as
+ * a call per element is something no vectorizer gets through.
+ */
+template <typename Kernel, typename Destination, typename Source>
+inline void run_kernel_over(
+	const Kernel &kernel,
+	Destination *destination,
+	const Source *source,
+	std::size_t count
+) noexcept
+{
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		kernel(destination + i, source + i);
+	}
+}
+
+/**
+ * @brief Read the elements of a file into an array.
  *
  * Every kernel here names its destination first, as the layout its loop
- * walks does.
- *
- * Conversion goes through @ref cast, which is inline down to the
- * conversions of @ref float16_t: a call per element is something no
- * vectorizer gets through.
+ * walks does, and has two operations: one element, and a run of them that
+ * is contiguous on both sides, which is where a loop written for the vector
+ * units of the processor plugs in.
  */
 struct region_read_kernel
 {
@@ -35,10 +60,16 @@ struct region_read_kernel
 	{
 		cast(array, file);
 	}
+
+	template <typename T, typename Q>
+	void operator()(T *array, const Q *file, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, array, file, count);
+	}
 };
 
 /**
- * @brief Read one element of a file of the other byte order into an array.
+ * @brief Read the elements of a file of the other byte order into an array.
  *
  * The bytes are reversed in the type the file holds them in, before the
  * conversion. Reversing a value of the array's type instead would be a
@@ -52,10 +83,16 @@ struct byte_swapped_region_read_kernel
 		const auto value = reverse_byte_order(*file);
 		cast(array, &value);
 	}
+
+	template <typename T, typename Q>
+	void operator()(T *array, const Q *file, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, array, file, count);
+	}
 };
 
 /**
- * @brief Write one element of an array into a file.
+ * @brief Write the elements of an array into a file.
  *
  * @see region_read_kernel
  */
@@ -66,10 +103,16 @@ struct region_write_kernel
 	{
 		cast(file, array);
 	}
+
+	template <typename Q, typename T>
+	void operator()(Q *file, const T *array, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, file, array, count);
+	}
 };
 
 /**
- * @brief Write one element of an array into a file of the other byte order.
+ * @brief Write the elements of an array into a file of the other byte order.
  *
  * The conversion happens first and the bytes are reversed afterwards, so that
  * they are reversed in the type the file holds them in.
@@ -84,6 +127,12 @@ struct byte_swapped_region_write_kernel
 		Q value;
 		cast(&value, array);
 		*file = reverse_byte_order(value);
+	}
+
+	template <typename Q, typename T>
+	void operator()(Q *file, const T *array, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, file, array, count);
 	}
 };
 
@@ -113,55 +162,173 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
 {
 };
 
+#if defined(VITRIO_ENABLE_SIMD)
+
 /**
- * @brief Walk every region with one layout.
+ * @brief Walk the regions of a transfer with a loop written for the vector
+ * units of the processor where the layout hands it runs, and with the
+ * generic loop otherwise.
  *
- * Each region is the same space reached through a different pair of
- * pointers, so the layout is built once and only the two bases move. The
- * inner loop is chosen once too, before the first region, as the strides of
- * the innermost axis are the same for all of them.
+ * The loops of simd/ take the runs a contiguous innermost axis hands them. A
+ * layout with a strided side converts one element at a time, which the
+ * generic loop does as well as any.
  *
- * Either side may hold its elements from an origin on rather than from its
- * first, as a buffer holding a stretch of a file does, and its offsets are
- * then taken from there.
- *
- * The destination comes first, as it does in the layout.
+ * @tparam Vectorized The loop, called with the arguments of
+ * @c run_contiguous_regions but the kernel.
  */
 template <
+	typename Vectorized,
 	typename Kernel,
-	typename DestinationPointer,
-	typename SourcePointer
+	typename Destination,
+	typename Source
 >
-void run_regions(
+inline void run_regions_vectorized(
+	Vectorized vectorized,
 	const Kernel &kernel,
 	const image_region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
-	DestinationPointer destination_data,
+	Destination *destination_data,
 	std::ptrdiff_t destination_origin,
-	SourcePointer source_data,
+	const Source *source_data,
 	std::ptrdiff_t source_origin
 )
 {
-	dispatch_region_inner_strides(
+	if (layout.is_inner_axis_contiguous())
+	{
+		vectorized(
+			layout,
+			destination_offsets,
+			source_offsets,
+			destination_data,
+			destination_origin,
+			source_data,
+			source_origin
+		);
+	}
+	else
+	{
+		// The template, named as such so that this does not resolve back to
+		// the overloads below.
+		run_regions<Kernel, Destination*, const Source*>(
+			kernel,
+			layout,
+			destination_offsets,
+			source_offsets,
+			destination_data,
+			destination_origin,
+			source_data,
+			source_origin
+		);
+	}
+}
+
+/**
+ * @brief Walk the regions of a transfer between half precision values and
+ * floats in the native byte order with the loops of simd/.
+ *
+ * These are what a call of @c run_regions with one of the two native kernels
+ * and these two element types resolves to: exact matches that are not
+ * templates. Every other pair of types, and the byte-swapped kernels, keep
+ * the template.
+ */
+inline void run_regions(
+	const region_read_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float16_t *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&widen_float16_regions,
+		kernel,
 		layout,
-		[&] (auto destination_stride, auto source_stride)
-		{
-			for (std::size_t i = 0; i < destination_offsets.size(); ++i)
-			{
-				run_region_loop(
-					kernel,
-					layout,
-					destination_stride,
-					source_stride,
-					destination_data +
-						(destination_offsets[i] - destination_origin),
-					source_data + (source_offsets[i] - source_origin)
-				);
-			}
-		}
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
 	);
 }
+
+inline void run_regions(
+	const region_read_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float16_t *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&narrow_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+inline void run_regions(
+	const region_write_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float16_t *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&widen_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+inline void run_regions(
+	const region_write_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float16_t *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&narrow_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+#endif // VITRIO_ENABLE_SIMD
 
 template <
 	typename Kernel,
