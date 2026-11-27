@@ -10,7 +10,7 @@
 
 #include "float16_region_transfer.hpp"
 
-#include <strided_transfer/region_loop/image_region_loop.hpp>
+#include <strided_transfer/region_loop/region_loop.hpp>
 
 #include <array/cast.hpp>
 
@@ -28,7 +28,7 @@ namespace vitrio
 namespace HWY_NAMESPACE
 {
 
-#include <strided_transfer/region_loop/image_region_loop_impl.hpp>
+#include <strided_transfer/region_loop/region_loop_impl.hpp>
 
 namespace hn = hwy::HWY_NAMESPACE;
 
@@ -157,7 +157,7 @@ struct float16_narrowing_kernel
 // axis the kernels take as runs. The loop is named through this namespace:
 // the arguments would otherwise also find the one of vitrio.
 void widen_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float *destination,
@@ -179,7 +179,7 @@ void widen_regions(
 }
 
 void narrow_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float16_t *destination,
@@ -213,7 +213,7 @@ HWY_EXPORT(widen_regions);
 HWY_EXPORT(narrow_regions);
 
 void widen_float16_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float *destination,
@@ -234,7 +234,7 @@ void widen_float16_regions(
 }
 
 void narrow_float16_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float16_t *destination,

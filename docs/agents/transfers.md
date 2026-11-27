@@ -73,7 +73,7 @@ How reads, writes, flushes and the loads of a scratch are started, reported and 
     contiguous on both sides. The kernels convert with `cast`, and a loop
     the compiler vectorizes is what a run gets, except that half precision
     values and floats in the native byte order go to `simd/`, through the
-    four overloads of `run_regions` in `image_region_transfer_impl.hpp`:
+    four overloads of `run_regions` in `region_transfer_impl.hpp`:
     there the loop is compiled once per instruction set and chosen once per
     call. A transfer in the other byte order, or with a strided side, keeps
     the generic loop.

@@ -5,8 +5,8 @@
 #include "zarr_read_operation.hpp"
 
 #include <array/array_data.hpp>
-#include <strided_transfer/image_chunk_regions.hpp>
-#include <strided_transfer/image_region_bounds.hpp>
+#include <strided_transfer/chunk_regions.hpp>
+#include <strided_transfer/region_bounds.hpp>
 
 #include <vitrio/array/array_ref.hpp>
 
@@ -76,7 +76,7 @@ void zarr_image_reader::read_async(
 			target.get_offset()
 		);
 
-		image_chunk_regions chunks(
+		chunk_regions chunks(
 			regions,
 			m_layout->get_shape(),
 			m_layout->get_chunk_layout().get_extents()

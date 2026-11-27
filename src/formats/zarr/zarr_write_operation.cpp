@@ -41,7 +41,7 @@ private:
 zarr_write_operation::zarr_write_operation(
 	std::shared_ptr<zarr_chunk_store> store,
 	const_array source,
-	image_chunk_regions chunks
+	chunk_regions chunks
 )
 	: m_store(std::move(store))
 	, m_source(std::move(source))

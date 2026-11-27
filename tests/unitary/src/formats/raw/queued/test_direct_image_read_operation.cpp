@@ -9,7 +9,7 @@
 #include "../../../mock/mock_file_transfer_scope.hpp"
 
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 #include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
@@ -77,7 +77,7 @@ std::unique_ptr<direct_image_read_operation> make_operation(
 	auto destination =
 		make_host_array<float>({3, 2, 3}, numerical_type::float32);
 	const auto &target = destination.get_descriptor();
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		regions,
 		layout.get_descriptor().get_extents(),
 		layout.get_strides(),

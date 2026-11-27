@@ -8,7 +8,7 @@
 #include <formats/raw/planning/image_read_strategy.hpp>
 #include <formats/raw/planning/image_region_split.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -46,7 +46,7 @@ std::unique_ptr<file_transfer_operation> make_image_read_operation(
 		byte_budget
 	);
 
-	image_region_read_walk walk(
+	region_read_walk walk(
 		parts,
 		layout.get_descriptor().get_extents(),
 		layout.get_strides(),

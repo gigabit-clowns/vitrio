@@ -24,7 +24,7 @@ The rules every C++ source of the library follows.
   after what it needs, and says so in a comment. A translation unit that
   compiles the templates a second time, under compiler attributes of its
   own, includes the owning header and then the body again inside another
-  namespace. `src/strided_transfer/region_loop/image_region_loop_impl.hpp`
+  namespace. `src/strided_transfer/region_loop/region_loop_impl.hpp`
   is one.
 - **Implementations of an interface.** A class that implements an
   interface is named after it, with what sets it apart in front:

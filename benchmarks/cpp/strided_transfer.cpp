@@ -11,9 +11,9 @@
 // VITRIO_BENCH_FILE_BYTES sets how large, so that a short run, such as the one
 // CTest makes, need not fill hundreds of megabytes first.
 
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 
 #include <array/fixed_width_float.hpp>
 #include <array/numerical_type_traits.hpp>
@@ -249,7 +249,7 @@ void measure_read(
 	const auto plan = make_batch(kind, box, sizeof(Q), padding);
 	const auto file = noise<Q>(element_count(plan.file_extents), order);
 	std::vector<T> array(element_count(plan.array_extents));
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		plan.regions,
 		make_span(plan.file_extents), make_span(plan.file_strides),
 		make_span(plan.array_extents), make_span(plan.array_strides),
@@ -281,7 +281,7 @@ void measure_write(benchmark::State &state)
 		element_count(plan.array_extents), get_system_byte_order()
 	);
 	std::vector<Q> file(element_count(plan.file_extents));
-	const image_region_write_walk walk(
+	const region_write_walk walk(
 		plan.regions,
 		make_span(plan.file_extents), make_span(plan.file_strides),
 		make_span(plan.array_extents), make_span(plan.array_strides),
@@ -348,7 +348,7 @@ void plan_walk(benchmark::State &state, layout kind)
 	const auto plan = make_batch(kind, box, sizeof(float), 0);
 	for (auto _ : state)
 	{
-		image_region_read_walk walk(
+		region_read_walk walk(
 			plan.regions,
 			make_span(plan.file_extents), make_span(plan.file_strides),
 			make_span(plan.array_extents), make_span(plan.array_strides),

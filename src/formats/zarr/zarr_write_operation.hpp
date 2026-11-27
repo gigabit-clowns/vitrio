@@ -5,7 +5,7 @@
 #include "zarr_chunk_store.hpp"
 
 #include <file_transfer/file_transfer_operation.hpp>
-#include <strided_transfer/image_chunk_regions.hpp>
+#include <strided_transfer/chunk_regions.hpp>
 
 #include <vitrio/array/const_array.hpp>
 
@@ -44,7 +44,7 @@ public:
 	zarr_write_operation(
 		std::shared_ptr<zarr_chunk_store> store,
 		const_array source,
-		image_chunk_regions chunks
+		chunk_regions chunks
 	);
 
 	~zarr_write_operation() override;
@@ -69,7 +69,7 @@ private:
 
 	std::shared_ptr<zarr_chunk_store> m_store;
 	const_array m_source;
-	image_chunk_regions m_chunks;
+	chunk_regions m_chunks;
 	std::size_t m_syncs;
 };
 

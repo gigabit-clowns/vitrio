@@ -6,8 +6,8 @@
 #include "zarr_write_operation.hpp"
 
 #include <array/array_data.hpp>
-#include <strided_transfer/image_chunk_regions.hpp>
-#include <strided_transfer/image_region_bounds.hpp>
+#include <strided_transfer/chunk_regions.hpp>
+#include <strided_transfer/region_bounds.hpp>
 
 #include <vitrio/array/const_array_ref.hpp>
 
@@ -138,7 +138,7 @@ void zarr_image_writer::write_async(
 		);
 
 		const auto extents = m_descriptor.get_extents();
-		image_chunk_regions chunks(
+		chunk_regions chunks(
 			regions,
 			extents,
 			m_store->get_layout().get_chunk_layout().get_extents()

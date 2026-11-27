@@ -11,7 +11,7 @@
 #include <formats/zarr/zarr_image_reader.hpp>
 #include <formats/zarr/zarr_node.hpp>
 
-#include <strided_transfer/image_chunk_regions.hpp>
+#include <strided_transfer/chunk_regions.hpp>
 
 #include <vitrio/exceptions/image_file_error.hpp>
 #include <vitrio/image_descriptor.hpp>
@@ -84,7 +84,7 @@ public:
 	// does, a chunk at a time.
 	void write(const image_transfer_plan &regions, const array &source)
 	{
-		const image_chunk_regions chunks(
+		const chunk_regions chunks(
 			regions,
 			make_span(m_shape),
 			m_layout->get_chunk_layout().get_extents()

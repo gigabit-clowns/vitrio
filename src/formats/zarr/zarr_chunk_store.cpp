@@ -6,9 +6,9 @@
 
 #include <formats/raw/create_image_file.hpp>
 #include <formats/raw/queued/writable_image_file.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 #include <system/file_sync.hpp>
 #include <system/scattered_file_write.hpp>
 
@@ -51,7 +51,7 @@ void swap_order(
 
 	image_transfer_plan whole(image_transfer_shape(extents, 1, 1));
 	whole.add(make_span(origin), make_span(origin));
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		whole, make_span(extents), make_span(strides),
 		make_span(extents), make_span(strides), 0);
 
@@ -157,7 +157,7 @@ void zarr_chunk_store::write(
 
 		for (const auto *plan : pieces)
 		{
-			const image_region_write_walk walk(
+			const region_write_walk walk(
 				*plan,
 				layout.get_extents(),
 				layout.get_strides(),
