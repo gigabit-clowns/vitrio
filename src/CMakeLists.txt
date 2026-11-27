@@ -102,7 +102,7 @@ target_sources(
 		image_read.cpp
 		image_reader.cpp
 		image_reader_provider.cpp
-		region_grouping.cpp
+		image_region_grouping.cpp
 		image_saver.cpp
 		image_scratch.cpp
 		image_scratch_directory.cpp

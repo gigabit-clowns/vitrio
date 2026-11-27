@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "region_runs.hpp"
+#include "image_region_runs.hpp"
 
 #include <vitrio/image_transfer_plan.hpp>
 
@@ -22,7 +22,7 @@ struct run_axis
 
 } // anonymous namespace
 
-region_runs::region_runs(
+image_region_runs::image_region_runs(
 	const image_transfer_plan &regions,
 	span<const std::ptrdiff_t> file_strides,
 	numerical_type data_type
@@ -94,12 +94,12 @@ region_runs::region_runs(
 	std::sort(m_run_offsets.begin(), m_run_offsets.end());
 }
 
-std::size_t region_runs::get_run_size() const noexcept
+std::size_t image_region_runs::get_run_size() const noexcept
 {
 	return m_run_size;
 }
 
-span<const std::size_t> region_runs::get_run_offsets() const noexcept
+span<const std::size_t> image_region_runs::get_run_offsets() const noexcept
 {
 	return make_span(m_run_offsets);
 }

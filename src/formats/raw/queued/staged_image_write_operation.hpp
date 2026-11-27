@@ -6,7 +6,7 @@
 #include "writable_image_file.hpp"
 
 #include <file_transfer/file_transfer_operation.hpp>
-#include <formats/raw/planning/region_runs.hpp>
+#include <formats/raw/planning/image_region_runs.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
 #include <strided_transfer/region_write_walk.hpp>
@@ -56,7 +56,7 @@ public:
 		const_array source,
 		region_write_walk walk,
 		const image_transfer_schedule &schedule,
-		const region_runs &runs
+		const image_region_runs &runs
 	);
 
 	~staged_image_write_operation() override;

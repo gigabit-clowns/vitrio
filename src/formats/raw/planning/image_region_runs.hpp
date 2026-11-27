@@ -26,7 +26,7 @@ class image_transfer_plan;
  * A write covers its runs and nothing between them, which it would
  * overwrite.
  */
-class region_runs
+class image_region_runs
 {
 public:
 	/**
@@ -37,19 +37,19 @@ public:
 	 * along each axis, in elements. None is negative.
 	 * @param data_type Data type of the elements of the file.
 	 */
-	region_runs(
+	image_region_runs(
 		const image_transfer_plan &regions,
 		span<const std::ptrdiff_t> file_strides,
 		numerical_type data_type
 	);
 
-	region_runs(const region_runs &other) = default;
-	region_runs(region_runs &&other) noexcept = default;
-	~region_runs() = default;
+	image_region_runs(const image_region_runs &other) = default;
+	image_region_runs(image_region_runs &&other) noexcept = default;
+	~image_region_runs() = default;
 
-	region_runs& operator=(const region_runs &other) = default;
-	region_runs&
-	operator=(region_runs &&other) noexcept = default;
+	image_region_runs& operator=(const image_region_runs &other) = default;
+	image_region_runs&
+	operator=(image_region_runs &&other) noexcept = default;
 
 	/**
 	 * @brief Get how many bytes each run covers.

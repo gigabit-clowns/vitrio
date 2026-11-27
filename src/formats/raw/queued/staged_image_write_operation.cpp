@@ -71,7 +71,7 @@ staged_image_write_operation::staged_image_write_operation(
 	const_array source,
 	region_write_walk walk,
 	const image_transfer_schedule &schedule,
-	const region_runs &runs
+	const image_region_runs &runs
 )
 	: m_file(std::move(file))
 	, m_source(std::move(source))

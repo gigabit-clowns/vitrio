@@ -45,7 +45,7 @@ target_sources(
 		test_image_plan_builders.cpp
 		test_image_read.cpp
 		test_image_reader_provider.cpp
-		test_region_grouping.cpp
+		test_image_region_grouping.cpp
 		test_image_scratch_directory.cpp
 		test_image_transaction_plan.cpp
 		test_image_transfer_plan.cpp

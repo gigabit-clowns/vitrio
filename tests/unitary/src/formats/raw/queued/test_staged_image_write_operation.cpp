@@ -8,7 +8,7 @@
 #include "../../../mock/mock_file_transfer_scope.hpp"
 
 #include <formats/raw/create_image_file.hpp>
-#include <formats/raw/planning/region_runs.hpp>
+#include <formats/raw/planning/image_region_runs.hpp>
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/queued/writable_image_file.hpp>
@@ -153,7 +153,7 @@ public:
 			preamble + m_layout.get_data_size(),
 			image_transfer_policy(0, byte_budget, sizeof(float), 0)
 		);
-		const region_runs runs(
+		const image_region_runs runs(
 			regions,
 			m_layout.get_strides(),
 			numerical_type::float32

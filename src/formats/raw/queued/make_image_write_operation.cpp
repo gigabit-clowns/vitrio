@@ -5,7 +5,7 @@
 #include "direct_image_write_operation.hpp"
 #include "staged_image_write_operation.hpp"
 
-#include <formats/raw/planning/region_runs.hpp>
+#include <formats/raw/planning/image_region_runs.hpp>
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <strided_transfer/region_write_walk.hpp>
@@ -129,7 +129,7 @@ std::unique_ptr<file_transfer_operation> make_image_write_operation(
 
 	const auto schedule =
 		schedule_stretches(regions, walk, layout, byte_budget);
-	const region_runs runs(
+	const image_region_runs runs(
 		regions,
 		layout.get_strides(),
 		layout.get_descriptor().get_data_type()

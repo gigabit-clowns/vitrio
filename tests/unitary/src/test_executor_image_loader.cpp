@@ -57,7 +57,7 @@ array make_test_array()
 	);
 }
 
-// Add one whole element of a stack, as test_region_grouping does:
+// Add one whole element of a stack, as test_image_region_grouping does:
 // element `index_in_stack` of file `file` lands in slot `slot` of a three
 // dimensional array.
 void add_element(

@@ -17,7 +17,7 @@
 #include <vitrio/image_writer_provider.hpp>
 
 #include <concurrency/failure_forwarding_notifier.hpp>
-#include <region_grouping.hpp>
+#include <image_region_grouping.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -127,7 +127,7 @@ std::shared_ptr<completion> executor_image_saver::save(
 		);
 	}
 
-	region_grouping grouping;
+	image_region_grouping grouping;
 	grouping.build(plan);
 
 	auto shared_source = std::make_shared<const_array>(std::move(source));

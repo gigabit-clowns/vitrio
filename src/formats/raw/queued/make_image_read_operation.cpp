@@ -6,7 +6,7 @@
 #include "staged_image_read_operation.hpp"
 
 #include <formats/raw/planning/image_read_strategy.hpp>
-#include <formats/raw/planning/region_split.hpp>
+#include <formats/raw/planning/image_region_split.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <strided_transfer/region_read_walk.hpp>
 
