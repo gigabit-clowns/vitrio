@@ -6,8 +6,8 @@
 
 #include <formats/raw/planning/image_transfer_policy.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -40,7 +40,7 @@ inline void read_prefetched_regions(
 	const auto data_offset =
 		static_cast<std::size_t>(values.get_offset()) * get_size(data_type);
 
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		regions,
 		values.get_extents(),
 		values.get_strides(),

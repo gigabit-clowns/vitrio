@@ -106,7 +106,7 @@ void for_each_target(Check &&check)
 	}
 }
 
-image_region_layout make_layout(
+region_layout make_layout(
 	const std::vector<std::size_t> &extents,
 	const std::vector<std::ptrdiff_t> &destination_strides,
 	const std::vector<std::ptrdiff_t> &source_strides
@@ -115,14 +115,14 @@ image_region_layout make_layout(
 	const auto rank = extents.size();
 	image_transfer_plan regions(image_transfer_shape(extents, rank, rank));
 
-	return image_region_layout(
+	return region_layout(
 		regions,
 		make_span(destination_strides),
 		make_span(source_strides)
 	);
 }
 
-image_region_layout make_run_layout(std::size_t count)
+region_layout make_run_layout(std::size_t count)
 {
 	return make_layout({count}, {1}, {1});
 }

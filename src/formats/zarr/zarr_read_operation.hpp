@@ -6,7 +6,7 @@
 #include "zarr_chunk_buffers.hpp"
 
 #include <file_transfer/file_transfer_operation.hpp>
-#include <strided_transfer/image_chunk_regions.hpp>
+#include <strided_transfer/chunk_regions.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/byte.hpp>
@@ -72,7 +72,7 @@ public:
 		std::string directory,
 		std::shared_ptr<const zarr_array_layout> layout,
 		array destination,
-		image_chunk_regions chunks,
+		chunk_regions chunks,
 		bool asynchronous,
 		std::shared_ptr<zarr_chunk_buffers> buffers,
 		std::size_t byte_budget,
@@ -168,7 +168,7 @@ private:
 	std::shared_ptr<const zarr_array_layout> m_layout;
 	array m_destination;
 	byte *m_array_data;
-	image_chunk_regions m_chunks;
+	chunk_regions m_chunks;
 	bool m_asynchronous;
 	std::shared_ptr<zarr_chunk_buffers> m_buffers;
 	std::size_t m_byte_budget;

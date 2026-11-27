@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <strided_transfer/region_loop/image_region_layout.hpp>
+#include <strided_transfer/region_loop/region_layout.hpp>
 
 #include <vitrio/span.hpp>
 
@@ -42,7 +42,7 @@ namespace vitrio
  * @param source_origin The offset @p source holds.
  */
 void widen_float16_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float *destination,
@@ -63,7 +63,7 @@ void widen_float16_regions(
  * @see widen_float16_regions for the arguments.
  */
 void narrow_float16_regions(
-	const image_region_layout &layout,
+	const region_layout &layout,
 	span<const std::ptrdiff_t> destination_offsets,
 	span<const std::ptrdiff_t> source_offsets,
 	float16_t *destination,

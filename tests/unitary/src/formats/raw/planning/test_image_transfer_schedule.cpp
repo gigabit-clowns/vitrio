@@ -43,7 +43,7 @@ void add_plane(image_transfer_plan &regions, std::size_t section)
 }
 
 // Where the planes named start in the file, in elements and ascending, which
-// is how image_region_offsets holds them.
+// is how region_offsets holds them.
 std::vector<std::ptrdiff_t> plane_offsets(
 	const std::vector<std::size_t> &sections
 )

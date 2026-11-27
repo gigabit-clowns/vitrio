@@ -2,7 +2,7 @@
 
 #include "staged_image_read_operation.hpp"
 
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/concurrency/task.hpp>
 #include <vitrio/memory_range.hpp>
@@ -159,7 +159,7 @@ staged_image_read_operation::staged_image_read_operation(
 	std::shared_ptr<const boost::interprocess::file_mapping> file,
 	const raw_image_layout &layout,
 	array destination,
-	image_region_read_walk walk,
+	region_read_walk walk,
 	const image_transfer_schedule &schedule
 )
 	: m_path(std::move(path))

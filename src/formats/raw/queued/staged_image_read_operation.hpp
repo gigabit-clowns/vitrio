@@ -8,7 +8,7 @@
 #include <file_transfer/file_transfer_operation.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
+#include <strided_transfer/region_read_walk.hpp>
 
 #include <vitrio/array/array.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -57,7 +57,7 @@ public:
 		std::shared_ptr<const boost::interprocess::file_mapping> file,
 		const raw_image_layout &layout,
 		array destination,
-		image_region_read_walk walk,
+		region_read_walk walk,
 		const image_transfer_schedule &schedule
 	);
 	~staged_image_read_operation() override;
@@ -92,7 +92,7 @@ private:
 	byte_order m_file_order;
 	std::size_t m_data_offset;
 
-	image_region_read_walk m_walk;
+	region_read_walk m_walk;
 
 	// The first of the regions of each stretch, and how many it has.
 	std::vector<std::size_t> m_first_regions;

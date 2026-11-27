@@ -5,8 +5,8 @@
 #include "zarr_node.hpp"
 #include "zarr_shard_index.hpp"
 
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 #include <system/scattered_file_read.hpp>
 
 #include <vitrio/concurrency/task.hpp>
@@ -88,7 +88,7 @@ zarr_read_operation::zarr_read_operation(
 	std::string directory,
 	std::shared_ptr<const zarr_array_layout> layout,
 	array destination,
-	image_chunk_regions chunks,
+	chunk_regions chunks,
 	bool asynchronous,
 	std::shared_ptr<zarr_chunk_buffers> buffers,
 	std::size_t byte_budget,
@@ -625,7 +625,7 @@ void zarr_read_operation::decode(std::size_t id) const
 	const auto position = current.position;
 	for (std::size_t plan = 0; plan < m_chunks.get_plan_count(position); ++plan)
 	{
-		const image_region_read_walk walk(
+		const region_read_walk walk(
 			m_chunks.get_regions(position, plan),
 			chunk.get_extents(),
 			strides,

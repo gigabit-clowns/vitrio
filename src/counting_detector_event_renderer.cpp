@@ -2,8 +2,8 @@
 
 #include <vitrio/counting_detector_event_renderer.hpp>
 
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -185,7 +185,7 @@ void counting_detector_event_renderer::render(
 	plan.add(make_span(origin), make_span(origin));
 
 	const auto count_strides = make_contiguous_strides(image_extents);
-	const image_region_read_walk walk(
+	const region_read_walk walk(
 		plan,
 		make_span(image_extents),
 		make_span(count_strides),

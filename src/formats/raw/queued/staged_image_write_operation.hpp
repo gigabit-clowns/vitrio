@@ -9,7 +9,7 @@
 #include <formats/raw/planning/image_region_runs.hpp>
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 
 #include <vitrio/array/const_array.hpp>
 #include <vitrio/array/numerical_type.hpp>
@@ -54,7 +54,7 @@ public:
 		std::shared_ptr<writable_image_file> file,
 		const raw_image_layout &layout,
 		const_array source,
-		image_region_write_walk walk,
+		region_write_walk walk,
 		const image_transfer_schedule &schedule,
 		const image_region_runs &runs
 	);
@@ -94,7 +94,7 @@ private:
 	byte_order m_file_order;
 	std::size_t m_data_offset;
 
-	image_region_write_walk m_walk;
+	region_write_walk m_walk;
 
 	// Where each stretch starts in the file, the first of its regions and
 	// how many it has, where it is staged, and the step it falls in.

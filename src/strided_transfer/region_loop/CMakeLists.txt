@@ -3,5 +3,5 @@
 target_sources(
 	vitrio-obj
 	PRIVATE
-		image_region_layout.cpp
+		region_layout.cpp
 )

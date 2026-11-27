@@ -11,7 +11,7 @@
 namespace vitrio
 {
 
-class image_region_read_walk;
+class region_read_walk;
 class image_transfer_plan;
 class raw_image_layout;
 
@@ -29,7 +29,7 @@ class raw_image_layout;
  * @return bool Whether they lie as they land.
  */
 bool lie_as_they_land(
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	numerical_type array_type,
 	const raw_image_layout &layout
 ) noexcept;
@@ -53,7 +53,7 @@ bool lie_as_they_land(
  */
 image_transfer_schedule schedule_staged_read(
 	const image_transfer_plan &regions,
-	const image_region_read_walk &walk,
+	const region_read_walk &walk,
 	const raw_image_layout &layout,
 	std::size_t file_size,
 	std::size_t byte_budget

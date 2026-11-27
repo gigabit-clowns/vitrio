@@ -11,7 +11,7 @@
 #include <formats/raw/create_image_file.hpp>
 #include <formats/raw/queued/writable_image_file.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 #include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
@@ -75,7 +75,7 @@ std::unique_ptr<direct_image_write_operation> make_operation(
 	const auto source =
 		make_host_array<float>({3, 2, 3}, numerical_type::float32);
 	const auto &origin = source.get_descriptor();
-	const image_region_write_walk walk(
+	const region_write_walk walk(
 		regions,
 		layout.get_descriptor().get_extents(),
 		layout.get_strides(),

@@ -4,10 +4,10 @@
 
 #include "tiff_sample_type.hpp"
 
-#include <strided_transfer/image_page_regions.hpp>
-#include <strided_transfer/image_region_bounds.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/page_regions.hpp>
+#include <strided_transfer/region_bounds.hpp>
+#include <strided_transfer/region_transfer.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/const_array_ref.hpp>
@@ -221,7 +221,7 @@ void tiff_image_writer::write(
 		);
 	}
 
-	const image_page_regions pages(regions);
+	const page_regions pages(regions);
 	const auto page_count = pages.get_page_count();
 	const auto page_layout = make_page_layout(m_descriptor);
 	const auto compression = get_compression(m_descriptor.get_data_type());
@@ -250,7 +250,7 @@ void tiff_image_writer::write(
 
 	for (std::size_t position = 0; position < page_count; ++position)
 	{
-		const image_region_write_walk walk(
+		const region_write_walk walk(
 			pages.get_regions(position),
 			page_extents,
 			make_span(page_strides),

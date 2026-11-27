@@ -13,7 +13,7 @@
 #include <formats/raw/planning/image_transfer_schedule.hpp>
 #include <formats/raw/queued/writable_image_file.hpp>
 #include <formats/raw/raw_image_layout.hpp>
-#include <strided_transfer/image_region_write_walk.hpp>
+#include <strided_transfer/region_write_walk.hpp>
 #include <system/file_transfer_completion.hpp>
 
 #include <vitrio/array/array.hpp>
@@ -136,7 +136,7 @@ public:
 	)
 	{
 		const auto &origin = source.get_descriptor();
-		image_region_write_walk walk(
+		region_write_walk walk(
 			regions,
 			m_layout.get_descriptor().get_extents(),
 			m_layout.get_strides(),

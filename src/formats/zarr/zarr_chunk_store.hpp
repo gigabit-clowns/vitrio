@@ -91,7 +91,7 @@ public:
 	 *
 	 * @param chunk The position of the chunk in the grid.
 	 * @param pieces The plans of the pieces, stated against the chunk and
-	 * @p source, as image_chunk_regions resolves them.
+	 * @p source, as chunk_regions resolves them.
 	 * @param source The values the pieces are taken from.
 	 * @throws image_file_error If a file can not be read or written.
 	 * @throws image_file_format_error If a chunk stored before is malformed.

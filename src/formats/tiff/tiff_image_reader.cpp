@@ -2,10 +2,10 @@
 
 #include "tiff_image_reader.hpp"
 
-#include <strided_transfer/image_page_regions.hpp>
-#include <strided_transfer/image_region_bounds.hpp>
-#include <strided_transfer/image_region_read_walk.hpp>
-#include <strided_transfer/image_region_transfer.hpp>
+#include <strided_transfer/page_regions.hpp>
+#include <strided_transfer/region_bounds.hpp>
+#include <strided_transfer/region_read_walk.hpp>
+#include <strided_transfer/region_transfer.hpp>
 
 #include <vitrio/array/array_descriptor.hpp>
 #include <vitrio/array/array_ref.hpp>
@@ -83,7 +83,7 @@ void tiff_image_reader::read(
 		return;
 	}
 
-	const image_page_regions pages(regions);
+	const page_regions pages(regions);
 
 	// Taken before the decoder is asked anything: decoding a page sets its
 	// layout again, so even its extents are not read beside another call.
@@ -107,7 +107,7 @@ void tiff_image_reader::read(
 			pages.get_row_count(position)
 		);
 
-		const image_region_read_walk walk(
+		const region_read_walk walk(
 			pages.get_regions(position),
 			make_span(page_extents),
 			make_span(page_strides),
