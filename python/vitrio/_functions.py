@@ -679,8 +679,8 @@ def read(
 	Each call opens the file and waits for the read, which suits a single
 	file. A program that goes through many images reads them in batches
 	instead, with `read_batch_async` or `read_patches_async`, or with
-	`vitrio.data` to feed a model. One call per image is many times
-	slower than one call per batch.
+	`vitrio.data` to go through a whole dataset. One call per image is
+	many times slower than one call per batch.
 
 	Args:
 		location: The file to read, as its key in `readers`, or an

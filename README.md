@@ -66,8 +66,10 @@ Work that vitrio takes off your hands:
   fills the copy as the images are first read and serves them from there
   afterwards. You ask for it once, when the loader is created, and the reads
   stay the same.
-- A data loader for training. `vitrio.data` feeds images and their metadata
-  to PyTorch or JAX in shuffled batches, with no worker processes.
+- A data loader. `vitrio.data` goes through images and their metadata in
+  batches, shuffled or in order, and hands them to NumPy, PyTorch or JAX
+  with no worker processes. Training a network is the usual case. A
+  classical refinement, or one pass over every particle, fits as well.
 - Room for your own formats. In C++, a new format is a class that you
   register at run time, and every read and write can use it right away.
 
@@ -174,8 +176,11 @@ loader = vio.loader(scratch=scratch)
 reading = vio.read_batch_async(loader, images, locations)    # as before
 ```
 
-To train a model, `vitrio.data` does the batching and the reading ahead for
-you. A `Dataset` is rows of named fields: images read from files, and any
+When a program goes through a dataset in batches, `vitrio.data` does the
+batching and the reading ahead for you. Training a neural network is the
+best-known case. An iterative refinement fits too, and so does a single pass
+in order that applies one operation to every particle. A `Dataset` is rows
+of named fields: images read from files, and any
 metadata that goes with them. vitrio parses no metadata file itself. It
 takes what you already parsed, such as the columns of a DataFrame from
 [starfile](https://github.com/teamtomo/starfile).
@@ -199,7 +204,7 @@ runs, more than any setting does.
 
 | Your program | Use | What to expect |
 |---|---|---|
-| Feeds a model with particles, patches or subtomograms | `vitrio.data.Dataset` and `DataLoader` | The simplest. It reads ahead for you, and is as fast as a hand-written loop when the storage is the limit |
+| Goes through a dataset in batches, shuffled or in order, for one epoch or many: training a network, a classical refinement, a single pass over every particle | `vitrio.data.Dataset` and `DataLoader` | The simplest. It reads ahead for you, and is as fast as a hand-written loop when the storage is the limit |
 | Does anything else with many images, such as extraction, preprocessing or writing results | `read_batch_async`, `read_patches_async`, `write_batch_async` and `write_patches_async` | The fastest. Make one call per batch, and keep the next batch in flight while you compute |
 | Opens one file in a script or a notebook | `read`, `write_single`, `write_stack` and `write` | The simplest call. Each one opens a file and waits for it, so keep them out of loops over many images |
 

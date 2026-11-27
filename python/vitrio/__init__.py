@@ -29,8 +29,10 @@ What a file states beyond its shape and data type, such as its pixel size,
 is a dict of values under labels: `read_metadata` returns one, and a write
 takes one as `metadata`.
 
-`vitrio.data` feeds images and their metadata to a model in batches, and
-reads the next batches meanwhile. It is the simplest way to train on images.
+`vitrio.data` goes through images and their metadata in batches, shuffled
+or in order, and reads the next batches meanwhile. It is the simplest way to
+train a model on images, and suits any program that iterates over a dataset:
+a refinement, or a single pass over every image.
 It needs numpy, so it is imported the first time `vio.data` is asked for, or
 by `import vitrio.data`.
 """

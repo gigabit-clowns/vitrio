@@ -14,8 +14,9 @@ Measure on your own storage when it matters.
 
 ## TLDR
 
-1. If your program feeds particles to a model, use `vitrio.data`.
-2. If it does anything else with many images, use the batch functions:
+1. If your program goes through a dataset in batches, shuffled or in order,
+   use `vitrio.data`. Training a model is the usual case.
+2. If it does anything else with many images, use the low-level async functions:
    `read_batch_async`, `read_patches_async`, `write_batch_async` and
    `write_patches_async`. Make one call per batch, and keep several batches
    in flight while you work on the current one.
@@ -29,7 +30,7 @@ The rest of this guide explains each point.
 
 ## The three ways to read and write
 
-### `vitrio.data`: the simplest way to feed a model
+### `vitrio.data`: the simplest way to go through a dataset
 
 A `Dataset` describes rows: images, patches cropped out of larger images,
 and the metadata that goes with them. A `DataLoader` goes through the rows
@@ -53,14 +54,18 @@ for epoch in range(epochs):
         train_step(batch["image"], batch["label"])
 ```
 
-Use it whenever your workload fits this shape: training, validation or
-inference over particles, patches of micrographs or subtomograms. You get
-the batching and the reading ahead of the next section without writing them.
+Use it whenever your program iterates over a dataset in batches, whether
+they are particles, patches of micrographs or subtomograms. Training a
+neural network is the best-known case, with validation and inference. A
+classical refinement that visits every particle in each iteration fits too.
+So does an embarrassingly parallel job that applies one operation to every
+image: that is a single epoch in order, with no shuffling. You get the
+batching and the reading ahead of the next section without writing them.
 
 It costs little. In our measurements it kept up with a hand-written loop
 over the batch functions when the images came from storage. It fell behind
 only when every image was already in the page cache, at rates that few
-models can use.
+programs can use.
 
 ### The batch oriented asynchronous functions: the fastest way
 
@@ -200,7 +205,7 @@ and stores them in stacks, with reads and writes in flight at the same time.
 
 ## Getting the most out of `vitrio.data`
 
-The defaults suit most training runs. These are the settings worth knowing:
+The defaults suit most programs. These are the settings worth knowing:
 
 - `prefetch` is the number of batches under way at once. The default is 4.
   Raise it when the batches are small, as the Tuning section explains. Lower
@@ -221,8 +226,8 @@ its own.
 
 ## Reading the same images many times
 
-A training run reads the same particles once per epoch. After the first
-epoch the operating system serves them from its page cache, if they fit in
+A training run or a refinement reads the same particles once per epoch.
+After the first epoch the operating system serves them from its page cache, if they fit in
 memory. Two tools help when that is not enough.
 
 `dataset.preload()` reads everything into memory once, in the order of the

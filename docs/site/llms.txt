@@ -19,9 +19,11 @@ minor releases until version 1.0.
 When you write code with vitrio, choose the calls by what the program does.
 The performance guide below gives the reasons and the settings.
 
-- To feed a model with particles, patches or subtomograms, use
-  `vitrio.data.Dataset` and `vitrio.data.DataLoader`. It batches, shuffles
-  and reads ahead on threads, with no worker processes.
+- To go through a dataset of particles, patches or subtomograms in batches,
+  use `vitrio.data.Dataset` and `vitrio.data.DataLoader`. It batches,
+  shuffles on request and reads ahead on threads, with no worker processes.
+  Training a model is the usual case. A classical refinement fits too, and
+  so does a single pass in order over every image.
 - For anything else that touches many images, use `vio.read_batch_async`,
   `vio.read_patches_async`, `vio.write_batch_async` and
   `vio.write_patches_async` over one `vio.loader()` or `vio.saver()`. Make
