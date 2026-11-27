@@ -51,4 +51,5 @@ Add `-DVITRIO_BUILD_PYTHON=ON` for the Python package, and run its suite with
 | [tests.md](docs/agents/tests.md) | Writing a test that writes files, needs a mock or waits for a transfer |
 | [python.md](docs/agents/python.md) | Touching `python/`, the binding, `vitrio.data`, docstrings or the Python tests |
 | [benchmarks.md](docs/agents/benchmarks.md) | Touching `benchmarks/` |
+| [documentation.md](docs/agents/documentation.md) | Writing or moving any text a user reads: the README, the guides, the pages of the site, or an example |
 | [ci.md](docs/agents/ci.md) | Opening a pull request, or touching `.github/workflows/` or a release |

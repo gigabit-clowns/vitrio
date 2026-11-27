@@ -676,6 +676,12 @@ def read(
 	"""
 	Read an image file, or one image or volume of a stack.
 
+	Each call opens the file and waits for the read, which suits a single
+	file. A program that goes through many images reads them in batches
+	instead, with `read_batch_async` or `read_patches_async`, or with
+	`vitrio.data` to feed a model. One call per image is many times
+	slower than one call per batch.
+
 	Args:
 		location: The file to read, as its key in `readers`, or an
 			`ImageLocation` naming one image or volume of it. A string is
@@ -805,6 +811,11 @@ def write_single(
 	"""
 	Write an array to an image file as one image or volume.
 
+	Returns once the file has been flushed to the storage. A program that
+	writes many files, or one file a batch at a time, uses
+	`write_batch_async` or `write_patches_async` over a `saver` instead,
+	so that it does not wait for each file.
+
 	Args:
 		array: The values to write.
 		path: The file to write them to.
@@ -848,6 +859,10 @@ def write_stack(
 
 	The leading extent of the array is the axis the file stacks along
 	and the rest are the shape of one image or volume.
+
+	Returns once the file has been flushed to the storage. To write a
+	stack a batch at a time, or many stacks at once, use
+	`write_batch_async` over a `saver` instead.
 
 	Args:
 		array: The values to write.
@@ -893,6 +908,9 @@ def write(
 	The core rank of the descriptor is what makes the file a stack and
 	not a single image or volume, and its data type is the one the file
 	stores.
+
+	Returns once the file has been flushed to the storage, as
+	`write_single` does.
 
 	Args:
 		array: The values to write. Its shape has to be the extents of

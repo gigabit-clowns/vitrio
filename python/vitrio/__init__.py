@@ -14,6 +14,14 @@ An array is given as whatever hands out host memory through DLPack or the
 buffer protocol, and `Array`, which the reads return, hands its own out in
 both ways. No memory is copied in either direction.
 
+`read`, `write_single`, `write_stack` and `write` handle one file per call
+and wait for it. A program that goes through many images reads and writes
+them in batches instead: `read_batch_async` and `read_patches_async` over a
+`loader`, `write_batch_async` and `write_patches_async` over a `saver`, with
+the next batch under way while it works on the current one. That is many
+times faster than one call per image. The performance guide says how to set
+it up: https://gigabit-clowns.github.io/vitrio/python/performance.html
+
 An asynchronous read or write returns a `Completion`, which keeps the array
 it works on alive. Destroying a completion that is not ready waits for it.
 
@@ -21,8 +29,9 @@ What a file states beyond its shape and data type, such as its pixel size,
 is a dict of values under labels: `read_metadata` returns one, and a write
 takes one as `metadata`.
 
-`vitrio.data` feeds images and their metadata to a model in batches. It
-needs numpy, so it is imported the first time `vio.data` is asked for, or
+`vitrio.data` feeds images and their metadata to a model in batches, and
+reads the next batches meanwhile. It is the simplest way to train on images.
+It needs numpy, so it is imported the first time `vio.data` is asked for, or
 by `import vitrio.data`.
 """
 

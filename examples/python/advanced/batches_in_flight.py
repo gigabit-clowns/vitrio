@@ -10,8 +10,8 @@ images keeps the disk and the processor busy at once.
 
 Here you choose the pieces: the thread pool, the loader that runs on it,
 how many open files it keeps, and the array every batch lands in. The
-example reads shuffled images from several stacks, two batches at a time,
-and checks that each batch holds the images it asked for.
+example reads shuffled images from several stacks, with a few batches under
+way at a time, and checks that each batch holds the images it asked for.
 
 	batches_in_flight.py
 
@@ -20,6 +20,7 @@ Needs vitrio and numpy.
 
 import random
 import tempfile
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +30,9 @@ STACKS = 4
 IMAGES_PER_STACK = 50
 SIZE = 32
 BATCH_SIZE = 16
+# How many batches are read ahead of the one in use. A deeper queue keeps
+# the storage busier and costs the memory of the batches under way.
+BATCHES_IN_FLIGHT = 4
 
 def make_stacks(directory: Path) -> list[Path]:
 	"""Write stacks whose image number `i` is filled with the value `i`."""
@@ -75,12 +79,14 @@ def main() -> None:
 			return batch, images, vio.read_batch_async(loader, images, batch)
 
 		total = 0
-		current = start_reading(0)
-		for first in range(BATCH_SIZE, len(locations), BATCH_SIZE):
-			upcoming = start_reading(first)    # runs in the background
-			total += check(*current, values)   # waits for the current one
-			current = upcoming
-		total += check(*current, values)
+		pending = deque()
+		for first in range(0, len(locations), BATCH_SIZE):
+			pending.append(start_reading(first))    # runs in the background
+			if len(pending) > BATCHES_IN_FLIGHT:
+				# Waits for the oldest batch while the others are read.
+				total += check(*pending.popleft(), values)
+		while pending:
+			total += check(*pending.popleft(), values)
 		print(f"{total} images read in batches of {BATCH_SIZE}")
 		assert total == len(locations)
 

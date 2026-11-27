@@ -83,18 +83,22 @@ parameter that is not there does not go unnoticed. Its first page is
 `docs/doxygen/mainpage.md`, not the README, whose `<picture>` Doxygen fails
 on. A link in that page to anything outside the reference is a full URL: a
 relative one is taken for a reference to a page of the documentation, and
-fails it. PyPI shows the README, so a link or an image in it to another
-file of the repository is a full URL too, such as its banners in
+fails it. The guides of `docs/guides/` are pages of it, and
+`DOXYGEN_EXAMPLE_PATH` lets the first page `\include` the examples of
+`examples/cpp/`. PyPI shows the README, so a link or an image in it to
+another file of the repository is a full URL too, such as its banners in
 `docs/logo/` on `main`.
 
 With `VITRIO_BUILD_PYTHON` the same option adds `vitrio-python-docs`, which
 imports the package from the build tree and has Sphinx write its reference
-under `docs/sphinx/html`. It needs Sphinx, Furo and numpy (`pip install --group
-docs`), and a warning of Sphinx fails it too. The reference is built from
-docstrings and holds none of its own text beyond the introduction and the
-list of what each page documents, so a new name is added to a page of
-`docs/sphinx/`. Both references are published together, under `/cpp/` and
-`/python/` of the site, which has the contents of `docs/site/` at its root.
+under `docs/sphinx/html`. It needs Sphinx, Furo, MyST and numpy (`pip install
+--group docs`), and a warning of Sphinx fails it too. The reference is built
+from docstrings and holds none of its own text beyond the introduction and
+the list of what each page documents, so a new name is added to a page of
+`docs/sphinx/`. A guide is a page that includes its file of `docs/guides/`,
+as [documentation.md](documentation.md) says. Both references are published
+together, under `/cpp/` and `/python/` of the site, which has the contents
+of `docs/site/` at its root.
 
 The sanitizer presets leave the Python package out. Its stubs are written
 by importing the extension, and an interpreter that is not instrumented

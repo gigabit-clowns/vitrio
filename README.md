@@ -11,16 +11,27 @@
 [![Build and test](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/gigabit-clowns/vitrio/actions/workflows/build-and-test.yml)
 [![Documentation](https://img.shields.io/badge/docs-gigabit--clowns.github.io%2Fvitrio-0b5cad)](https://gigabit-clowns.github.io/vitrio/)
 
-vitrio reads and writes the images of Cryo-Electron Microscopy (cryo-EM
-and cryo-ET): the micrographs, movies, particle stacks, volumes and
-tomograms that electron microscopy works on. It is made for programs that go
-through a lot of them, such as particle extraction, single-particle
-processing pipelines or the training of neural networks. One interface
-covers MRC, TIFF, EER, DigitalMicrograph and ZARR files, and the pixels go
-straight into memory you already have: a NumPy array, a PyTorch or JAX
-tensor, or your own buffer in C++.
+vitrio is an image I/O library for Cryo-Electron Microscopy (cryo-EM and
+cryo-ET). It reads and writes micrographs, movies, particle stacks, volumes
+and tomograms in MRC, TIFF, EER, DigitalMicrograph and ZARR files. It is a
+C++14 library with a Python package on top.
 
-vitrio is a C++14 library with a Python package on top.
+It takes care of the parts of image I/O that every program otherwise writes
+again. The same calls work on every format, so your code does not need a
+reader for each one or a branch to tell them apart. You name what you want,
+such as one particle of a stack, a patch of a micrograph or an EER movie
+counted into frames, and vitrio reads that part in the data type you ask
+for. The pixels land in memory you already have, such as a NumPy array or a
+PyTorch or JAX tensor. When the data sits on slow storage, vitrio can keep a
+copy of it on a fast local disk. It fills the copy as images are first read
+and serves later reads from it, while the client code that reads stays untouched.
+
+It is also very fast for programs that go through many images, such as particle
+extraction, processing pipelines and the training of neural networks.
+Reading one image at a time uses only a fraction of what the storage can
+deliver. With vitrio you ask for a whole batch in one call, the call returns
+at once, and the batch is read in the background while your program keeps
+working.
 
 ```python
 import vitrio as vio
@@ -33,79 +44,69 @@ tomogram = vio.read("tomogram.zarr")
 vitrio is young. Its API and ABI may change between minor releases until
 version 1.0.
 
-## Highlights
+## What it offers
 
-- **One interface for many formats.** The same calls read and write every
-  supported format. vitrio looks at each file, finds its format and hands
-  the request to the matching backend, so your code does not need to know
-  the format in advance.
-- **Read only what you need.** A read or a write is a list of regions that
-  fill one array, and those regions can come from any number of images and
-  files. This makes common access patterns cheap: patches around picked
-  particles, a slice of a volume, or random images out of RELION-style
-  stacks. Regions that lie close together in a file are merged into fewer,
-  larger reads. What a read costs is what it touches of the file, though:
-  a slice along the axis a volume is laid out slowest in touches a few
-  bytes of every row, and so a page of every row, whatever reads it.
-- **Asynchronous and batch-oriented.** Reads and writes run in batches on a
-  thread pool. The `_async` functions return at once with a completion to
-  wait on, so the next batch can load while you work on the current one.
-- **Scratch.** A scratch keeps a local copy of the images a program keeps
-  going back to, such as the particles of a dataset read once per epoch. It
-  lives in RAM or in a file on fast local storage, and fills as images are
-  first read, or ahead of time. A scratch in a file can be larger than RAM,
-  outlives the program and can be shared by several programs at once, so
-  data on slow or network storage is read from there only once.
-- **io_uring on Linux.** MRC, DigitalMicrograph and ZARR files are read and
-  written through io_uring when the kernel provides it, which keeps many
-  requests in flight on fast storage. Elsewhere, vitrio falls back to
-  ordinary reads and writes, or to memory maps.
-- **No copies.** vitrio reads into and writes from any memory shared through
-  DLPack or the buffer protocol. It converts data types on the way, so a
-  file of 16-bit integers can land in a `float32` array.
-- **Convenient data loader for ML applications.** `vitrio.data` feeds
-  images and their metadata to PyTorch or JAX in shuffled batches. The next
-  batches are read in the background on threads, with no worker processes,
-  and a batch bound for a GPU is read straight into pinned memory.
-- **Transparent EER rendering.** An EER movie is read like any other movie.
-  You only say how many frames you want, and vitrio renders the electron
-  events into them as it reads. The raw events are available too.
-- **Extensible.** In C++, a new format is a class that you register with a
-  format selector, even at run time. The library does not need to change,
-  and every read and write can use the new format right away.
+Work that vitrio takes off your hands:
 
-## Supported formats
+- One interface for every format. The same calls read and write MRC, TIFF,
+  ZARR and the rest, and vitrio recognizes the format from the file. A
+  program written for MRC stacks reads TIFF or ZARR without a change.
+- Any part of a file. You can ask for a whole file, one image of a stack, a
+  patch around a picked particle or a slice of a volume. vitrio reads only
+  the bytes that the request needs.
+- Any array. Pixels are read into any memory shared through DLPack or the
+  buffer protocol, without a copy, and converted on the way to the data type
+  you ask for. A file of 16-bit integers can land in a `float32` tensor.
+- Metadata under the same names. The pixel size is `pixel_size_x` whether it
+  comes from an MRC header, a TIFF tag or an OME-Zarr scale.
+- EER movies as ordinary movies. You say how many fractions you want and
+  vitrio counts the electron events into them.
+- A scratch behind the reads. vitrio can keep a local copy of images that
+  are read again and again, in RAM or in a file on fast local storage. It
+  fills the copy as the images are first read and serves them from there
+  afterwards. You ask for it once, when the loader is created, and the reads
+  stay the same.
+- A data loader for training. `vitrio.data` feeds images and their metadata
+  to PyTorch or JAX in shuffled batches, with no worker processes.
+- Room for your own formats. In C++, a new format is a class that you
+  register at run time, and every read and write can use it right away.
 
-| Format | Extensions | Holds | Read | Write |
-|---|---|---|---|---|
-| MRC | `.mrc`, `.mrcs`, `.map`, `.st`, `.rec`, `.ali`, and any of these compressed with gzip, such as `.map.gz` | Images, volumes, stacks of either | All of them, in either byte order. 8- and 16-bit integers, 16- and 32-bit floats, 64-bit complex | `.mrc`, `.mrcs` and `.map`, never compressed. The same data types |
-| TIFF | `.tif`, `.tiff` | Images, stacks | Classic and BigTIFF, with one page or many. 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex | Classic, or BigTIFF when the images would not fit one. Both extensions, and the same data types |
-| EER | `.eer` | Movies | Compression 65000, 65001 and 65002. Electron events, read as a timeline or counted into images | Not written |
-| DigitalMicrograph | `.dm3`, `.dm4` | Images, stacks | Versions 3 and 4 only, in either byte order, and only the first image of a file. 8- to 32-bit integers, 32- and 64-bit floats, 64- and 128-bit complex, but not RGB or packed complex | Not written |
-| ZARR | a directory of any name, `.zarr` when writing | Images, volumes, stacks | Versions 2 and 3, and OME-Zarr 0.4 and 0.5, in either byte order. Booleans, 8- to 64-bit integers, 16- to 64-bit floats, 64- and 128-bit complex. Chunks compressed with blosc, zstd, zlib or gzip, alone or in shards | Version 3, and OME-Zarr 0.5. The same data types. Chunks compressed with blosc and zstd, never in shards |
+What makes it fast:
 
-A file is recognized by its contents where the format allows it, and by its
-extension otherwise. A ZARR array is recognized by the metadata in its
-directory.
+- A read or a write takes a whole batch, from any number of files. vitrio
+  sorts the requests and merges those that lie close together.
+- Reads and writes can be asynchronous, so the next batch loads while you
+  work on the current one. On Linux most formats go through io_uring when
+  the kernel allows it.
+- A batch bound for a GPU is read straight into pinned memory.
 
-An EER file holds the events a detector counted rather than images. They are
-read as they are, a stretch of time at a time, or counted into a movie of as
-many fractions as you ask for, after which the file is read like any other
-image.
+## How fast is it
 
-A read of an MRC file compressed with gzip, such as the `.map.gz` of a map
-in the EMDB, inflates it from its start, so such a file is best read once,
-whole.
+We measured vitrio on one workstation, against the usual ways of reading
+cryo-EM data from Python. Reading shuffled batches of particles from a cold
+NVMe drive, it delivered about 2.7 GB/s, which is what `fio` measures for
+that drive. `numpy.memmap` and mrcfile delivered about 0.6 GB/s. On an array
+of hard disks the same read was about six times faster than a memory map.
 
-What a file states beyond its values is its metadata. Of an MRC file, the
-pixel size along each axis and its labels are read, and written when the
-file is created. Of a TIFF file, the pixel size its resolution states, its
-description, its software and its date are, and of an image of OME-Zarr,
-the pixel size its scale states. Of a DigitalMicrograph file, the pixel
-size its calibration states is read. A file created with no pixel size
-states none.
+We also moved the image I/O of three packages onto vitrio, in forks that are
+not published yet. Topaz trained its denoiser 1.7 times faster than upstream
+at its fastest setting. IsoNet2 predicted a tomogram with 9 GB of memory
+instead of 101 GB. cryoDRGN took 13% to 32% less time when training from
+hard disks.
 
-More formats will follow.
+vitrio does not make everything faster:
+
+- The gains come from batches and from reading ahead. A loop that calls
+  `vio.read` once per particle offers no gain.
+- A training run that is limited by the GPU takes the same time. That was
+  the case for cryoDRGN on the NVMe drive.
+- A slow network stays the limit. Over 1 Gb Ethernet vitrio filled the link,
+  which a memory map nearly did too.
+
+These are early results from a single machine. The harness that produced
+them is in
+[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md),
+so you can measure on the storage you care about.
 
 ## Installing
 
@@ -114,21 +115,17 @@ pip install vitrio
 ```
 
 There are wheels for Linux (x86_64 and aarch64), macOS (Apple silicon and
-Intel) and Windows (x86_64), for Python 3.10 and newer. They carry everything
-they need. On any other platform pip builds the package from source, which
-takes a C++ compiler and access to the network: the libraries vitrio needs
-are fetched and built with it.
+Intel) and Windows (x86_64), for Python 3.10 and newer. On any other
+platform pip builds the package from source, which needs a C++ compiler and
+network access.
 
-The C++ library is built from source for now.
+The C++ library is built from source for now. See
+[Building from source](#building-from-source).
 
 ## Using it from Python
 
-The reference of the package is at
-[gigabit-clowns.github.io/vitrio/python](https://gigabit-clowns.github.io/vitrio/python/),
-built from its docstrings, which `help()` and your editor show too.
-
-`read` works the format out from the file and returns an array that NumPy,
-PyTorch and the rest use without a copy.
+`read` returns an array that NumPy and PyTorch use without a copy. The
+values are converted if you ask for another data type.
 
 ```python
 import numpy as np
@@ -142,8 +139,8 @@ tensor = torch.from_dlpack(micrograph)    # and again
 vio.write_single(pixels, "copy.tif")
 ```
 
-What a file states beyond its values, such as its pixel size, is read apart
-from them, as a dict, and given when a file is written.
+Metadata such as the pixel size is read as a dict, and can be given back
+when a file is written.
 
 ```python
 metadata = vio.read_metadata("map.mrc")
@@ -152,103 +149,79 @@ pixel_size = metadata.get("pixel_size_x")    # in ångströms, or None
 vio.write_single(volume, "copy.mrc", metadata=metadata)
 ```
 
-Reading many images is done in batches, on a thread pool, and the `_async`
-functions return right away with a completion to wait on, so that the next
-batch is on its way while you work on the current one. Patches are cropped
-out of an image around a list of centres the same way, and a scratch keeps
-the images a program goes back to in RAM or in a file. Each of those is
-shown in a small program under [examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md).
-
-An array can be anything that hands out host memory through DLPack or the
-buffer protocol: a NumPy array, a PyTorch or JAX tensor, a `memoryview`. It
-is read or written where it is, views included.
-
-A movie of an electron-counting detector, such as an EER file, holds the
-events the detector counted rather than images. It is read through a
-provider that cuts its frames into as many fractions as you ask for:
+Many images are read as a batch. The call returns a completion at once, and
+the batch arrives in an array you provide.
 
 ```python
-readers = vio.detector_event_image_reader_provider(40, binning=2)
-movie = vio.read("movie.eer", readers, data_type=np.float32)    # 40 fractions
+loader = vio.loader()
+locations = [vio.ImageLocation("particles.mrcs", i) for i in range(256)]
+images = np.empty((256, 128, 128), np.float32)
+
+reading = vio.read_batch_async(loader, images, locations)
+...               # do something else while the batch is read
+reading.get()     # wait for it. This raises if a read failed
 ```
 
-## Feeding a model
+To have vitrio keep a local copy of what it reads, give the loader a
+scratch. The reads themselves do not change.
 
-`vitrio.data` reads a cryo-EM dataset for training in batches. A `Dataset`
-is rows of named fields: images read from files, and whatever metadata goes
-with them, such as the CTF, the pose or the class of each particle. vitrio
-parses no metadata file itself. It takes what you parsed it into, such as
-the columns of a DataFrame from [starfile](https://github.com/teamtomo/starfile).
-A `DataLoader` goes through it in shuffled batches, as dicts of NumPy
-arrays, PyTorch tensors or JAX arrays, with a few batches in flight on a
-thread pool. A batch bound for a GPU is read straight into pinned memory.
+```python
+scratch = vio.create_file_image_scratch(
+    locations, "/local/nvme/particles.scratch", run_length=64
+)
+loader = vio.loader(scratch=scratch)
+
+reading = vio.read_batch_async(loader, images, locations)    # as before
+```
+
+To train a model, `vitrio.data` does the batching and the reading ahead for
+you. A `Dataset` is rows of named fields: images read from files, and any
+metadata that goes with them. vitrio parses no metadata file itself. It
+takes what you already parsed, such as the columns of a DataFrame from
+[starfile](https://github.com/teamtomo/starfile).
 
 ```python
 dataset = vio.data.Dataset({
     "image": vio.data.ImageSource(locations, data_type=np.float32),
     "label": labels,
 })
-for batch in vio.data.DataLoader(dataset, batch_size=128, shuffle=True):
+loader = vio.data.DataLoader(
+    dataset, batch_size=128, shuffle=True, output="torch", device="cuda"
+)
+for batch in loader:
     batch["image"], batch["label"], batch["index"]
 ```
 
-A dataset only describes its rows. What reads them is an image loader,
-with its threads, its open files and maybe a scratch, and it is given to
-the reads: `DataLoader(dataset, ..., loader=vio.loader(workers=8))`. Reads
-given none go through a loader shared by the whole process.
+## Choosing how to read and write
 
-The pieces fit other layouts too:
+vitrio has three ways in. Which one you pick decides how fast your program
+runs, more than any setting does.
 
-- A cryoSPARC `.cs` file is a structured array that `np.load` reads.
-  `vio.data.make_locations(cs["blob/path"], cs["blob/idx"])` gives its
-  locations, and `vio.data.as_columns(cs)` its columns.
-- A row may have several images, all of one shape: give `ImageSource` a row
-  of locations for each row, such as the tilts of a particle or the halves
-  of a movie.
-- `PatchSource` crops a patch around a centre out of a larger image for
-  each row, such as particles out of micrographs or subtomograms out of a
-  tomogram.
-- `dataset.subset(rows)` splits off a validation set, and
-  `dataset.preload()` reads everything into memory once. To keep a copy
-  that fills as the first epoch goes and may live in a file, read through
-  a loader with a scratch instead:
-  `DataLoader(dataset, ..., loader=vio.loader(scratch=scratch))`.
-- With JAX, `output="jax"` puts each batch on a device, or across several
-  with `sharding=`. JAX compiles again for every new shape, so pass
-  `drop_last=True`, or `pad_last=True`, which adds a `valid` field marking
-  the padded rows. Across several processes, give each one
-  `vio.data.BatchSampler(..., shard=(jax.process_index(),
-  jax.process_count()))` and the same seed.
-- PyTorch's own DataLoader takes a `Dataset` as it is. Give it a
-  `BatchSampler` as its `sampler` with `batch_size=None`, so that it reads
-  a batch per call.
+| Your program | Use | What to expect |
+|---|---|---|
+| Feeds a model with particles, patches or subtomograms | `vitrio.data.Dataset` and `DataLoader` | The simplest. It reads ahead for you, and is as fast as a hand-written loop when the storage is the limit |
+| Does anything else with many images, such as extraction, preprocessing or writing results | `read_batch_async`, `read_patches_async`, `write_batch_async` and `write_patches_async` | The fastest. Make one call per batch, and keep the next batch in flight while you compute |
+| Opens one file in a script or a notebook | `read`, `write_single`, `write_stack` and `write` | The simplest call. Each one opens a file and waits for it, so keep them out of loops over many images |
 
-## Examples
+The
+[performance guide](https://github.com/gigabit-clowns/vitrio/blob/main/docs/guides/performance.md)
+explains each of them, with the settings that matter for NVMe drives, hard
+disks, network storage and containers.
 
-[examples/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md)
-holds programs that show vitrio at work, sorted by language and by how much
-of it you control. In Python, `basic/` lets vitrio assemble what it needs,
-and `advanced/` names the thread pools, loaders and scratches. Among them,
-`train_2d_classifier.py` trains a PyTorch network on the 2D classes of a
-RELION job, `extract_particles.py` crops the particles picked on a set of
-micrographs into stacks, and `fractionate_eer.py` cuts EER movies into
-fractions.
+## Supported formats
 
-## Benchmarks
+| Format | Extensions | Read | Write |
+|---|---|---|---|
+| MRC | `.mrc`, `.mrcs`, `.map`, `.st`, `.rec`, `.ali`, also compressed with gzip, such as `.map.gz` | Yes | `.mrc`, `.mrcs` and `.map`, uncompressed |
+| TIFF | `.tif`, `.tiff` | Classic and BigTIFF | Classic and BigTIFF |
+| EER | `.eer` | As electron events, or counted into a movie | No |
+| DigitalMicrograph | `.dm3`, `.dm4` | Yes | No |
+| ZARR | A directory | Versions 2 and 3, OME-Zarr 0.4 and 0.5 | Version 3, OME-Zarr 0.5 |
 
-[benchmarks/](https://github.com/gigabit-clowns/vitrio/blob/main/benchmarks/README.md)
-holds a harness that measures how fast vitrio reads and writes against the
-ways other software does it: mrcfile for MRC files, zarr-python and
-tensorstore for ZARR stores, and LMDB and PyTorch's own `DataLoader` for the
-batches of a training run. A procedure measures one of those from outside
-vitrio and records a run as a line of JSON, a question sweeps a procedure's
-parameters, and ReFrame runs campaigns of them on a machine. The datasets
-are real: the manifests of `benchmarks/datasets/` say where to download
-EMPIAR-10180 and EMPIAR-10076, and how to check them.
-
-The results of a campaign are not published yet. Until they are, run one
-yourself on the storage you care about, as the README of the harness
-describes.
+The
+[formats page](https://github.com/gigabit-clowns/vitrio/blob/main/docs/guides/formats.md)
+lists the data types, the compression and the metadata that each format
+supports. More formats will follow.
 
 ## Using it from C++
 
@@ -259,55 +232,64 @@ target_link_libraries(my_program PRIVATE vitrio::vitrio)
 
 ```cpp
 #include <vitrio/array/array.hpp>
+#include <vitrio/concurrency/thread_pool_executor.hpp>
 #include <vitrio/file_image_reader_provider.hpp>
+#include <vitrio/file_transfer_pool.hpp>
 #include <vitrio/image_file_read_format_selector.hpp>
 #include <vitrio/image_file_write_format_selector.hpp>
 #include <vitrio/image_read.hpp>
 #include <vitrio/image_write.hpp>
 
+#include <memory>
+
 int main()
 {
+	// The threads that read and write files.
+	const auto transfers = std::make_shared<vitrio::file_transfer_pool>(
+		std::make_shared<vitrio::thread_pool_executor>(2)
+	);
 	vitrio::file_image_reader_provider readers(
-		vitrio::image_file_read_format_selector::get_shared()
+		vitrio::image_file_read_format_selector::get_shared(),
+		transfers
 	);
 
 	// Read as 32-bit floats, whatever the file holds.
-	vitrio::array image = vitrio::read(
+	const vitrio::array image = vitrio::read(
 		"micrograph.mrc", readers, vitrio::numerical_type::float32
 	);
 
 	vitrio::write_single(
 		image, "copy.tif",
-		*vitrio::image_file_write_format_selector::get_shared()
+		*vitrio::image_file_write_format_selector::get_shared(),
+		*transfers
 	);
 }
 ```
 
-The headers under `include/vitrio/` are the whole API, and each one documents
-what it declares. Their reference is at
-[gigabit-clowns.github.io/vitrio/cpp](https://gigabit-clowns.github.io/vitrio/cpp/).
-That includes how to read the events of an EER file through
-`detector_event_image_reader_provider`, and how to register a format of your
-own with `image_file_read_format_selector::register_format`.
+The headers under `include/vitrio/` are the whole API, and each one
+documents what it declares. `read_batch_async` and its siblings are in
+`image_read.hpp` and `image_write.hpp`, and the advice of the table above
+holds for them too.
 
-[examples/cpp/](https://github.com/gigabit-clowns/vitrio/blob/main/examples/cpp/read_and_convert.cpp) has this program as a
-target of the build.
+## Documentation
+
+- [Python reference](https://gigabit-clowns.github.io/vitrio/python/), built
+  from the docstrings that `help()` and your editor show.
+- [Performance guide](https://github.com/gigabit-clowns/vitrio/blob/main/docs/guides/performance.md),
+  on choosing an API and setting it up for your storage.
+- [Supported formats](https://github.com/gigabit-clowns/vitrio/blob/main/docs/guides/formats.md),
+  in detail.
+- [C++ reference](https://gigabit-clowns.github.io/vitrio/cpp/), built from
+  the public headers.
+- [Examples](https://github.com/gigabit-clowns/vitrio/blob/main/examples/README.md):
+  small programs you can run, such as training a PyTorch network on the 2D
+  classes of a RELION job, extracting picked particles into stacks and
+  cutting EER movies into fractions.
 
 ## Building from source
 
-You need a C++14 compiler and CMake 3.24 or newer, and on Linux a C compiler
-and make too. The libraries vitrio needs are fetched and built with it,
-static, inside its own library:
-
-- Boost (Filesystem, Interprocess and ContainerHash)
-- spdlog
-- libtiff, and zlib for it, unless TIFF is turned off, which leaves EER out
-  too
-- nlohmann/json, c-blosc, zstd and zlib, unless ZARR is turned off
-- zlib, unless reading MRC files compressed with gzip is turned off
-- liburing, on Linux, unless io_uring is turned off
-- Google Highway, unless the vector loops are turned off
-- Catch2 and trompeloeil, for the tests
+You need a C++14 compiler and CMake 3.24 or newer. The libraries vitrio
+depends on are downloaded and built with it.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -316,53 +298,21 @@ ctest --test-dir build
 cmake --install build --prefix <where>
 ```
 
-To use the libraries installed on the system instead, turn
-`VITRIO_USE_SYSTEM_DEPENDENCIES` on. CMake then looks for each of them with
-`find_package`, or pkg-config for liburing, c-blosc and zstd, and CMake 3.18
-is enough. They have to be Boost 1.70, libtiff 4.5, spdlog 1.4, liburing 2.0,
-nlohmann/json 3.6, c-blosc 1.14, zstd 1.4, Highway 1.2.0 and Catch2 3 or
-newer. One of them alone is found rather than built by turning its own
-option on, such as `-DVITRIO_USE_SYSTEM_TIFF=ON`. The others are
-`VITRIO_USE_SYSTEM_BOOST`, `VITRIO_USE_SYSTEM_SPDLOG`,
-`VITRIO_USE_SYSTEM_ZLIB`, `VITRIO_USE_SYSTEM_LIBURING`,
-`VITRIO_USE_SYSTEM_NLOHMANN_JSON`, `VITRIO_USE_SYSTEM_BLOSC`,
-`VITRIO_USE_SYSTEM_ZSTD`, `VITRIO_USE_SYSTEM_HIGHWAY`,
-`VITRIO_USE_SYSTEM_CATCH2` and `VITRIO_USE_SYSTEM_TROMPELOEIL`.
-
-Without access to the network, give each library that is built the
-directory of its sources instead, such as
-`-DFETCHCONTENT_SOURCE_DIR_BOOST=<dir>`.
-
-A few options change what gets built:
-
-| Option | Effect |
-|---|---|
-| `-DVITRIO_USE_SYSTEM_DEPENDENCIES=ON` | Find the libraries vitrio needs installed, rather than fetching and building them |
-| `-DVITRIO_BUILD_TESTING=OFF` | Skip the tests, and with them Catch2 and trompeloeil |
-| `-DVITRIO_ENABLE_TIFF=OFF` | Leave TIFF and EER out, and libtiff with them |
-| `-DVITRIO_ENABLE_ZARR=OFF` | Leave ZARR out, and nlohmann/json, c-blosc and zstd with it |
-| `-DVITRIO_ENABLE_GZIP=OFF` | Leave out reading MRC files compressed with gzip, and zlib with it when TIFF and ZARR are out too |
-| `-DVITRIO_ENABLE_IO_URING=OFF` | On Linux, leave io_uring out, and liburing with it |
-| `-DVITRIO_ENABLE_SIMD=OFF` | Convert half precision values with the loops the compiler vectorizes alone, and leave Highway out |
-| `-DVITRIO_SIMD_DISPATCH=STATIC` | Compile the vector loops once, for the instruction set the compiler flags allow, rather than once per instruction set with the choice made as the library runs |
-| `-DVITRIO_SIMD_TARGETS=AVX2` | The instruction sets the vector loops are compiled for beyond the baseline, by Highway's names; the default is `AVX2;AVX3` on x86 and nothing on aarch64, where NEON converts half precision values already |
-| `-DVITRIO_BUILD_PYTHON=ON` | Build the Python package too. Needs Python 3.10 or newer with nanobind installed |
-| `-DVITRIO_BUILD_EXAMPLES=ON` | Build the C++ examples of `examples/cpp`, which CTest runs |
-| `-DVITRIO_BUILD_DOCS=ON` | Add the target `vitrio-docs`, which builds the API documentation with Doxygen, and with `VITRIO_BUILD_PYTHON` the target `vitrio-python-docs`, which builds that of the Python package with Sphinx |
-
-With `VITRIO_BUILD_PYTHON` the package ends up under `python/` in the build
-tree, so putting that directory on `PYTHONPATH` is enough to import it.
-`pip install .` builds and installs it in one go. It is given the options
-above as `-C cmake.define.<option>=<value>`, such as
-`-C cmake.define.VITRIO_USE_SYSTEM_DEPENDENCIES=ON`.
+Add `-DVITRIO_BUILD_PYTHON=ON` to build the Python package too, or run
+`pip install .` to build and install it in one go.
+[docs/guides/building.md](https://github.com/gigabit-clowns/vitrio/blob/main/docs/guides/building.md)
+lists the dependencies and the build options. It also explains how to use
+the libraries installed on your system and how to build without network
+access.
 
 ## Citing vitrio
 
-[CITATION.cff](https://github.com/gigabit-clowns/vitrio/blob/main/CITATION.cff)
-holds the citation of the library, which GitHub offers under **Cite this
-repository** and turns into BibTeX or APA.
+GitHub offers the citation under **Cite this repository**, as BibTeX or APA.
+It comes from
+[CITATION.cff](https://github.com/gigabit-clowns/vitrio/blob/main/CITATION.cff).
 
 ## Licence
 
-vitrio is distributed under the GNU Lesser General Public License, version 2.1
-or later. See [LICENSE](https://github.com/gigabit-clowns/vitrio/blob/main/LICENSE).
+vitrio is distributed under the GNU Lesser General Public License, version
+2.1 or later. See
+[LICENSE](https://github.com/gigabit-clowns/vitrio/blob/main/LICENSE).

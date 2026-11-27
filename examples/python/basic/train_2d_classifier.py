@@ -171,14 +171,9 @@ def train(arguments: argparse.Namespace) -> float:
 		shuffle: bool
 	) -> vio.data.DataLoader:
 		return vio.data.DataLoader(
-			dataset, 
-   			arguments.batch_size, 
-      		shuffle=shuffle,
-			loader=loader, 
-   			seed=arguments.seed, 
-      		output='torch',
-			device=arguments.device, 
-   			transform=normalize
+			dataset, arguments.batch_size, shuffle=shuffle,
+			loader=loader, seed=arguments.seed, output='torch',
+			device=arguments.device, transform=normalize
 		)
 
 	training_batches = batches(training, shuffle=True)
