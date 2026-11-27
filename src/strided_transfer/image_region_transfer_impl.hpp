@@ -4,7 +4,7 @@
 
 #include "image_region_transfer.hpp"
 
-#include "image_region_loop.hpp"
+#include <strided_transfer/region_loop/image_region_loop.hpp>
 
 #include <vitrio/exceptions/unsupported_operation_error.hpp>
 
@@ -19,14 +19,35 @@ namespace vitrio
 {
 
 /**
- * @brief Read one element of a file into an array.
+ * @brief Apply a kernel element by element over a run that is contiguous on
+ * both sides.
+ *
+ * It is what the run operation of a kernel does unless the kernel has a
+ * better way, and the loop a compiler vectorizes: conversion goes through
+ * @ref cast, which is inline down to the conversions of @ref float16_t, as
+ * a call per element is something no vectorizer gets through.
+ */
+template <typename Kernel, typename Destination, typename Source>
+inline void run_kernel_over(
+	const Kernel &kernel,
+	Destination *destination,
+	const Source *source,
+	std::size_t count
+) noexcept
+{
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		kernel(destination + i, source + i);
+	}
+}
+
+/**
+ * @brief Read the elements of a file into an array.
  *
  * Every kernel here names its destination first, as the layout its loop
- * walks does.
- *
- * Conversion goes through @ref cast, which is inline down to the
- * conversions of @ref float16_t: a call per element is something no
- * vectorizer gets through.
+ * walks does, and has two operations: one element, and a run of them that
+ * is contiguous on both sides, which is where a loop written for the vector
+ * units of the processor plugs in.
  */
 struct region_read_kernel
 {
@@ -35,10 +56,16 @@ struct region_read_kernel
 	{
 		cast(array, file);
 	}
+
+	template <typename T, typename Q>
+	void operator()(T *array, const Q *file, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, array, file, count);
+	}
 };
 
 /**
- * @brief Read one element of a file of the other byte order into an array.
+ * @brief Read the elements of a file of the other byte order into an array.
  *
  * The bytes are reversed in the type the file holds them in, before the
  * conversion. Reversing a value of the array's type instead would be a
@@ -52,10 +79,16 @@ struct byte_swapped_region_read_kernel
 		const auto value = reverse_byte_order(*file);
 		cast(array, &value);
 	}
+
+	template <typename T, typename Q>
+	void operator()(T *array, const Q *file, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, array, file, count);
+	}
 };
 
 /**
- * @brief Write one element of an array into a file.
+ * @brief Write the elements of an array into a file.
  *
  * @see region_read_kernel
  */
@@ -66,10 +99,16 @@ struct region_write_kernel
 	{
 		cast(file, array);
 	}
+
+	template <typename Q, typename T>
+	void operator()(Q *file, const T *array, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, file, array, count);
+	}
 };
 
 /**
- * @brief Write one element of an array into a file of the other byte order.
+ * @brief Write the elements of an array into a file of the other byte order.
  *
  * The conversion happens first and the bytes are reversed afterwards, so that
  * they are reversed in the type the file holds them in.
@@ -84,6 +123,12 @@ struct byte_swapped_region_write_kernel
 		Q value;
 		cast(&value, array);
 		*file = reverse_byte_order(value);
+	}
+
+	template <typename Q, typename T>
+	void operator()(Q *file, const T *array, std::size_t count) const noexcept
+	{
+		run_kernel_over(*this, file, array, count);
 	}
 };
 
@@ -112,56 +157,6 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
 	: std::true_type
 {
 };
-
-/**
- * @brief Walk every region with one layout.
- *
- * Each region is the same space reached through a different pair of
- * pointers, so the layout is built once and only the two bases move. The
- * inner loop is chosen once too, before the first region, as the strides of
- * the innermost axis are the same for all of them.
- *
- * Either side may hold its elements from an origin on rather than from its
- * first, as a buffer holding a stretch of a file does, and its offsets are
- * then taken from there.
- *
- * The destination comes first, as it does in the layout.
- */
-template <
-	typename Kernel,
-	typename DestinationPointer,
-	typename SourcePointer
->
-void run_regions(
-	const Kernel &kernel,
-	const image_region_layout &layout,
-	span<const std::ptrdiff_t> destination_offsets,
-	span<const std::ptrdiff_t> source_offsets,
-	DestinationPointer destination_data,
-	std::ptrdiff_t destination_origin,
-	SourcePointer source_data,
-	std::ptrdiff_t source_origin
-)
-{
-	dispatch_region_inner_strides(
-		layout,
-		[&] (auto destination_stride, auto source_stride)
-		{
-			for (std::size_t i = 0; i < destination_offsets.size(); ++i)
-			{
-				run_region_loop(
-					kernel,
-					layout,
-					destination_stride,
-					source_stride,
-					destination_data +
-						(destination_offsets[i] - destination_origin),
-					source_data + (source_offsets[i] - source_origin)
-				);
-			}
-		}
-	);
-}
 
 template <
 	typename Kernel,

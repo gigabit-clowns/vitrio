@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <strided_transfer/image_region_loop.hpp>
+#include <strided_transfer/region_loop/image_region_loop.hpp>
 
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>
@@ -39,6 +39,18 @@ struct copy_kernel
 	{
 		*destination = *source;
 	}
+
+	void operator()(
+		int *destination,
+		const int *source,
+		std::size_t count
+	) const noexcept
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			destination[i] = source[i];
+		}
+	}
 };
 
 // Notes the destination of every call, in the order the calls are made.
@@ -55,8 +67,45 @@ public:
 		m_visited->push_back(destination);
 	}
 
+	void operator()(int *destination, const int *, std::size_t count) const
+	{
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			m_visited->push_back(destination + i);
+		}
+	}
+
 private:
 	std::vector<const int*> *m_visited;
+};
+
+// Notes the length of every run it is handed, and counts the elements it is
+// handed one by one.
+class run_recording_kernel
+{
+public:
+	explicit run_recording_kernel(
+		std::vector<std::size_t> &runs,
+		std::size_t &single_elements
+	) noexcept
+		: m_runs(&runs)
+		, m_single_elements(&single_elements)
+	{
+	}
+
+	void operator()(int *, const int *) const
+	{
+		++*m_single_elements;
+	}
+
+	void operator()(int *, const int *, std::size_t count) const
+	{
+		m_runs->push_back(count);
+	}
+
+private:
+	std::vector<std::size_t> *m_runs;
+	std::size_t *m_single_elements;
 };
 
 std::vector<int> counting(std::size_t count)
@@ -310,6 +359,66 @@ TEST_CASE(
 		{
 			REQUIRE( visited[i] == destination.data() + i );
 		}
+	}
+}
+
+TEST_CASE(
+	"run_region_loop hands the kernel an innermost axis contiguous on both "
+	"sides as one run",
+	"[image_region_loop]"
+)
+{
+	std::vector<int> destination(48);
+	const auto source = counting(48);
+	std::vector<std::size_t> runs;
+	std::size_t single_elements = 0;
+	const run_recording_kernel kernel(runs, single_elements);
+
+	SECTION( "once per step of the axes outside it" )
+	{
+		const auto layout = make_layout({2, 3, 4}, {24, 8, 1}, {16, 4, 1});
+
+		run_dispatched_region_loop(
+			kernel,
+			layout,
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs == std::vector<std::size_t>(6, 4) );
+		REQUIRE( single_elements == 0 );
+	}
+
+	SECTION( "and element by element where a side is strided" )
+	{
+		const auto layout = make_layout({3, 4}, {16, 2}, {4, 1});
+
+		run_dispatched_region_loop(
+			kernel,
+			layout,
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs.empty() );
+		REQUIRE( single_elements == 12 );
+	}
+
+	SECTION( "but not a stride of one given at run time" )
+	{
+		const auto layout = make_layout({3, 4}, {4, 1}, {4, 1});
+
+		run_region_loop(
+			kernel,
+			layout,
+			std::ptrdiff_t(1),
+			std::ptrdiff_t(1),
+			destination.data(),
+			source.data()
+		);
+
+		REQUIRE( runs.empty() );
+		REQUIRE( single_elements == 12 );
 	}
 }
 

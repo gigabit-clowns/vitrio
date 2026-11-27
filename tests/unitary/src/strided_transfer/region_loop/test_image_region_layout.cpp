@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <strided_transfer/image_region_layout.hpp>
+#include <strided_transfer/region_loop/image_region_layout.hpp>
 
 #include <vitrio/image_transfer_plan.hpp>
 #include <vitrio/image_transfer_shape.hpp>

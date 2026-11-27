@@ -18,6 +18,14 @@ The rules every C++ source of the library follows.
 - **One class per file.** A class is declared in a `.hpp` and defined in a
   `.cpp`, or in an `.inl` included at the end of the header when it has to be
   inline.
+- **Bodies.** A header named `_impl.hpp`, with its `_impl.inl`, holds
+  templates only, includes nothing but that `.inl`, has no guard and opens no
+  namespace. The header that owns it includes it inside `namespace vitrio`,
+  after what it needs, and says so in a comment. A translation unit that
+  compiles the templates a second time, under compiler attributes of its
+  own, includes the owning header and then the body again inside another
+  namespace. `src/strided_transfer/region_loop/image_region_loop_impl.hpp`
+  is one.
 - **Implementations of an interface.** A class that implements an
   interface is named after it, with what sets it apart in front:
   `file_image_reader_provider` and `caching_image_reader_provider` are
