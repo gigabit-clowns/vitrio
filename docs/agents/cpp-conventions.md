@@ -92,12 +92,23 @@ The rules every C++ source of the library follows.
   of vitrio's own, which converts and does no arithmetic. Its conversions
   are bit arithmetic without a branch, and no intrinsic, so that a compiler
   vectorizes the loops of the strided transfer that call them for every
-  element. A choice among cases is made with a mask, since GCC keeps a
-  branch around a floating point operation, and a loop with a branch is not
-  vectorized. It is converted to a float exactly, and from a float and from
-  a double each rounded once. Every other type goes through a float, which
-  holds every half precision number and every integer half precision does
-  not round to an infinity.
+  element, and they are the reference every other conversion of half
+  precision is held to. A choice among cases is made with a mask, since GCC
+  keeps a branch around a floating point operation, and a loop with a branch
+  is not vectorized. It is converted to a float exactly, and from a float
+  and from a double each rounded once. Every other type goes through a
+  float, which holds every half precision number and every integer half
+  precision does not round to an infinity.
+- **Vector loops.** The runs of half precision values and floats a transfer
+  converts in the native byte order go through
+  `src/strided_transfer/simd/`, the one place that includes Highway. Its
+  loops are compiled once per instruction set of `VITRIO_SIMD_TARGETS`, or
+  once with `VITRIO_SIMD_DISPATCH=STATIC`, and the one for the processor is
+  chosen once per call of `read_regions` or `write_regions`, above the loop
+  over the regions, never per run. They match `float16_t` bit for bit, but
+  for the payload of a NaN, which only some instruction sets keep. `hwy/`
+  headers appear in the `.cpp` of that directory and nowhere else; what the
+  rest of the library sees is two functions over a layout.
 - **Assertions.** `VITRIO_ASSERT`, from `src/assert.hpp`, checks what the code
   relies on. What a caller of the public API may get wrong is reported with an
   exception instead.

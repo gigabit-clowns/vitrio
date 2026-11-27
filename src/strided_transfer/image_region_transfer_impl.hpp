@@ -12,6 +12,10 @@
 #include <array/numerical_type_dispatch.hpp>
 #include <memory/byte_order.hpp>
 
+#if defined(VITRIO_ENABLE_SIMD)
+#include <strided_transfer/simd/float16_region_transfer.hpp>
+#endif
+
 #include <complex>
 #include <type_traits>
 
@@ -157,6 +161,174 @@ struct region_transfer_support<std::complex<T>, std::complex<Q>>
 	: std::true_type
 {
 };
+
+#if defined(VITRIO_ENABLE_SIMD)
+
+/**
+ * @brief Walk the regions of a transfer with a loop written for the vector
+ * units of the processor where the layout hands it runs, and with the
+ * generic loop otherwise.
+ *
+ * The loops of simd/ take the runs a contiguous innermost axis hands them. A
+ * layout with a strided side converts one element at a time, which the
+ * generic loop does as well as any.
+ *
+ * @tparam Vectorized The loop, called with the arguments of
+ * @c run_contiguous_regions but the kernel.
+ */
+template <
+	typename Vectorized,
+	typename Kernel,
+	typename Destination,
+	typename Source
+>
+inline void run_regions_vectorized(
+	Vectorized vectorized,
+	const Kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	Destination *destination_data,
+	std::ptrdiff_t destination_origin,
+	const Source *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	if (layout.is_inner_axis_contiguous())
+	{
+		vectorized(
+			layout,
+			destination_offsets,
+			source_offsets,
+			destination_data,
+			destination_origin,
+			source_data,
+			source_origin
+		);
+	}
+	else
+	{
+		// The template, named as such so that this does not resolve back to
+		// the overloads below.
+		run_regions<Kernel, Destination*, const Source*>(
+			kernel,
+			layout,
+			destination_offsets,
+			source_offsets,
+			destination_data,
+			destination_origin,
+			source_data,
+			source_origin
+		);
+	}
+}
+
+/**
+ * @brief Walk the regions of a transfer between half precision values and
+ * floats in the native byte order with the loops of simd/.
+ *
+ * These are what a call of @c run_regions with one of the two native kernels
+ * and these two element types resolves to: exact matches that are not
+ * templates. Every other pair of types, and the byte-swapped kernels, keep
+ * the template.
+ */
+inline void run_regions(
+	const region_read_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float16_t *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&widen_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+inline void run_regions(
+	const region_read_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float16_t *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&narrow_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+inline void run_regions(
+	const region_write_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float16_t *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&widen_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+inline void run_regions(
+	const region_write_kernel &kernel,
+	const image_region_layout &layout,
+	span<const std::ptrdiff_t> destination_offsets,
+	span<const std::ptrdiff_t> source_offsets,
+	float16_t *destination_data,
+	std::ptrdiff_t destination_origin,
+	const float *source_data,
+	std::ptrdiff_t source_origin
+)
+{
+	run_regions_vectorized(
+		&narrow_float16_regions,
+		kernel,
+		layout,
+		destination_offsets,
+		source_offsets,
+		destination_data,
+		destination_origin,
+		source_data,
+		source_origin
+	);
+}
+
+#endif // VITRIO_ENABLE_SIMD
 
 template <
 	typename Kernel,
