@@ -81,6 +81,14 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["**/CMakeLists.txt"],
+      "matchStrings": ["vitrio_fetch_highway\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
+      "depNameTemplate": "highway",
+      "packageNameTemplate": "google/highway",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["**/CMakeLists.txt"],
       "matchStrings": ["vitrio_fetch_catch2\\(\\s*COMMIT (?<currentDigest>[0-9a-f]{40})\\s*\\) # (?<currentValue>\\S+)"],
       "depNameTemplate": "catch2",
       "packageNameTemplate": "catchorg/Catch2",
