@@ -15,6 +15,8 @@ allow: no frame is dropped, and a fraction has at most one more than
 another. `--binning` gathers pixels of the detector along each axis, which
 has to divide its size. The fractions of a movie are read in parallel,
 each on a thread of its own, since each is decoded from its own frames.
+The next movie is decoded while the current one is written, so two movies
+are in memory at a time.
 
 The movies are written to `--output-dir`, named after their sources.
 
@@ -25,7 +27,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -73,21 +75,42 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 	)
 	return parser.parse_args(argv)
 
-def fractionate(
+def start_reading(
 	movie: Path,
 	loader: vio.ImageLoader,
 	readers: vio.ImageReaderProvider,
-	destination: Path,
 	data_type: str
-) -> None:
-	"""Read the fractions of one movie in parallel, and store them."""
+) -> tuple[Path, np.ndarray, vio.Completion]:
+	"""Start reading the fractions of one movie in parallel."""
 	# The provider shows a movie as a stack with an image per fraction.
 	descriptor = vio.query_descriptor(movie, readers)
 	fractions = descriptor.extents[0]
 	counts = np.empty(descriptor.extents, np.dtype(data_type))
 	locations = [vio.ImageLocation(movie, i) for i in range(fractions)]
-	vio.read_batch_async(loader, counts, locations).get()
-	vio.write_stack(counts, destination)
+	return movie, counts, vio.read_batch_async(loader, counts, locations)
+
+def read_movies(
+	movies: Iterable[Path],
+	loader: vio.ImageLoader,
+	readers: vio.ImageReaderProvider,
+	data_type: str
+) -> Iterator[tuple[Path, np.ndarray]]:
+	"""Yield each movie once it is read, with the next one under way."""
+	pending = None
+	for movie in movies:
+		upcoming = start_reading(movie, loader, readers, data_type)
+		if pending is not None:
+			yield wait_for(pending)
+		pending = upcoming
+	if pending is not None:
+		yield wait_for(pending)
+
+def wait_for(
+	pending: tuple[Path, np.ndarray, vio.Completion]
+) -> tuple[Path, np.ndarray]:
+	movie, counts, reading = pending
+	reading.get()    # raises if a fraction could not be read
+	return movie, counts
 
 def main(argv: Sequence[str] | None = None) -> None:
 	arguments = parse_arguments(argv)
@@ -100,15 +123,18 @@ def main(argv: Sequence[str] | None = None) -> None:
 		readers, vio.ThreadPoolExecutor(arguments.threads)
 	)
 
-	for movie in arguments.movies:
+	movies = read_movies(
+		arguments.movies, loader, readers, arguments.data_type
+	)
+	for movie, counts in movies:
 		destination = (
 			arguments.output_dir / movie.with_suffix(
 				SUFFIXES[arguments.format]
 			).name
 		)
-		fractionate(
-			movie, loader, readers, destination, arguments.data_type
-		)
+		# Writing waits for the storage. The next movie is decoded
+		# meanwhile.
+		vio.write_stack(counts, destination)
 		print(f"{movie} -> {destination}")
 
 if __name__ == '__main__':

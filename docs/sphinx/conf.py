@@ -14,7 +14,13 @@ version = release
 extensions = [
 	'sphinx.ext.autodoc',
 	'sphinx.ext.napoleon',
+	'myst_parser',
 ]
+
+# The guides are the Markdown files of `docs/guides/`, which GitHub shows as
+# they are and Doxygen takes as pages too. Each has a page here that only
+# includes it, under the same name, so that a link from one guide to another
+# holds in all three.
 
 # The docstrings are written in the style of Google, with `Args:`,
 # `Returns:` and `Raises:`. nanobind puts the signature of what it binds on

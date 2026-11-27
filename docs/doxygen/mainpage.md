@@ -2,47 +2,48 @@
 
 # vitrio
 
-vitrio is a high-throughput image I/O library tailored to the access
-patterns and file formats common in Cryo-Electron Microscopy (CryoEM). This
-is the reference of its C++ library. The Python package made on it has its
-own, at [python/](https://gigabit-clowns.github.io/vitrio/python/), and the
-[README](https://github.com/gigabit-clowns/vitrio#readme) and the
-[examples](https://github.com/gigabit-clowns/vitrio/tree/main/examples)
-show how the two are used.
+vitrio is an image I/O library for Cryo-Electron Microscopy (cryo-EM and
+cryo-ET). This is the reference of its C++ library. The
+[README](https://github.com/gigabit-clowns/vitrio#readme) introduces the
+library, and the Python package has a reference of its own at
+[python/](https://gigabit-clowns.github.io/vitrio/python/).
 
 ```cmake
 find_package(vitrio REQUIRED)
 target_link_libraries(my_program PRIVATE vitrio::vitrio)
 ```
 
-```cpp
-#include <vitrio/array/array.hpp>
-#include <vitrio/file_image_reader_provider.hpp>
-#include <vitrio/image_file_read_format_selector.hpp>
-#include <vitrio/image_file_write_format_selector.hpp>
-#include <vitrio/image_read.hpp>
-#include <vitrio/image_write.hpp>
-
-int main()
-{
-	vitrio::file_image_reader_provider readers(
-		vitrio::image_file_read_format_selector::get_shared()
-	);
-
-	// Read as 32-bit floats, whatever the file holds.
-	vitrio::array image = vitrio::read(
-		"micrograph.mrc", readers, vitrio::numerical_type::float32
-	);
-
-	vitrio::write_single(
-		image, "copy.tif",
-		*vitrio::image_file_write_format_selector::get_shared()
-	);
-}
-```
-
 The headers under `include/vitrio/` are the whole API, and each one
-documents what it declares. Among them is how to read the events of an EER
-file through vitrio::detector_event_image_reader_provider, and how to
-register a format of your own with
-vitrio::image_file_read_format_selector::register_format.
+documents what it declares.
+
+## Guides
+
+- [Performance guide](../guides/performance.md): which functions to call,
+  and how to set them up for your storage.
+- [Supported formats](../guides/formats.md): the data types, the compression
+  and the metadata of each format.
+- [Building from source](../guides/building.md): the dependencies and the
+  build options.
+
+## Reading and writing one file
+
+vitrio::read and vitrio::write_single are the simplest calls. Each one opens
+a file and waits for it, so they suit a program that handles a single file.
+
+\include read_and_convert.cpp
+
+## Reading many images
+
+A program that goes through many images reads them in batches with
+vitrio::read_batch_async or vitrio::read_patches_async, and starts the next
+batch before it uses the current one. vitrio::write_batch_async and
+vitrio::write_patches_async do the same for writes.
+
+\include read_batches.cpp
+
+## More
+
+- vitrio::detector_event_image_reader_provider reads the events of an EER
+  file as a movie.
+- vitrio::image_file_read_format_selector::register_format registers a
+  format of your own.

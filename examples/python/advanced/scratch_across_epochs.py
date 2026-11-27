@@ -80,6 +80,9 @@ def main() -> None:
 		loader = vio.loader(workers=2, cache=len(stacks), scratch=scratch)
 		filling = vio.prefetch_scratch_async(scratch, locations)
 
+		# Each batch is waited for as soon as it is started, to keep the
+		# example short. A real loop starts the next batch first, as
+		# `batches_in_flight.py` does.
 		for epoch in range(2):
 			for first in range(0, len(locations), BATCH_SIZE):
 				batch = locations[first:first + BATCH_SIZE]

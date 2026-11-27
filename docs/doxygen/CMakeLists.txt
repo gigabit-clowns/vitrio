@@ -4,8 +4,11 @@ find_package(Doxygen REQUIRED)
 
 # The documentation is what the public headers say of themselves, with the
 # page of its own first, which points to the README. Its name, version and
-# brief are those of the project.
+# brief are those of the project. The guides of `docs/guides/` are pages of
+# it, as they are of the reference of the Python package, and the first page
+# shows the examples of `examples/cpp/` as they are compiled.
 set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md)
+set(DOXYGEN_EXAMPLE_PATH ${PROJECT_SOURCE_DIR}/examples/cpp)
 set(DOXYGEN_FILE_PATTERNS *.hpp *.md)
 set(DOXYGEN_STRIP_FROM_PATH ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR})
 set(DOXYGEN_STRIP_FROM_INC_PATH ${PROJECT_SOURCE_DIR}/include)
@@ -36,6 +39,7 @@ set(DOXYGEN_WARN_AS_ERROR FAIL_ON_WARNINGS)
 doxygen_add_docs(
 	vitrio-docs
 	${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+	${PROJECT_SOURCE_DIR}/docs/guides
 	${PROJECT_SOURCE_DIR}/include
 	COMMENT "Generating the documentation of the API"
 )

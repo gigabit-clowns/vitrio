@@ -126,6 +126,7 @@ docs = [
     "numpy==2.5.3; python_version >= '3.12'",
     "sphinx==9.0.4; python_version >= '3.11'",
     "furo==2025.12.19; python_version >= '3.11'",
+    "myst-parser==5.2.0; python_version >= '3.11'",
 ]
 # What the workflow that builds the distributions installs.
 sdist = [

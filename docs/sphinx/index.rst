@@ -1,13 +1,13 @@
 vitrio
 ======
 
-vitrio is a high-throughput image I/O library tailored to the access
-patterns and file formats common in Cryo-Electron Microscopy (CryoEM). This
-is the reference of its Python package. The C++ library it is made on has
-its own, at `../cpp/ <../cpp/index.html>`_, and the
-`README <https://github.com/gigabit-clowns/vitrio#readme>`_ and the
+vitrio is an image I/O library for Cryo-Electron Microscopy (cryo-EM and
+cryo-ET). This is the documentation of its Python package. The
+`README <https://github.com/gigabit-clowns/vitrio#readme>`_ introduces the
+library, the
 `examples <https://github.com/gigabit-clowns/vitrio/tree/main/examples>`_
-show how the two are used.
+are programs you can run, and the C++ library has a reference of its own at
+`../cpp/ <../cpp/index.html>`_.
 
 .. code-block:: python
 
@@ -16,15 +16,29 @@ show how the two are used.
    micrograph = vio.read("micrograph.mrc")
    vio.write_single(micrograph, "copy.tif")
 
-Anywhere an array is asked for, so is whatever hands out host memory
-through DLPack or the buffer protocol: a numpy array, a tensor of PyTorch
-or JAX, a ``memoryview``. It is read or written where it is, and nothing is
-copied. What a read returns is a :class:`vitrio.Array`, which those use in
-turn.
+:func:`vitrio.read` is the simplest call, and the slowest way to go through
+many images. Before you write a loop over files, read the
+:doc:`performance guide <performance>`. It tells you when to use
+:mod:`vitrio.data`, when to use the batch functions such as
+:func:`vitrio.read_batch_async`, and how to set them up for your storage.
 
-The functions that are ``_async`` return before the work is done, with a
+Wherever a function takes an array, it takes anything that shares host
+memory through DLPack or the buffer protocol: a NumPy array, a PyTorch or
+JAX tensor, a ``memoryview``. The memory is read or written in place and
+nothing is copied. A read returns a :class:`vitrio.Array`, which those
+libraries use in turn.
+
+The functions that end in ``_async`` return before the work is done, with a
 :class:`vitrio.Completion` to wait on. Anything that reads, writes or waits
 releases the GIL meanwhile.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Guides
+
+   performance
+   formats
+   building
 
 .. toctree::
    :maxdepth: 1

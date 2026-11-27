@@ -6,6 +6,10 @@
 `vio.read` works the format out from the file and returns an `Array` that
 numpy, PyTorch and JAX use as it is, with no copy.
 
+Each call opens its file and waits for the read, which suits a file or two.
+A program that goes through many images reads them in batches instead, as
+`iterate_batches.py` and `advanced/batches_in_flight.py` do.
+
 The example writes a stack to a temporary directory, so that it has
 something to read, and removes it afterwards. It needs no input.
 

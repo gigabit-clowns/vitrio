@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""Feeding images and their metadata to a model, a batch at a time.
+"""Going through images and their metadata in batches, for one epoch or
+many.
+
+Training a model is the usual use. A refinement that visits every particle
+in each iteration goes through a dataset the same way, and so does a single
+pass in order that applies one operation to every image.
 
 For instance::
 

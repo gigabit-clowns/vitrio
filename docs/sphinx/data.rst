@@ -1,5 +1,5 @@
-Feeding a model
-===============
+Datasets and batches
+====================
 
 .. automodule:: vitrio.data
    :no-members:
