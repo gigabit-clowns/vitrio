@@ -11,10 +11,7 @@ target_link_libraries(vitrio-obj PUBLIC hwy::hwy)
 # Highway reads which instruction sets to compile for from macros, which the
 # tests have to see as the library does, so they are public to its objects.
 # They reach no consumer: the shared library takes the objects privately.
-vitrio_simd_disabled_targets(
-	VITRIO_SIMD_DISABLED_TARGETS
-	${VITRIO_SIMD_TARGETS}
-)
+# VITRIO_SIMD_DISABLED_TARGETS is worked out beside the option, at the top.
 target_compile_definitions(
 	vitrio-obj
 	PUBLIC

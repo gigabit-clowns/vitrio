@@ -83,6 +83,12 @@ set(
 the compiler flags allow, by Highway's names without HWY_, such as AVX2;AVX3. \
 Read only with VITRIO_SIMD_DISPATCH=DYNAMIC"
 )
+# Checked here, so that a name outside the table stops the configure before
+# anything is fetched.
+vitrio_simd_disabled_targets(
+	VITRIO_SIMD_DISABLED_TARGETS
+	${VITRIO_SIMD_TARGETS}
+)
 option(VITRIO_BUILD_PYTHON "Build the Python package, which needs nanobind" OFF)
 option(
 	VITRIO_PYTHON_STABLE_ABI
